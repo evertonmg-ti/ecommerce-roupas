@@ -1,0 +1,17 @@
+[Unit]
+Description=Fashion Commerce Backend
+After=network.target postgresql.service redis.service
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/var/www/ecommerce/backend
+Environment=NODE_ENV=production
+EnvironmentFile=/var/www/ecommerce/backend/.env
+ExecStart=/usr/bin/pnpm start:prod
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+

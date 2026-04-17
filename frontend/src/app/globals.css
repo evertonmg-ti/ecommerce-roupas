@@ -1,0 +1,28 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  @apply bg-sand text-espresso font-body;
+  background-image:
+    radial-gradient(circle at top left, rgba(184, 92, 56, 0.14), transparent 32%),
+    radial-gradient(circle at bottom right, rgba(111, 123, 92, 0.12), transparent 28%);
+  min-height: 100vh;
+}
+
+a {
+  @apply transition-colors;
+}
+
+button {
+  @apply transition-transform duration-200;
+}
+
+button:hover {
+  transform: translateY(-1px);
+}
+

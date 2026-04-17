@@ -1,0 +1,17 @@
+[Unit]
+Description=Fashion Commerce Frontend
+After=network.target ecommerce-backend.service
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/var/www/ecommerce/frontend
+Environment=NODE_ENV=production
+EnvironmentFile=/var/www/ecommerce/frontend/.env.production
+ExecStart=/usr/bin/pnpm start
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+
