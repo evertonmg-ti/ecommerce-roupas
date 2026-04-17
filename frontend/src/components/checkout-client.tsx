@@ -1,16 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useCart } from "@/components/cart-provider";
 import { validateCoupon } from "@/lib/public-coupons";
+import { calculateShippingQuote } from "@/lib/public-shipping";
 import { currency } from "@/lib/utils";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api/v1";
 const shippingOptions = [
-  { value: "STANDARD", label: "Entrega padrao", cost: 14.9 },
-  { value: "EXPRESS", label: "Entrega expressa", cost: 29.9 },
-  { value: "PICKUP", label: "Retirada na loja", cost: 0 }
+  { value: "STANDARD", label: "Entrega padrao" },
+  { value: "EXPRESS", label: "Entrega expressa" },
+  { value: "PICKUP", label: "Retirada na loja" }
 ];
 const paymentOptions = [
   { value: "PIX", label: "PIX" },
@@ -28,6 +29,7 @@ export function CheckoutClient() {
   const { items, clearCart, totalPrice } = useCart();
   const [state, setState] = useState<CheckoutState>({ type: "idle" });
   const [shippingMethod, setShippingMethod] = useState("STANDARD");
+  const [shippingPostalCode, setShippingPostalCode] = useState("");
   const [couponCode, setCouponCode] = useState("");
   const [couponState, setCouponState] = useState<{
     status: "idle" | "applied" | "error";
@@ -35,14 +37,102 @@ export function CheckoutClient() {
     message?: string;
     discountAmount: number;
   }>({ status: "idle", discountAmount: 0 });
-  const shippingCost =
-    shippingOptions.find((option) => option.value === shippingMethod)?.cost ?? 0;
+  const [shippingQuoteState, setShippingQuoteState] = useState<{
+    status: "idle" | "loading" | "ready" | "error";
+    shippingCost: number;
+    estimatedDays?: string;
+    regionLabel?: string;
+    freeShippingApplied?: boolean;
+    message?: string;
+  }>({
+    status: "idle",
+    shippingCost: 0
+  });
+  const shippingCost = shippingQuoteState.shippingCost;
   const grandTotal = Math.max(0, totalPrice - couponState.discountAmount + shippingCost);
 
   const canSubmit = useMemo(
     () => items.length > 0 && state.type !== "submitting",
     [items.length, state.type]
   );
+
+  useEffect(() => {
+    if (items.length === 0) {
+      setShippingQuoteState({
+        status: "idle",
+        shippingCost: 0
+      });
+      return;
+    }
+
+    if (shippingMethod === "PICKUP") {
+      setShippingQuoteState({
+        status: "ready",
+        shippingCost: 0,
+        estimatedDays: "Disponivel em ate 1 dia util",
+        regionLabel: "Retirada local",
+        freeShippingApplied: true
+      });
+      return;
+    }
+
+    const sanitizedPostalCode = shippingPostalCode.replace(/\D/g, "");
+
+    if (sanitizedPostalCode.length !== 8) {
+      setShippingQuoteState({
+        status: "idle",
+        shippingCost: 0
+      });
+      return;
+    }
+
+    let active = true;
+    setShippingQuoteState((current) => ({
+      ...current,
+      status: "loading",
+      message: undefined
+    }));
+
+    const timeoutId = setTimeout(async () => {
+      try {
+        const quote = await calculateShippingQuote(
+          shippingMethod,
+          sanitizedPostalCode,
+          totalPrice
+        );
+
+        if (!active) {
+          return;
+        }
+
+        setShippingQuoteState({
+          status: "ready",
+          shippingCost: quote.shippingCost,
+          estimatedDays: quote.estimatedDays,
+          regionLabel: quote.regionLabel,
+          freeShippingApplied: quote.freeShippingApplied
+        });
+      } catch (error) {
+        if (!active) {
+          return;
+        }
+
+        setShippingQuoteState({
+          status: "error",
+          shippingCost: 0,
+          message:
+            error instanceof Error
+              ? error.message
+              : "Nao foi possivel calcular o frete."
+        });
+      }
+    }, 350);
+
+    return () => {
+      active = false;
+      clearTimeout(timeoutId);
+    };
+  }, [items.length, shippingMethod, shippingPostalCode, totalPrice]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -128,8 +218,13 @@ export function CheckoutClient() {
       setState({ type: "success", orderId: data.id });
       form.reset();
       setShippingMethod("STANDARD");
+      setShippingPostalCode("");
       setCouponCode("");
       setCouponState({ status: "idle", discountAmount: 0 });
+      setShippingQuoteState({
+        status: "idle",
+        shippingCost: 0
+      });
     } catch (error) {
       setState({
         type: "error",
@@ -245,7 +340,7 @@ export function CheckoutClient() {
               >
                 {shippingOptions.map((option) => (
                   <option key={option.value} value={option.value}>
-                    {option.label} - {currency(option.cost)}
+                    {option.label}
                   </option>
                 ))}
               </select>
@@ -294,6 +389,8 @@ export function CheckoutClient() {
                 name="shippingPostalCode"
                 required
                 minLength={8}
+                value={shippingPostalCode}
+                onChange={(event) => setShippingPostalCode(event.target.value)}
                 className="w-full rounded-[1.5rem] border border-espresso/15 bg-transparent px-4 py-3"
               />
             </label>
@@ -339,9 +436,34 @@ export function CheckoutClient() {
             </div>
           ) : null}
 
+          <div className="rounded-[1.5rem] border border-espresso/10 bg-sand/35 p-4 text-sm text-espresso/70">
+            {shippingQuoteState.status === "loading" ? (
+              <p>Calculando frete para o CEP informado...</p>
+            ) : shippingQuoteState.status === "error" ? (
+              <p>{shippingQuoteState.message}</p>
+            ) : shippingQuoteState.status === "ready" ? (
+              <div className="space-y-1">
+                <p>
+                  <strong>Frete calculado:</strong> {currency(shippingQuoteState.shippingCost)}
+                </p>
+                <p>
+                  <strong>Prazo estimado:</strong> {shippingQuoteState.estimatedDays}
+                </p>
+                <p>
+                  <strong>Regiao:</strong> {shippingQuoteState.regionLabel}
+                </p>
+                {shippingQuoteState.freeShippingApplied ? (
+                  <p>Seu pedido entrou em regra de frete gratis para esta opcao.</p>
+                ) : null}
+              </div>
+            ) : (
+              <p>Informe o CEP para consultar frete e prazo antes de finalizar.</p>
+            )}
+          </div>
+
           <div className="rounded-[1.5rem] border border-dashed border-espresso/15 bg-sand/35 p-4 text-sm text-espresso/65">
             O pagamento ainda esta em modo demonstracao, mas o pedido agora registra
-            entrega, frete escolhido e forma de pagamento para preparar a operacao real.
+            entrega, frete calculado e forma de pagamento para preparar a operacao real.
           </div>
 
           <button
@@ -387,7 +509,11 @@ export function CheckoutClient() {
           </div>
           <div className="mb-4 flex items-center justify-between gap-4 text-sm text-espresso/70">
             <span>Frete</span>
-            <span>{currency(shippingCost)}</span>
+            <span>
+              {shippingQuoteState.status === "loading"
+                ? "Calculando..."
+                : currency(shippingCost)}
+            </span>
           </div>
           <div className="flex items-end justify-between gap-4">
             <span className="text-sm text-espresso/70">Total</span>

@@ -14,6 +14,7 @@ import { Roles } from "../../common/decorators/roles.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { RolesGuard } from "../../common/guards/roles.guard";
 import { CreateOrderDto } from "./dto/create-order.dto";
+import { CalculateShippingDto } from "./dto/calculate-shipping.dto";
 import { LookupOrdersDto } from "./dto/lookup-orders.dto";
 import { OrdersService } from "./orders.service";
 import { UpdateOrderStatusDto } from "./dto/update-order-status.dto";
@@ -30,6 +31,11 @@ export class OrdersController {
   @Post("lookup")
   lookup(@Body() payload: LookupOrdersDto) {
     return this.ordersService.listByCustomerEmail(payload);
+  }
+
+  @Post("shipping-quote")
+  calculateShipping(@Body() payload: CalculateShippingDto) {
+    return this.ordersService.calculateShipping(payload);
   }
 
   @Get("me")

@@ -15,6 +15,7 @@ import * as bcrypt from "bcryptjs";
 import { randomUUID } from "crypto";
 import { CouponsService } from "../coupons/coupons.service";
 import { PrismaService } from "../prisma/prisma.service";
+import { CalculateShippingDto } from "./dto/calculate-shipping.dto";
 import { CreateOrderDto } from "./dto/create-order.dto";
 import { LookupOrdersDto } from "./dto/lookup-orders.dto";
 import { UpdateOrderStatusDto } from "./dto/update-order-status.dto";
@@ -80,6 +81,25 @@ export class OrdersService {
     });
   }
 
+  calculateShipping(payload: CalculateShippingDto) {
+    const sanitizedPostalCode = this.sanitizePostalCode(payload.postalCode);
+    const subtotal = new Prisma.Decimal(payload.subtotal ?? 0);
+    const quote = this.resolveShippingQuote(
+      payload.shippingMethod,
+      sanitizedPostalCode,
+      subtotal
+    );
+
+    return {
+      shippingMethod: payload.shippingMethod,
+      postalCode: sanitizedPostalCode,
+      shippingCost: quote.cost.toNumber(),
+      estimatedDays: quote.estimatedDays,
+      regionLabel: quote.regionLabel,
+      freeShippingApplied: quote.freeShippingApplied
+    };
+  }
+
   async create(payload: CreateOrderDto) {
     const normalizedItems = this.normalizeItems(payload.items);
     const productIds = normalizedItems.map((item) => item.productId);
@@ -120,9 +140,12 @@ export class OrdersService {
       (sum, item) => sum.plus(item.unitPrice.mul(item.quantity)),
       new Prisma.Decimal(0)
     );
-    const shippingCost = new Prisma.Decimal(
-      this.resolveShippingCost(payload.shippingMethod)
+    const shippingQuote = this.resolveShippingQuote(
+      payload.shippingMethod,
+      payload.shippingPostalCode,
+      subtotal
     );
+    const shippingCost = shippingQuote.cost;
     const couponApplication = await this.couponsService.resolveForOrder(
       payload.couponCode,
       subtotal
@@ -239,16 +262,75 @@ export class OrdersService {
     }));
   }
 
-  private resolveShippingCost(shippingMethod: ShippingMethod) {
-    switch (shippingMethod) {
-      case ShippingMethod.EXPRESS:
-        return 29.9;
-      case ShippingMethod.PICKUP:
-        return 0;
-      case ShippingMethod.STANDARD:
-      default:
-        return 14.9;
+  private resolveShippingQuote(
+    shippingMethod: ShippingMethod,
+    postalCode: string,
+    subtotal: Prisma.Decimal
+  ) {
+    const sanitizedPostalCode = this.sanitizePostalCode(postalCode);
+
+    if (shippingMethod === ShippingMethod.PICKUP) {
+      return {
+        cost: new Prisma.Decimal(0),
+        estimatedDays: "Disponivel em ate 1 dia util",
+        regionLabel: "Retirada local",
+        freeShippingApplied: true
+      };
     }
+
+    const firstDigit = Number(sanitizedPostalCode[0] ?? "0");
+    const region =
+      firstDigit <= 3
+        ? { label: "Sul e Sudeste", standardSurcharge: 0, expressSurcharge: 0 }
+        : firstDigit <= 7
+          ? {
+              label: "Centro-Oeste e parte do Nordeste",
+              standardSurcharge: 6.5,
+              expressSurcharge: 10
+            }
+          : {
+              label: "Norte e faixa adicional",
+              standardSurcharge: 11.5,
+              expressSurcharge: 18
+            };
+
+    const baseCost =
+      shippingMethod === ShippingMethod.EXPRESS
+        ? new Prisma.Decimal(29.9 + region.expressSurcharge)
+        : new Prisma.Decimal(14.9 + region.standardSurcharge);
+    const freeShippingThreshold =
+      shippingMethod === ShippingMethod.STANDARD ? 249.9 : 499.9;
+    const freeShippingApplied = subtotal.gte(new Prisma.Decimal(freeShippingThreshold));
+    const cost = freeShippingApplied ? new Prisma.Decimal(0) : baseCost;
+    const estimatedDays =
+      shippingMethod === ShippingMethod.EXPRESS
+        ? firstDigit <= 3
+          ? "1 a 2 dias uteis"
+          : firstDigit <= 7
+            ? "2 a 4 dias uteis"
+            : "3 a 6 dias uteis"
+        : firstDigit <= 3
+          ? "3 a 5 dias uteis"
+          : firstDigit <= 7
+            ? "5 a 8 dias uteis"
+            : "7 a 12 dias uteis";
+
+    return {
+      cost,
+      estimatedDays,
+      regionLabel: region.label,
+      freeShippingApplied
+    };
+  }
+
+  private sanitizePostalCode(postalCode: string) {
+    const sanitizedPostalCode = postalCode.replace(/\D/g, "");
+
+    if (sanitizedPostalCode.length !== 8) {
+      throw new BadRequestException("Informe um CEP valido com 8 digitos.");
+    }
+
+    return sanitizedPostalCode;
   }
 
   private async findOrCreateCustomer(
