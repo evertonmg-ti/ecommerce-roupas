@@ -237,6 +237,21 @@ export async function getAdminUsers(): Promise<AdminUser[]> {
   }));
 }
 
+export type SaveUserInput = {
+  name: string;
+  email: string;
+  password?: string;
+  role: string;
+};
+
+export async function createAdminUser(payload: Required<SaveUserInput>) {
+  return mutateAdmin("/users", "POST", payload);
+}
+
+export async function updateAdminUser(id: string, payload: SaveUserInput) {
+  return mutateAdmin(`/users/${id}`, "PATCH", payload);
+}
+
 export type SaveProductInput = {
   name: string;
   slug: string;

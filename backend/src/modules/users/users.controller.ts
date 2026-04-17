@@ -1,8 +1,18 @@
-import { Controller, Get, UseGuards } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  UseGuards
+} from "@nestjs/common";
 import { Role } from "@prisma/client";
 import { Roles } from "../../common/decorators/roles.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { RolesGuard } from "../../common/guards/roles.guard";
+import { CreateUserDto } from "./dto/create-user.dto";
+import { UpdateUserDto } from "./dto/update-user.dto";
 import { UsersService } from "./users.service";
 
 @Controller("users")
@@ -15,5 +25,14 @@ export class UsersController {
   listAll() {
     return this.usersService.listAll();
   }
-}
 
+  @Post()
+  create(@Body() payload: CreateUserDto) {
+    return this.usersService.create(payload);
+  }
+
+  @Patch(":id")
+  update(@Param("id") id: string, @Body() payload: UpdateUserDto) {
+    return this.usersService.update(id, payload);
+  }
+}
