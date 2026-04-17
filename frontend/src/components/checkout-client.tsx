@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useMemo, useState } from "react";
 import { useCart } from "@/components/cart-provider";
-import { validateCoupon } from "@/lib/admin-api";
+import { validateCoupon } from "@/lib/public-coupons";
 import { currency } from "@/lib/utils";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api/v1";
