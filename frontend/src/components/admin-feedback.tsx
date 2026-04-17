@@ -12,6 +12,13 @@ const messages: Record<string, string> = {
   user_created: "Usuario criado com sucesso.",
   user_updated: "Usuario atualizado com sucesso.",
   user_deleted: "Usuario excluido com sucesso.",
+  slug_conflict: "Ja existe um cadastro com este slug. Escolha outro identificador.",
+  email_conflict: "Ja existe um usuario com este email.",
+  category_has_products:
+    "Nao e possivel excluir a categoria porque ela possui produtos vinculados.",
+  user_has_orders:
+    "Nao e possivel excluir o usuario porque existem pedidos vinculados.",
+  resource_not_found: "O registro informado nao foi encontrado.",
   generic_error: "Nao foi possivel concluir a operacao. Revise os dados e tente novamente."
 };
 

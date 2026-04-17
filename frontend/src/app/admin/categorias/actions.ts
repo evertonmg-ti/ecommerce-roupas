@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
   AdminAuthError,
+  AdminRequestError,
   createAdminCategory,
   deleteAdminCategory,
   updateAdminCategory
@@ -41,6 +42,10 @@ export async function createCategoryAction(formData: FormData) {
       redirect("/login");
     }
 
+    if (error instanceof AdminRequestError) {
+      redirect(`/admin/categorias?error=${error.code}`);
+    }
+
     redirect("/admin/categorias?error=generic_error");
   }
 
@@ -58,6 +63,10 @@ export async function updateCategoryAction(formData: FormData) {
       redirect("/login");
     }
 
+    if (error instanceof AdminRequestError) {
+      redirect(`/admin/categorias?error=${error.code}`);
+    }
+
     redirect("/admin/categorias?error=generic_error");
   }
 
@@ -73,6 +82,10 @@ export async function deleteCategoryAction(formData: FormData) {
   } catch (error) {
     if (error instanceof AdminAuthError) {
       redirect("/login");
+    }
+
+    if (error instanceof AdminRequestError) {
+      redirect(`/admin/categorias?error=${error.code}`);
     }
 
     redirect("/admin/categorias?error=generic_error");

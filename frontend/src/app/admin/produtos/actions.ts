@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
   AdminAuthError,
+  AdminRequestError,
   createAdminProduct,
   deleteAdminProduct,
   updateAdminProduct
@@ -69,6 +70,10 @@ export async function createProductAction(formData: FormData) {
       redirect("/login");
     }
 
+    if (error instanceof AdminRequestError) {
+      redirect(`/admin/produtos?error=${error.code}`);
+    }
+
     redirect("/admin/produtos?error=generic_error");
   }
 
@@ -89,6 +94,10 @@ export async function updateProductAction(formData: FormData) {
       redirect("/login");
     }
 
+    if (error instanceof AdminRequestError) {
+      redirect(`/admin/produtos?error=${error.code}`);
+    }
+
     redirect("/admin/produtos?error=generic_error");
   }
 
@@ -105,6 +114,10 @@ export async function deleteProductAction(formData: FormData) {
   } catch (error) {
     if (error instanceof AdminAuthError) {
       redirect("/login");
+    }
+
+    if (error instanceof AdminRequestError) {
+      redirect(`/admin/produtos?error=${error.code}`);
     }
 
     redirect("/admin/produtos?error=generic_error");

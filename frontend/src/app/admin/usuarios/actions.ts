@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
   AdminAuthError,
+  AdminRequestError,
   createAdminUser,
   deleteAdminUser,
   updateAdminUser
@@ -38,6 +39,10 @@ export async function createUserAction(formData: FormData) {
       redirect("/login");
     }
 
+    if (error instanceof AdminRequestError) {
+      redirect(`/admin/usuarios?error=${error.code}`);
+    }
+
     redirect("/admin/usuarios?error=generic_error");
   }
 
@@ -54,6 +59,10 @@ export async function updateUserAction(formData: FormData) {
       redirect("/login");
     }
 
+    if (error instanceof AdminRequestError) {
+      redirect(`/admin/usuarios?error=${error.code}`);
+    }
+
     redirect("/admin/usuarios?error=generic_error");
   }
 
@@ -68,6 +77,10 @@ export async function deleteUserAction(formData: FormData) {
   } catch (error) {
     if (error instanceof AdminAuthError) {
       redirect("/login");
+    }
+
+    if (error instanceof AdminRequestError) {
+      redirect(`/admin/usuarios?error=${error.code}`);
     }
 
     redirect("/admin/usuarios?error=generic_error");

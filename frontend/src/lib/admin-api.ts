@@ -13,7 +13,10 @@ export class AdminAuthError extends Error {
 }
 
 export class AdminRequestError extends Error {
-  constructor(message = "Falha na operacao administrativa.") {
+  constructor(
+    message = "Falha na operacao administrativa.",
+    public readonly code = "generic_error"
+  ) {
     super(message);
     this.name = "AdminRequestError";
   }
@@ -146,7 +149,17 @@ async function mutateAdmin<T>(
       throw new AdminAuthError();
     }
 
-    throw new AdminRequestError(`Falha na requisicao: ${response.status}`);
+    const payload = (await response.json().catch(() => null)) as
+      | { message?: string | string[] }
+      | null;
+    const message = Array.isArray(payload?.message)
+      ? payload?.message[0]
+      : payload?.message;
+
+    throw new AdminRequestError(
+      message ?? `Falha na requisicao: ${response.status}`,
+      mapAdminErrorCode(message)
+    );
   }
 
   if (response.status === 204) {
@@ -154,6 +167,34 @@ async function mutateAdmin<T>(
   }
 
   return response.json() as Promise<T>;
+}
+
+function mapAdminErrorCode(message?: string) {
+  if (!message) {
+    return "generic_error";
+  }
+
+  if (message.includes("slug")) {
+    return "slug_conflict";
+  }
+
+  if (message.includes("email")) {
+    return "email_conflict";
+  }
+
+  if (message.includes("produtos vinculados")) {
+    return "category_has_products";
+  }
+
+  if (message.includes("pedidos vinculados")) {
+    return "user_has_orders";
+  }
+
+  if (message.includes("nao encontrada") || message.includes("nao encontrado")) {
+    return "resource_not_found";
+  }
+
+  return "generic_error";
 }
 
 function toNumber(value: number | string | null | undefined) {
