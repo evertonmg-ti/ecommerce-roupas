@@ -60,6 +60,32 @@ type UserResponse = {
   createdAt: string;
 };
 
+type OrderResponse = {
+  id: string;
+  total: number | string;
+  status: string;
+  createdAt: string;
+  user: {
+    id: string;
+    name: string;
+    email: string;
+  };
+  items: Array<{
+    id: string;
+    quantity: number;
+    unitPrice: number | string;
+    product: {
+      id: string;
+      name: string;
+      slug: string;
+      imageUrl?: string | null;
+      category?: {
+        name: string;
+      } | null;
+    };
+  }>;
+};
+
 export type AdminMetric = {
   label: string;
   value: string;
@@ -94,6 +120,24 @@ export type AdminUser = {
   role: string;
   status: string;
   createdAt: string;
+};
+
+export type AdminOrder = {
+  id: string;
+  customerName: string;
+  customerEmail: string;
+  total: number;
+  status: string;
+  createdAt: string;
+  items: Array<{
+    id: string;
+    name: string;
+    slug: string;
+    category: string;
+    imageUrl?: string;
+    quantity: number;
+    unitPrice: number;
+  }>;
 };
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
@@ -188,6 +232,10 @@ function mapAdminErrorCode(message?: string) {
 
   if (message.includes("pedidos vinculados")) {
     return "user_has_orders";
+  }
+
+  if (message.includes("estoque insuficiente")) {
+    return "insufficient_stock";
   }
 
   if (message.includes("nao encontrada") || message.includes("nao encontrado")) {
@@ -296,6 +344,28 @@ export async function getAdminUsers(): Promise<AdminUser[]> {
   }));
 }
 
+export async function getAdminOrders(): Promise<AdminOrder[]> {
+  const orders = await fetchAdmin<OrderResponse[]>("/orders");
+
+  return orders.map((order) => ({
+    id: order.id,
+    customerName: order.user.name,
+    customerEmail: order.user.email,
+    total: toNumber(order.total),
+    status: order.status,
+    createdAt: formatDate(order.createdAt),
+    items: order.items.map((item) => ({
+      id: item.id,
+      name: item.product.name,
+      slug: item.product.slug,
+      category: item.product.category?.name ?? "Colecao",
+      imageUrl: item.product.imageUrl ?? undefined,
+      quantity: item.quantity,
+      unitPrice: toNumber(item.unitPrice)
+    }))
+  }));
+}
+
 export type SaveUserInput = {
   name: string;
   email: string;
@@ -355,4 +425,8 @@ export async function updateAdminCategory(id: string, payload: SaveCategoryInput
 
 export async function deleteAdminCategory(id: string) {
   return mutateAdmin(`/categories/${id}`, "DELETE");
+}
+
+export async function updateAdminOrderStatus(id: string, status: string) {
+  return mutateAdmin(`/orders/${id}/status`, "PATCH", { status });
 }

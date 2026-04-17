@@ -1,9 +1,16 @@
 import Link from "next/link";
-import { LayoutDashboard, ListTree, Package, Users } from "lucide-react";
+import {
+  LayoutDashboard,
+  ListTree,
+  Package,
+  ShoppingBag,
+  Users
+} from "lucide-react";
 
 const items = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/produtos", label: "Produtos", icon: Package },
+  { href: "/admin/pedidos", label: "Pedidos", icon: ShoppingBag },
   { href: "/admin/categorias", label: "Categorias", icon: ListTree },
   { href: "/admin/usuarios", label: "Usuarios", icon: Users }
 ];

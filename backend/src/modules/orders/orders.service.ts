@@ -3,11 +3,12 @@ import {
   Injectable,
   NotFoundException
 } from "@nestjs/common";
-import { Prisma, ProductStatus, Role } from "@prisma/client";
+import { OrderStatus, Prisma, ProductStatus, Role } from "@prisma/client";
 import * as bcrypt from "bcryptjs";
 import { randomUUID } from "crypto";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreateOrderDto } from "./dto/create-order.dto";
+import { UpdateOrderStatusDto } from "./dto/update-order-status.dto";
 
 @Injectable()
 export class OrdersService {
@@ -134,6 +135,27 @@ export class OrdersService {
     });
   }
 
+  async updateStatus(id: string, payload: UpdateOrderStatusDto) {
+    await this.ensureExists(id);
+
+    return this.prisma.order.update({
+      where: { id },
+      data: {
+        status: payload.status as OrderStatus
+      },
+      include: {
+        user: true,
+        items: {
+          include: {
+            product: {
+              include: { category: true }
+            }
+          }
+        }
+      }
+    });
+  }
+
   private normalizeItems(items: CreateOrderDto["items"]) {
     const grouped = new Map<string, number>();
 
@@ -193,5 +215,13 @@ export class OrdersService {
         role: Role.CUSTOMER
       }
     });
+  }
+
+  private async ensureExists(id: string) {
+    const order = await this.prisma.order.findUnique({ where: { id } });
+
+    if (!order) {
+      throw new NotFoundException("Pedido nao encontrado.");
+    }
   }
 }
