@@ -80,17 +80,17 @@ model Order {
   id                 String         @id @default(cuid())
   userId             String
   user               User           @relation(fields: [userId], references: [id])
-  subtotal           Decimal        @db.Decimal(10, 2)
-  shippingCost       Decimal        @db.Decimal(10, 2)
+  subtotal           Decimal        @default(0) @db.Decimal(10, 2)
+  shippingCost       Decimal        @default(0) @db.Decimal(10, 2)
   total              Decimal        @db.Decimal(10, 2)
   status             OrderStatus    @default(PENDING)
-  paymentMethod      PaymentMethod
-  shippingMethod     ShippingMethod
-  shippingAddress    String
+  paymentMethod      PaymentMethod  @default(PIX)
+  shippingMethod     ShippingMethod @default(STANDARD)
+  shippingAddress    String         @default("Nao informado")
   shippingAddress2   String?
-  shippingCity       String
-  shippingState      String
-  shippingPostalCode String
+  shippingCity       String         @default("Nao informado")
+  shippingState      String         @default("NI")
+  shippingPostalCode String         @default("00000000")
   notes              String?
   items              OrderItem[]
   createdAt          DateTime       @default(now())
