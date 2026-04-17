@@ -29,7 +29,17 @@ export class CouponsService {
     }
 
     return this.prisma.coupon.create({
-      data: this.toPersistence(payload, code)
+      data: {
+        code,
+        description: payload.description?.trim() || undefined,
+        type: payload.type,
+        value: new Prisma.Decimal(payload.value),
+        active: payload.active ?? true,
+        minSubtotal: new Prisma.Decimal(payload.minSubtotal ?? 0),
+        usageLimit: payload.usageLimit,
+        startsAt: payload.startsAt ? new Date(payload.startsAt) : undefined,
+        expiresAt: payload.expiresAt ? new Date(payload.expiresAt) : undefined
+      }
     });
   }
 
