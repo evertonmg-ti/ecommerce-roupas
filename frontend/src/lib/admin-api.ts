@@ -5,6 +5,20 @@ import { requireAdminSession } from "@/lib/auth";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api/v1";
 
+export class AdminAuthError extends Error {
+  constructor() {
+    super("Sessao administrativa invalida.");
+    this.name = "AdminAuthError";
+  }
+}
+
+export class AdminRequestError extends Error {
+  constructor(message = "Falha na operacao administrativa.") {
+    super(message);
+    this.name = "AdminRequestError";
+  }
+}
+
 type DashboardResponse = {
   users: number;
   products: number;
@@ -128,7 +142,11 @@ async function mutateAdmin<T>(
   });
 
   if (!response.ok) {
-    redirect("/login");
+    if (response.status === 401 || response.status === 403) {
+      throw new AdminAuthError();
+    }
+
+    throw new AdminRequestError(`Falha na requisicao: ${response.status}`);
   }
 
   if (response.status === 204) {

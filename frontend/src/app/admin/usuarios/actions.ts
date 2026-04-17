@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
+  AdminAuthError,
   createAdminUser,
   deleteAdminUser,
   updateAdminUser
@@ -32,7 +33,11 @@ export async function createUserAction(formData: FormData) {
       role: payload.role
     });
     revalidatePath("/admin/usuarios");
-  } catch {
+  } catch (error) {
+    if (error instanceof AdminAuthError) {
+      redirect("/login");
+    }
+
     redirect("/admin/usuarios?error=generic_error");
   }
 
@@ -44,7 +49,11 @@ export async function updateUserAction(formData: FormData) {
     const id = String(formData.get("id") ?? "").trim();
     await updateAdminUser(id, parsePayload(formData));
     revalidatePath("/admin/usuarios");
-  } catch {
+  } catch (error) {
+    if (error instanceof AdminAuthError) {
+      redirect("/login");
+    }
+
     redirect("/admin/usuarios?error=generic_error");
   }
 
@@ -56,7 +65,11 @@ export async function deleteUserAction(formData: FormData) {
     const id = String(formData.get("id") ?? "").trim();
     await deleteAdminUser(id);
     revalidatePath("/admin/usuarios");
-  } catch {
+  } catch (error) {
+    if (error instanceof AdminAuthError) {
+      redirect("/login");
+    }
+
     redirect("/admin/usuarios?error=generic_error");
   }
 

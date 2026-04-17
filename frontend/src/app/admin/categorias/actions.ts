@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
+  AdminAuthError,
   createAdminCategory,
   deleteAdminCategory,
   updateAdminCategory
@@ -35,7 +36,11 @@ export async function createCategoryAction(formData: FormData) {
     await createAdminCategory(parsePayload(formData));
     revalidatePath("/admin/categorias");
     revalidatePath("/admin/produtos");
-  } catch {
+  } catch (error) {
+    if (error instanceof AdminAuthError) {
+      redirect("/login");
+    }
+
     redirect("/admin/categorias?error=generic_error");
   }
 
@@ -48,7 +53,11 @@ export async function updateCategoryAction(formData: FormData) {
     await updateAdminCategory(id, parsePayload(formData));
     revalidatePath("/admin/categorias");
     revalidatePath("/admin/produtos");
-  } catch {
+  } catch (error) {
+    if (error instanceof AdminAuthError) {
+      redirect("/login");
+    }
+
     redirect("/admin/categorias?error=generic_error");
   }
 
@@ -61,7 +70,11 @@ export async function deleteCategoryAction(formData: FormData) {
     await deleteAdminCategory(id);
     revalidatePath("/admin/categorias");
     revalidatePath("/admin/produtos");
-  } catch {
+  } catch (error) {
+    if (error instanceof AdminAuthError) {
+      redirect("/login");
+    }
+
     redirect("/admin/categorias?error=generic_error");
   }
 
