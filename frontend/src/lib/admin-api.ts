@@ -32,6 +32,7 @@ type CategoryResponse = {
   id: string;
   name: string;
   slug: string;
+  description?: string | null;
 };
 
 type UserResponse = {
@@ -66,6 +67,7 @@ export type AdminCategory = {
   id: string;
   name: string;
   slug: string;
+  description?: string;
 };
 
 export type AdminUser = {
@@ -217,7 +219,8 @@ export async function getAdminCategories(): Promise<AdminCategory[]> {
   return categories.map((category) => ({
     id: category.id,
     name: category.name,
-    slug: category.slug
+    slug: category.slug,
+    description: category.description ?? undefined
   }));
 }
 
@@ -256,4 +259,22 @@ export async function updateAdminProduct(id: string, payload: SaveProductInput) 
 
 export async function deleteAdminProduct(id: string) {
   return mutateAdmin(`/products/${id}`, "DELETE");
+}
+
+export type SaveCategoryInput = {
+  name: string;
+  slug: string;
+  description?: string;
+};
+
+export async function createAdminCategory(payload: SaveCategoryInput) {
+  return mutateAdmin("/categories", "POST", payload);
+}
+
+export async function updateAdminCategory(id: string, payload: SaveCategoryInput) {
+  return mutateAdmin(`/categories/${id}`, "PATCH", payload);
+}
+
+export async function deleteAdminCategory(id: string) {
+  return mutateAdmin(`/categories/${id}`, "DELETE");
 }
