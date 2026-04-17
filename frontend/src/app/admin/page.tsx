@@ -4,6 +4,8 @@ export default async function AdminDashboardPage() {
   const dashboard = await getAdminDashboardMetrics().catch(() => null);
   const metrics = dashboard?.metrics;
   const recentOrders = dashboard?.recentOrders ?? [];
+  const commerceHighlights = dashboard?.commerceHighlights ?? [];
+  const lowStockItems = dashboard?.lowStockItems ?? [];
 
   return (
     <div className="space-y-6">
@@ -28,6 +30,58 @@ export default async function AdminDashboardPage() {
                 <p className="mt-2 text-sm text-moss">{item.detail}</p>
               </article>
             ))}
+          </div>
+
+          <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
+            <section className="rounded-[2rem] border border-espresso/10 bg-white/80 p-6 shadow-soft">
+              <p className="text-xs uppercase tracking-[0.3em] text-terracotta">
+                Comercial
+              </p>
+              <h2 className="mt-2 font-display text-3xl">Indicadores de conversao</h2>
+
+              <div className="mt-6 grid gap-4 md:grid-cols-2">
+                {commerceHighlights.map((item) => (
+                  <article
+                    key={item.label}
+                    className="rounded-[1.5rem] border border-espresso/10 bg-sand/35 p-4"
+                  >
+                    <p className="text-sm text-espresso/55">{item.label}</p>
+                    <p className="mt-2 font-display text-3xl">{item.value}</p>
+                    <p className="mt-2 text-sm text-moss">{item.detail}</p>
+                  </article>
+                ))}
+              </div>
+            </section>
+
+            <section className="rounded-[2rem] border border-espresso/10 bg-white/80 p-6 shadow-soft">
+              <p className="text-xs uppercase tracking-[0.3em] text-terracotta">
+                Estoque critico
+              </p>
+              <h2 className="mt-2 font-display text-3xl">Reposicao recomendada</h2>
+
+              {lowStockItems.length > 0 ? (
+                <div className="mt-6 space-y-3">
+                  {lowStockItems.map((product) => (
+                    <div
+                      key={product.id}
+                      className="flex items-center justify-between gap-4 rounded-[1.5rem] border border-espresso/10 bg-sand/35 p-4"
+                    >
+                      <div>
+                        <p className="font-medium">{product.name}</p>
+                        <p className="mt-1 text-sm text-espresso/60">{product.category}</p>
+                      </div>
+                      <span className="rounded-full bg-terracotta/10 px-3 py-1 text-xs text-terracotta">
+                        {product.stock} em estoque
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="mt-6 rounded-[1.5rem] border border-espresso/10 bg-sand/35 p-4 text-sm text-espresso/70">
+                  Nenhum produto esta em nivel critico de estoque.
+                </div>
+              )}
+            </section>
           </div>
 
           <section className="rounded-[2rem] border border-espresso/10 bg-white/80 p-6 shadow-soft">

@@ -27,7 +27,25 @@ type DashboardResponse = {
   products: number;
   orders: number;
   revenue: number | string | null;
+  averageTicket: number | string | null;
+  recentRevenue: number | string | null;
   lowStockProducts: number;
+  paidOrders: number;
+  couponOrders: number;
+  ordersByStatus: {
+    pending: number;
+    shipped: number;
+    delivered: number;
+    canceled: number;
+  };
+  lowStockItems: Array<{
+    id: string;
+    name: string;
+    stock: number;
+    category?: {
+      name: string;
+    } | null;
+  }>;
   recentOrders: Array<{
     id: string;
     status: string;
@@ -141,6 +159,17 @@ export type AdminRecentOrder = {
 export type AdminDashboardData = {
   metrics: AdminMetric[];
   recentOrders: AdminRecentOrder[];
+  commerceHighlights: Array<{
+    label: string;
+    value: string;
+    detail: string;
+  }>;
+  lowStockItems: Array<{
+    id: string;
+    name: string;
+    stock: number;
+    category: string;
+  }>;
 };
 
 export type AdminProduct = {
@@ -383,6 +412,28 @@ export async function getAdminDashboardMetrics(): Promise<AdminDashboardData> {
         detail: "Usuarios criados na plataforma"
       }
     ],
+    commerceHighlights: [
+      {
+        label: "Ticket medio",
+        value: formatCurrency(toNumber(data.averageTicket)),
+        detail: "Media de receita por pedido"
+      },
+      {
+        label: "Receita 30 dias",
+        value: formatCurrency(toNumber(data.recentRevenue)),
+        detail: "Volume recente de pedidos"
+      },
+      {
+        label: "Pedidos pagos",
+        value: String(data.paidOrders),
+        detail: `${data.ordersByStatus.pending} pendentes no momento`
+      },
+      {
+        label: "Uso de cupons",
+        value: `${data.orders > 0 ? Math.round((data.couponOrders / data.orders) * 100) : 0}%`,
+        detail: `${data.couponOrders} pedidos com desconto`
+      }
+    ],
     recentOrders: data.recentOrders.map((order) => ({
       id: order.id,
       customerName: order.user.name,
@@ -390,6 +441,12 @@ export async function getAdminDashboardMetrics(): Promise<AdminDashboardData> {
       status: order.status,
       total: toNumber(order.total),
       createdAt: formatDate(order.createdAt)
+    })),
+    lowStockItems: data.lowStockItems.map((product) => ({
+      id: product.id,
+      name: product.name,
+      stock: product.stock,
+      category: product.category?.name ?? "Sem categoria"
     }))
   };
 }

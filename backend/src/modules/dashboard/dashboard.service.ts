@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { OrderStatus } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 
 @Injectable()
@@ -6,8 +7,26 @@ export class DashboardService {
   constructor(private readonly prisma: PrismaService) {}
 
   async getSummary() {
-    const [users, products, orders, revenueAggregate, lowStockProducts, recentOrders] =
-      await Promise.all([
+    const now = new Date();
+    const thirtyDaysAgo = new Date(now);
+    thirtyDaysAgo.setDate(now.getDate() - 30);
+
+    const [
+      users,
+      products,
+      orders,
+      revenueAggregate,
+      lowStockProducts,
+      lowStockItems,
+      recentOrders,
+      recentRevenueAggregate,
+      paidOrders,
+      couponOrders,
+      pendingOrders,
+      shippedOrders,
+      deliveredOrders,
+      canceledOrders
+    ] = await Promise.all([
       this.prisma.user.count(),
       this.prisma.product.count(),
       this.prisma.order.count(),
@@ -23,22 +42,92 @@ export class DashboardService {
           }
         }
       }),
+      this.prisma.product.findMany({
+        where: {
+          stock: {
+            lte: 5
+          }
+        },
+        orderBy: [{ stock: "asc" }, { updatedAt: "desc" }],
+        take: 5,
+        include: {
+          category: true
+        }
+      }),
       this.prisma.order.findMany({
         take: 5,
         orderBy: { createdAt: "desc" },
         include: {
           user: true
         }
+      }),
+      this.prisma.order.aggregate({
+        where: {
+          createdAt: {
+            gte: thirtyDaysAgo
+          }
+        },
+        _sum: {
+          total: true
+        }
+      }),
+      this.prisma.order.count({
+        where: {
+          status: {
+            in: [OrderStatus.PAID, OrderStatus.SHIPPED, OrderStatus.DELIVERED]
+          }
+        }
+      }),
+      this.prisma.order.count({
+        where: {
+          couponId: {
+            not: null
+          }
+        }
+      }),
+      this.prisma.order.count({
+        where: {
+          status: OrderStatus.PENDING
+        }
+      }),
+      this.prisma.order.count({
+        where: {
+          status: OrderStatus.SHIPPED
+        }
+      }),
+      this.prisma.order.count({
+        where: {
+          status: OrderStatus.DELIVERED
+        }
+      }),
+      this.prisma.order.count({
+        where: {
+          status: OrderStatus.CANCELED
+        }
       })
     ]);
+
+    const revenue = revenueAggregate._sum.total ?? 0;
+    const recentRevenue = recentRevenueAggregate._sum.total ?? 0;
 
     return {
       users,
       products,
       orders,
-      revenue: revenueAggregate._sum.total ?? 0,
+      revenue,
+      averageTicket: orders > 0 ? Number(revenue) / orders : 0,
+      recentRevenue,
       lowStockProducts,
-      recentOrders
+      paidOrders,
+      couponOrders,
+      ordersByStatus: {
+        pending: pendingOrders,
+        shipped: shippedOrders,
+        delivered: deliveredOrders,
+        canceled: canceledOrders
+      },
+      recentOrders,
+      lowStockItems
     };
   }
 }
