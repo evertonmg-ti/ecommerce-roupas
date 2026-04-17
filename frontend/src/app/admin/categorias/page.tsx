@@ -1,3 +1,4 @@
+import { AdminFeedback } from "@/components/admin-feedback";
 import { getAdminCategories } from "@/lib/admin-api";
 import {
   createCategoryAction,
@@ -5,7 +6,14 @@ import {
   updateCategoryAction
 } from "./actions";
 
-export default async function AdminCategoriesPage() {
+type AdminCategoriesPageProps = {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export default async function AdminCategoriesPage({
+  searchParams
+}: AdminCategoriesPageProps) {
+  const params = searchParams ? await searchParams : undefined;
   const categories = await getAdminCategories().catch(() => null);
 
   return (
@@ -19,6 +27,8 @@ export default async function AdminCategoriesPage() {
         </p>
       </div>
 
+      <AdminFeedback searchParams={params} />
+
       <section className="rounded-[2rem] border border-espresso/10 bg-white/80 p-6 shadow-soft">
         <p className="text-xs uppercase tracking-[0.3em] text-terracotta">Nova categoria</p>
         <h2 className="mt-2 font-display text-3xl">Cadastrar categoria</h2>
@@ -29,6 +39,7 @@ export default async function AdminCategoriesPage() {
             <input
               name="name"
               required
+              minLength={3}
               className="w-full rounded-2xl border border-espresso/15 bg-sand px-4 py-3 outline-none"
               placeholder="Camisetas"
             />
@@ -82,6 +93,7 @@ export default async function AdminCategoriesPage() {
                     name="name"
                     defaultValue={category.name}
                     required
+                    minLength={3}
                     className="w-full rounded-2xl border border-espresso/15 bg-sand px-4 py-3 outline-none"
                   />
                 </label>

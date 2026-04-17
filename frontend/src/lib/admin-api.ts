@@ -252,6 +252,10 @@ export async function updateAdminUser(id: string, payload: SaveUserInput) {
   return mutateAdmin(`/users/${id}`, "PATCH", payload);
 }
 
+export async function deleteAdminUser(id: string) {
+  return mutateAdmin(`/users/${id}`, "DELETE");
+}
+
 export type SaveProductInput = {
   name: string;
   slug: string;

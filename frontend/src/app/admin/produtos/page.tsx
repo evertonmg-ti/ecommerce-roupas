@@ -1,7 +1,5 @@
-import {
-  getAdminCategories,
-  getAdminProducts
-} from "@/lib/admin-api";
+import { AdminFeedback } from "@/components/admin-feedback";
+import { getAdminCategories, getAdminProducts } from "@/lib/admin-api";
 import { currency } from "@/lib/utils";
 import {
   createProductAction,
@@ -15,7 +13,14 @@ const statusOptions = [
   { value: "ARCHIVED", label: "Arquivado" }
 ];
 
-export default async function AdminProductsPage() {
+type AdminProductsPageProps = {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export default async function AdminProductsPage({
+  searchParams
+}: AdminProductsPageProps) {
+  const params = searchParams ? await searchParams : undefined;
   const [products, categories] = await Promise.all([
     getAdminProducts().catch(() => null),
     getAdminCategories().catch(() => [])
@@ -31,6 +36,8 @@ export default async function AdminProductsPage() {
           administrativa.
         </p>
       </div>
+
+      <AdminFeedback searchParams={params} />
 
       <section className="rounded-[2rem] border border-espresso/10 bg-white/80 p-6 shadow-soft">
         <div className="flex items-center justify-between gap-4">
@@ -49,6 +56,7 @@ export default async function AdminProductsPage() {
               <input
                 name="name"
                 required
+                minLength={3}
                 className="w-full rounded-2xl border border-espresso/15 bg-sand px-4 py-3 outline-none"
                 placeholder="Camiseta Studio"
               />
@@ -68,6 +76,7 @@ export default async function AdminProductsPage() {
               <textarea
                 name="description"
                 required
+                minLength={12}
                 rows={4}
                 className="w-full rounded-2xl border border-espresso/15 bg-sand px-4 py-3 outline-none"
                 placeholder="Descreva o produto para a vitrine."
@@ -190,6 +199,7 @@ export default async function AdminProductsPage() {
                     name="name"
                     defaultValue={product.name}
                     required
+                    minLength={3}
                     className="w-full rounded-2xl border border-espresso/15 bg-sand px-4 py-3 outline-none"
                   />
                 </label>
@@ -209,6 +219,7 @@ export default async function AdminProductsPage() {
                     name="description"
                     defaultValue={product.description}
                     required
+                    minLength={12}
                     rows={4}
                     className="w-full rounded-2xl border border-espresso/15 bg-sand px-4 py-3 outline-none"
                   />

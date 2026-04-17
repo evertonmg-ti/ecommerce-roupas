@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import {
   createAdminCategory,
   deleteAdminCategory,
@@ -30,22 +31,36 @@ function parsePayload(formData: FormData) {
 }
 
 export async function createCategoryAction(formData: FormData) {
-  await createAdminCategory(parsePayload(formData));
-  revalidatePath("/admin/categorias");
-  revalidatePath("/admin/produtos");
+  try {
+    await createAdminCategory(parsePayload(formData));
+    revalidatePath("/admin/categorias");
+    revalidatePath("/admin/produtos");
+    redirect("/admin/categorias?success=category_created");
+  } catch {
+    redirect("/admin/categorias?error=generic_error");
+  }
 }
 
 export async function updateCategoryAction(formData: FormData) {
-  const id = String(formData.get("id") ?? "").trim();
-  await updateAdminCategory(id, parsePayload(formData));
-  revalidatePath("/admin/categorias");
-  revalidatePath("/admin/produtos");
+  try {
+    const id = String(formData.get("id") ?? "").trim();
+    await updateAdminCategory(id, parsePayload(formData));
+    revalidatePath("/admin/categorias");
+    revalidatePath("/admin/produtos");
+    redirect("/admin/categorias?success=category_updated");
+  } catch {
+    redirect("/admin/categorias?error=generic_error");
+  }
 }
 
 export async function deleteCategoryAction(formData: FormData) {
-  const id = String(formData.get("id") ?? "").trim();
-  await deleteAdminCategory(id);
-  revalidatePath("/admin/categorias");
-  revalidatePath("/admin/produtos");
+  try {
+    const id = String(formData.get("id") ?? "").trim();
+    await deleteAdminCategory(id);
+    revalidatePath("/admin/categorias");
+    revalidatePath("/admin/produtos");
+    redirect("/admin/categorias?success=category_deleted");
+  } catch {
+    redirect("/admin/categorias?error=generic_error");
+  }
 }
-

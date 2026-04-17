@@ -1,7 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createAdminUser, updateAdminUser } from "@/lib/admin-api";
+import { redirect } from "next/navigation";
+import {
+  createAdminUser,
+  deleteAdminUser,
+  updateAdminUser
+} from "@/lib/admin-api";
 
 function parsePayload(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
@@ -18,18 +23,39 @@ function parsePayload(formData: FormData) {
 }
 
 export async function createUserAction(formData: FormData) {
-  const payload = parsePayload(formData);
-  await createAdminUser({
-    name: payload.name,
-    email: payload.email,
-    password: payload.password ?? "123456",
-    role: payload.role
-  });
-  revalidatePath("/admin/usuarios");
+  try {
+    const payload = parsePayload(formData);
+    await createAdminUser({
+      name: payload.name,
+      email: payload.email,
+      password: payload.password ?? "123456",
+      role: payload.role
+    });
+    revalidatePath("/admin/usuarios");
+    redirect("/admin/usuarios?success=user_created");
+  } catch {
+    redirect("/admin/usuarios?error=generic_error");
+  }
 }
 
 export async function updateUserAction(formData: FormData) {
-  const id = String(formData.get("id") ?? "").trim();
-  await updateAdminUser(id, parsePayload(formData));
-  revalidatePath("/admin/usuarios");
+  try {
+    const id = String(formData.get("id") ?? "").trim();
+    await updateAdminUser(id, parsePayload(formData));
+    revalidatePath("/admin/usuarios");
+    redirect("/admin/usuarios?success=user_updated");
+  } catch {
+    redirect("/admin/usuarios?error=generic_error");
+  }
+}
+
+export async function deleteUserAction(formData: FormData) {
+  try {
+    const id = String(formData.get("id") ?? "").trim();
+    await deleteAdminUser(id);
+    revalidatePath("/admin/usuarios");
+    redirect("/admin/usuarios?success=user_deleted");
+  } catch {
+    redirect("/admin/usuarios?error=generic_error");
+  }
 }

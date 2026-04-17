@@ -92,6 +92,33 @@ export class UsersService {
     });
   }
 
+  async remove(id: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+      include: {
+        _count: {
+          select: {
+            orders: true
+          }
+        }
+      }
+    });
+
+    if (!user) {
+      throw new NotFoundException("Usuario nao encontrado.");
+    }
+
+    if (user._count.orders > 0) {
+      throw new ConflictException(
+        "Nao e possivel excluir um usuario que possui pedidos vinculados."
+      );
+    }
+
+    return this.prisma.user.delete({
+      where: { id }
+    });
+  }
+
   private async ensureExists(id: string) {
     const user = await this.prisma.user.findUnique({
       where: { id }

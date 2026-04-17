@@ -1,12 +1,24 @@
+import { AdminFeedback } from "@/components/admin-feedback";
 import { getAdminUsers } from "@/lib/admin-api";
-import { createUserAction, updateUserAction } from "./actions";
+import {
+  createUserAction,
+  deleteUserAction,
+  updateUserAction
+} from "./actions";
 
 const roleOptions = [
   { value: "ADMIN", label: "Administrador" },
   { value: "CUSTOMER", label: "Cliente" }
 ];
 
-export default async function AdminUsersPage() {
+type AdminUsersPageProps = {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export default async function AdminUsersPage({
+  searchParams
+}: AdminUsersPageProps) {
+  const params = searchParams ? await searchParams : undefined;
   const users = await getAdminUsers().catch(() => null);
 
   return (
@@ -19,6 +31,8 @@ export default async function AdminUsersPage() {
         </p>
       </div>
 
+      <AdminFeedback searchParams={params} />
+
       <section className="rounded-[2rem] border border-espresso/10 bg-white/80 p-6 shadow-soft">
         <p className="text-xs uppercase tracking-[0.3em] text-terracotta">Novo usuario</p>
         <h2 className="mt-2 font-display text-3xl">Criar conta</h2>
@@ -29,6 +43,7 @@ export default async function AdminUsersPage() {
             <input
               name="name"
               required
+              minLength={3}
               className="w-full rounded-2xl border border-espresso/15 bg-sand px-4 py-3 outline-none"
               placeholder="Ana Martins"
             />
@@ -50,6 +65,7 @@ export default async function AdminUsersPage() {
             <input
               name="password"
               type="password"
+              minLength={6}
               className="w-full rounded-2xl border border-espresso/15 bg-sand px-4 py-3 outline-none"
               placeholder="Minimo de 6 caracteres"
             />
@@ -104,6 +120,7 @@ export default async function AdminUsersPage() {
                     name="name"
                     defaultValue={user.name}
                     required
+                    minLength={3}
                     className="w-full rounded-2xl border border-espresso/15 bg-sand px-4 py-3 outline-none"
                   />
                 </label>
@@ -124,6 +141,7 @@ export default async function AdminUsersPage() {
                   <input
                     name="password"
                     type="password"
+                    minLength={6}
                     className="w-full rounded-2xl border border-espresso/15 bg-sand px-4 py-3 outline-none"
                     placeholder="Preencha apenas para trocar"
                   />
@@ -150,6 +168,13 @@ export default async function AdminUsersPage() {
                     Atualizar usuario
                   </button>
                 </div>
+              </form>
+
+              <form action={deleteUserAction} className="mt-4">
+                <input type="hidden" name="id" value={user.id} />
+                <button className="rounded-full border border-red-300 px-5 py-3 text-sm text-red-700">
+                  Excluir usuario
+                </button>
               </form>
             </article>
           ))}

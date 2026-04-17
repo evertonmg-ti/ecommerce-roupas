@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import {
   createAdminProduct,
   deleteAdminProduct,
@@ -56,27 +57,42 @@ function parsePayload(formData: FormData) {
 }
 
 export async function createProductAction(formData: FormData) {
-  const payload = parsePayload(formData);
-  await createAdminProduct(payload);
-  revalidatePath("/admin/produtos");
-  revalidatePath("/produtos");
-  revalidatePath("/");
+  try {
+    const payload = parsePayload(formData);
+    await createAdminProduct(payload);
+    revalidatePath("/admin/produtos");
+    revalidatePath("/produtos");
+    revalidatePath("/");
+    redirect("/admin/produtos?success=product_created");
+  } catch {
+    redirect("/admin/produtos?error=generic_error");
+  }
 }
 
 export async function updateProductAction(formData: FormData) {
-  const id = String(formData.get("id") ?? "").trim();
-  const payload = parsePayload(formData);
-  await updateAdminProduct(id, payload);
-  revalidatePath("/admin/produtos");
-  revalidatePath("/produtos");
-  revalidatePath(`/produtos/${payload.slug}`);
-  revalidatePath("/");
+  try {
+    const id = String(formData.get("id") ?? "").trim();
+    const payload = parsePayload(formData);
+    await updateAdminProduct(id, payload);
+    revalidatePath("/admin/produtos");
+    revalidatePath("/produtos");
+    revalidatePath(`/produtos/${payload.slug}`);
+    revalidatePath("/");
+    redirect("/admin/produtos?success=product_updated");
+  } catch {
+    redirect("/admin/produtos?error=generic_error");
+  }
 }
 
 export async function deleteProductAction(formData: FormData) {
-  const id = String(formData.get("id") ?? "").trim();
-  await deleteAdminProduct(id);
-  revalidatePath("/admin/produtos");
-  revalidatePath("/produtos");
-  revalidatePath("/");
+  try {
+    const id = String(formData.get("id") ?? "").trim();
+    await deleteAdminProduct(id);
+    revalidatePath("/admin/produtos");
+    revalidatePath("/produtos");
+    revalidatePath("/");
+    redirect("/admin/produtos?success=product_deleted");
+  } catch {
+    redirect("/admin/produtos?error=generic_error");
+  }
 }
