@@ -21,6 +21,7 @@ export function CheckoutClient() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const form = event.currentTarget;
 
     if (items.length === 0) {
       setState({
@@ -74,7 +75,7 @@ export function CheckoutClient() {
       const data = (await response.json()) as { id: string };
       clearCart();
       setState({ type: "success", orderId: data.id });
-      event.currentTarget.reset();
+      form.reset();
     } catch (error) {
       setState({
         type: "error",
