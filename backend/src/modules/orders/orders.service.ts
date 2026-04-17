@@ -13,6 +13,7 @@ import {
 } from "@prisma/client";
 import * as bcrypt from "bcryptjs";
 import { randomUUID } from "crypto";
+import { CouponsService } from "../coupons/coupons.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreateOrderDto } from "./dto/create-order.dto";
 import { LookupOrdersDto } from "./dto/lookup-orders.dto";
@@ -20,7 +21,10 @@ import { UpdateOrderStatusDto } from "./dto/update-order-status.dto";
 
 @Injectable()
 export class OrdersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly couponsService: CouponsService
+  ) {}
 
   listAll(status?: OrderStatus) {
     return this.prisma.order.findMany({
@@ -119,7 +123,15 @@ export class OrdersService {
     const shippingCost = new Prisma.Decimal(
       this.resolveShippingCost(payload.shippingMethod)
     );
-    const total = subtotal.plus(shippingCost);
+    const couponApplication = await this.couponsService.resolveForOrder(
+      payload.couponCode,
+      subtotal
+    );
+    const discountAmount = couponApplication?.discountAmount ?? new Prisma.Decimal(0);
+    const total = Prisma.Decimal.max(
+      new Prisma.Decimal(0),
+      subtotal.minus(discountAmount).plus(shippingCost)
+    );
 
     return this.prisma.$transaction(async (tx) => {
       const customer = await this.findOrCreateCustomer(
@@ -131,6 +143,9 @@ export class OrdersService {
       const order = await tx.order.create({
         data: {
           userId: customer.id,
+          couponId: couponApplication?.couponId,
+          couponCode: couponApplication?.couponCode,
+          discountAmount,
           subtotal,
           shippingCost,
           total,
@@ -174,6 +189,10 @@ export class OrdersService {
           })
         )
       );
+
+      if (couponApplication?.couponId) {
+        await this.couponsService.incrementUsage(tx, couponApplication.couponId);
+      }
 
       return order;
     });

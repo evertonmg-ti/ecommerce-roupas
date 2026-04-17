@@ -63,6 +63,20 @@ type CategoryResponse = {
   description?: string | null;
 };
 
+type CouponResponse = {
+  id: string;
+  code: string;
+  description?: string | null;
+  type: string;
+  value: number | string;
+  active: boolean;
+  minSubtotal: number | string;
+  usageLimit?: number | null;
+  usedCount: number;
+  startsAt?: string | null;
+  expiresAt?: string | null;
+};
+
 type UserResponse = {
   id: string;
   name: string;
@@ -73,6 +87,8 @@ type UserResponse = {
 
 type OrderResponse = {
   id: string;
+  couponCode?: string | null;
+  discountAmount: number | string;
   subtotal: number | string;
   shippingCost: number | string;
   total: number | string;
@@ -148,6 +164,20 @@ export type AdminCategory = {
   description?: string;
 };
 
+export type AdminCoupon = {
+  id: string;
+  code: string;
+  description?: string;
+  type: string;
+  value: number;
+  active: boolean;
+  minSubtotal: number;
+  usageLimit?: number;
+  usedCount: number;
+  startsAt?: string;
+  expiresAt?: string;
+};
+
 export type AdminUser = {
   id: string;
   name: string;
@@ -161,6 +191,8 @@ export type AdminOrder = {
   id: string;
   customerName: string;
   customerEmail: string;
+  couponCode?: string;
+  discountAmount: number;
   subtotal: number;
   shippingCost: number;
   total: number;
@@ -283,6 +315,14 @@ function mapAdminErrorCode(message?: string) {
     return "insufficient_stock";
   }
 
+  if (message.includes("cupom esta inativo") || message.includes("cupom expirou")) {
+    return "coupon_inactive";
+  }
+
+  if (message.includes("subtotal minimo")) {
+    return "coupon_min_subtotal";
+  }
+
   if (message.includes("nao encontrada") || message.includes("nao encontrado")) {
     return "resource_not_found";
   }
@@ -386,6 +426,24 @@ export async function getAdminCategories(): Promise<AdminCategory[]> {
   }));
 }
 
+export async function getAdminCoupons(): Promise<AdminCoupon[]> {
+  const coupons = await fetchAdmin<CouponResponse[]>("/coupons");
+
+  return coupons.map((coupon) => ({
+    id: coupon.id,
+    code: coupon.code,
+    description: coupon.description ?? undefined,
+    type: coupon.type,
+    value: toNumber(coupon.value),
+    active: coupon.active,
+    minSubtotal: toNumber(coupon.minSubtotal),
+    usageLimit: coupon.usageLimit ?? undefined,
+    usedCount: coupon.usedCount,
+    startsAt: coupon.startsAt ?? undefined,
+    expiresAt: coupon.expiresAt ?? undefined
+  }));
+}
+
 export async function getAdminUsers(): Promise<AdminUser[]> {
   const users = await fetchAdmin<UserResponse[]>("/users");
 
@@ -407,6 +465,8 @@ export async function getAdminOrders(status?: string): Promise<AdminOrder[]> {
     id: order.id,
     customerName: order.user.name,
     customerEmail: order.user.email,
+    couponCode: order.couponCode ?? undefined,
+    discountAmount: toNumber(order.discountAmount),
     subtotal: toNumber(order.subtotal),
     shippingCost: toNumber(order.shippingCost),
     total: toNumber(order.total),
@@ -493,12 +553,38 @@ export async function deleteAdminCategory(id: string) {
   return mutateAdmin(`/categories/${id}`, "DELETE");
 }
 
+export type SaveCouponInput = {
+  code: string;
+  description?: string;
+  type: string;
+  value: number;
+  active: boolean;
+  minSubtotal?: number;
+  usageLimit?: number;
+  startsAt?: string;
+  expiresAt?: string;
+};
+
+export async function createAdminCoupon(payload: SaveCouponInput) {
+  return mutateAdmin("/coupons", "POST", payload);
+}
+
+export async function updateAdminCoupon(id: string, payload: SaveCouponInput) {
+  return mutateAdmin(`/coupons/${id}`, "PATCH", payload);
+}
+
+export async function deleteAdminCoupon(id: string) {
+  return mutateAdmin(`/coupons/${id}`, "DELETE");
+}
+
 export async function updateAdminOrderStatus(id: string, status: string) {
   return mutateAdmin(`/orders/${id}/status`, "PATCH", { status });
 }
 
 export type CustomerOrder = {
   id: string;
+  couponCode?: string;
+  discountAmount: number;
   subtotal: number;
   shippingCost: number;
   total: number;
@@ -529,6 +615,8 @@ export async function lookupCustomerOrders(email: string): Promise<CustomerOrder
 
   return orders.map((order) => ({
     id: order.id,
+    couponCode: order.couponCode ?? undefined,
+    discountAmount: toNumber(order.discountAmount),
     subtotal: toNumber(order.subtotal),
     shippingCost: toNumber(order.shippingCost),
     total: toNumber(order.total),
@@ -550,4 +638,16 @@ export async function lookupCustomerOrders(email: string): Promise<CustomerOrder
       category: item.product.category?.name ?? "Colecao"
     }))
   }));
+}
+
+export async function validateCoupon(code: string, subtotal: number, shippingCost = 0) {
+  return apiFetch<{
+    id: string;
+    code: string;
+    description?: string | null;
+    discountAmount: number;
+  }>("/coupons/validate", {
+    method: "POST",
+    body: JSON.stringify({ code, subtotal, shippingCost })
+  });
 }

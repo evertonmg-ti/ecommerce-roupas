@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useMemo, useState } from "react";
 import { useCart } from "@/components/cart-provider";
+import { validateCoupon } from "@/lib/admin-api";
 import { currency } from "@/lib/utils";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api/v1";
@@ -27,9 +28,16 @@ export function CheckoutClient() {
   const { items, clearCart, totalPrice } = useCart();
   const [state, setState] = useState<CheckoutState>({ type: "idle" });
   const [shippingMethod, setShippingMethod] = useState("STANDARD");
+  const [couponCode, setCouponCode] = useState("");
+  const [couponState, setCouponState] = useState<{
+    status: "idle" | "applied" | "error";
+    code?: string;
+    message?: string;
+    discountAmount: number;
+  }>({ status: "idle", discountAmount: 0 });
   const shippingCost =
     shippingOptions.find((option) => option.value === shippingMethod)?.cost ?? 0;
-  const grandTotal = totalPrice + shippingCost;
+  const grandTotal = Math.max(0, totalPrice - couponState.discountAmount + shippingCost);
 
   const canSubmit = useMemo(
     () => items.length > 0 && state.type !== "submitting",
@@ -96,6 +104,7 @@ export function CheckoutClient() {
           shippingState,
           shippingPostalCode,
           notes: notes || undefined,
+          couponCode: couponState.status === "applied" ? couponState.code : undefined,
           items: items.map((item) => ({
             productId: item.id,
             quantity: item.quantity
@@ -119,6 +128,8 @@ export function CheckoutClient() {
       setState({ type: "success", orderId: data.id });
       form.reset();
       setShippingMethod("STANDARD");
+      setCouponCode("");
+      setCouponState({ status: "idle", discountAmount: 0 });
     } catch (error) {
       setState({
         type: "error",
@@ -126,6 +137,38 @@ export function CheckoutClient() {
           error instanceof Error
             ? error.message
             : "Nao foi possivel concluir o pedido."
+      });
+    }
+  }
+
+  async function handleApplyCoupon() {
+    const code = couponCode.trim().toUpperCase();
+
+    if (!code) {
+      setCouponState({
+        status: "error",
+        message: "Informe um codigo de cupom para aplicar.",
+        discountAmount: 0
+      });
+      return;
+    }
+
+    try {
+      const result = await validateCoupon(code, totalPrice, shippingCost);
+      setCouponState({
+        status: "applied",
+        code: result.code,
+        message: result.description ?? "Cupom aplicado com sucesso.",
+        discountAmount: result.discountAmount
+      });
+    } catch (error) {
+      setCouponState({
+        status: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Nao foi possivel validar o cupom.",
+        discountAmount: 0
       });
     }
   }
@@ -265,6 +308,37 @@ export function CheckoutClient() {
             </label>
           </div>
 
+          <div className="grid gap-5 md:grid-cols-[1fr_auto] md:items-end">
+            <label className="space-y-2 text-sm">
+              <span className="text-espresso/70">Cupom de desconto</span>
+              <input
+                value={couponCode}
+                onChange={(event) => setCouponCode(event.target.value.toUpperCase())}
+                className="w-full rounded-[1.5rem] border border-espresso/15 bg-transparent px-4 py-3 uppercase"
+                placeholder="BEMVINDO10"
+              />
+            </label>
+            <button
+              type="button"
+              onClick={handleApplyCoupon}
+              className="rounded-full border border-espresso/15 px-6 py-3 text-sm"
+            >
+              Aplicar cupom
+            </button>
+          </div>
+
+          {couponState.status !== "idle" ? (
+            <div
+              className={`rounded-[1.5rem] border p-4 text-sm ${
+                couponState.status === "applied"
+                  ? "border-moss/20 bg-moss/10 text-moss"
+                  : "border-terracotta/20 bg-terracotta/10 text-terracotta"
+              }`}
+            >
+              {couponState.message}
+            </div>
+          ) : null}
+
           <div className="rounded-[1.5rem] border border-dashed border-espresso/15 bg-sand/35 p-4 text-sm text-espresso/65">
             O pagamento ainda esta em modo demonstracao, mas o pedido agora registra
             entrega, frete escolhido e forma de pagamento para preparar a operacao real.
@@ -306,6 +380,10 @@ export function CheckoutClient() {
           <div className="mb-4 flex items-center justify-between gap-4 text-sm text-espresso/70">
             <span>Subtotal</span>
             <span>{currency(totalPrice)}</span>
+          </div>
+          <div className="mb-4 flex items-center justify-between gap-4 text-sm text-espresso/70">
+            <span>Desconto</span>
+            <span>- {currency(couponState.discountAmount)}</span>
           </div>
           <div className="mb-4 flex items-center justify-between gap-4 text-sm text-espresso/70">
             <span>Frete</span>

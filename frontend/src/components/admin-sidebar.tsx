@@ -1,5 +1,6 @@
 import Link from "next/link";
 import {
+  BadgePercent,
   LayoutDashboard,
   ListTree,
   Package,
@@ -11,6 +12,7 @@ const items = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/produtos", label: "Produtos", icon: Package },
   { href: "/admin/pedidos", label: "Pedidos", icon: ShoppingBag },
+  { href: "/admin/cupons", label: "Cupons", icon: BadgePercent },
   { href: "/admin/categorias", label: "Categorias", icon: ListTree },
   { href: "/admin/usuarios", label: "Usuarios", icon: Users }
 ];

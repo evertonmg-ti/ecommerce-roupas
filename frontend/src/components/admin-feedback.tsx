@@ -9,6 +9,9 @@ const messages: Record<string, string> = {
   category_created: "Categoria criada com sucesso.",
   category_updated: "Categoria atualizada com sucesso.",
   category_deleted: "Categoria excluida com sucesso.",
+  coupon_created: "Cupom criado com sucesso.",
+  coupon_updated: "Cupom atualizado com sucesso.",
+  coupon_deleted: "Cupom excluido com sucesso.",
   user_created: "Usuario criado com sucesso.",
   user_updated: "Usuario atualizado com sucesso.",
   user_deleted: "Usuario excluido com sucesso.",
@@ -21,6 +24,9 @@ const messages: Record<string, string> = {
     "Nao e possivel excluir o usuario porque existem pedidos vinculados.",
   insufficient_stock:
     "Nao ha estoque suficiente para concluir esta operacao com os itens escolhidos.",
+  coupon_inactive: "Este cupom nao esta disponivel para uso.",
+  coupon_min_subtotal:
+    "O subtotal minimo exigido para este cupom ainda nao foi atingido.",
   resource_not_found: "O registro informado nao foi encontrado.",
   generic_error: "Nao foi possivel concluir a operacao. Revise os dados e tente novamente."
 };
