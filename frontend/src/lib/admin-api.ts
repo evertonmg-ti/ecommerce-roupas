@@ -119,6 +119,18 @@ type OrderResponse = {
   shippingState: string;
   shippingPostalCode: string;
   notes?: string | null;
+  paymentMock?: {
+    status: string;
+    instructions: string;
+    reference: string;
+    expiresAt?: string | null;
+    qrCode?: string | null;
+    copyPasteCode?: string | null;
+    digitableLine?: string | null;
+    authorizationCode?: string | null;
+    cardBrand?: string | null;
+    installments?: string | null;
+  } | null;
   createdAt: string;
   user: {
     id: string;
@@ -234,6 +246,18 @@ export type AdminOrder = {
   shippingState: string;
   shippingPostalCode: string;
   notes?: string;
+  paymentMock?: {
+    status: string;
+    instructions: string;
+    reference: string;
+    expiresAt?: string;
+    qrCode?: string;
+    copyPasteCode?: string;
+    digitableLine?: string;
+    authorizationCode?: string;
+    cardBrand?: string;
+    installments?: string;
+  };
   createdAt: string;
   items: Array<{
     id: string;
@@ -536,6 +560,20 @@ export async function getAdminOrders(status?: string): Promise<AdminOrder[]> {
     shippingState: order.shippingState,
     shippingPostalCode: order.shippingPostalCode,
     notes: order.notes ?? undefined,
+    paymentMock: order.paymentMock
+      ? {
+          status: order.paymentMock.status,
+          instructions: order.paymentMock.instructions,
+          reference: order.paymentMock.reference,
+          expiresAt: order.paymentMock.expiresAt ?? undefined,
+          qrCode: order.paymentMock.qrCode ?? undefined,
+          copyPasteCode: order.paymentMock.copyPasteCode ?? undefined,
+          digitableLine: order.paymentMock.digitableLine ?? undefined,
+          authorizationCode: order.paymentMock.authorizationCode ?? undefined,
+          cardBrand: order.paymentMock.cardBrand ?? undefined,
+          installments: order.paymentMock.installments ?? undefined
+        }
+      : undefined,
     createdAt: formatDate(order.createdAt),
     items: order.items.map((item) => ({
       id: item.id,
@@ -654,6 +692,18 @@ export type CustomerOrder = {
   shippingState: string;
   shippingPostalCode: string;
   notes?: string;
+  paymentMock?: {
+    status: string;
+    instructions: string;
+    reference: string;
+    expiresAt?: string;
+    qrCode?: string;
+    copyPasteCode?: string;
+    digitableLine?: string;
+    authorizationCode?: string;
+    cardBrand?: string;
+    installments?: string;
+  };
   createdAt: string;
   items: Array<{
     id: string;
@@ -686,6 +736,20 @@ export async function lookupCustomerOrders(email: string): Promise<CustomerOrder
     shippingState: order.shippingState,
     shippingPostalCode: order.shippingPostalCode,
     notes: order.notes ?? undefined,
+    paymentMock: order.paymentMock
+      ? {
+          status: order.paymentMock.status,
+          instructions: order.paymentMock.instructions,
+          reference: order.paymentMock.reference,
+          expiresAt: order.paymentMock.expiresAt ?? undefined,
+          qrCode: order.paymentMock.qrCode ?? undefined,
+          copyPasteCode: order.paymentMock.copyPasteCode ?? undefined,
+          digitableLine: order.paymentMock.digitableLine ?? undefined,
+          authorizationCode: order.paymentMock.authorizationCode ?? undefined,
+          cardBrand: order.paymentMock.cardBrand ?? undefined,
+          installments: order.paymentMock.installments ?? undefined
+        }
+      : undefined,
     createdAt: formatDate(order.createdAt),
     items: order.items.map((item) => ({
       id: item.id,

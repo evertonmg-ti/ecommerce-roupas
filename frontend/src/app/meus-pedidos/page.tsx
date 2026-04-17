@@ -106,6 +106,44 @@ export default async function CustomerOrdersPage({
                       <strong>Observacoes:</strong> {order.notes}
                     </p>
                   ) : null}
+                  {order.paymentMock ? (
+                    <div className="mt-4 rounded-[1rem] border border-espresso/10 bg-sand/35 p-4">
+                      <p>
+                        <strong>Status do pagamento:</strong> {order.paymentMock.status}
+                      </p>
+                      <p className="mt-2">
+                        <strong>Referencia:</strong> {order.paymentMock.reference}
+                      </p>
+                      <p className="mt-2">{order.paymentMock.instructions}</p>
+                      {order.paymentMock.expiresAt ? (
+                        <p className="mt-2">
+                          <strong>Validade:</strong>{" "}
+                          {new Date(order.paymentMock.expiresAt).toLocaleString("pt-BR")}
+                        </p>
+                      ) : null}
+                      {order.paymentMock.copyPasteCode ? (
+                        <p className="mt-2 break-all">
+                          <strong>PIX:</strong> {order.paymentMock.copyPasteCode}
+                        </p>
+                      ) : null}
+                      {order.paymentMock.digitableLine ? (
+                        <p className="mt-2 break-all">
+                          <strong>Boleto:</strong> {order.paymentMock.digitableLine}
+                        </p>
+                      ) : null}
+                      {order.paymentMock.authorizationCode ? (
+                        <p className="mt-2">
+                          <strong>Autorizacao:</strong> {order.paymentMock.authorizationCode}
+                          {order.paymentMock.cardBrand
+                            ? ` - ${order.paymentMock.cardBrand}`
+                            : ""}
+                          {order.paymentMock.installments
+                            ? ` - ${order.paymentMock.installments}`
+                            : ""}
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : null}
                   <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-espresso/10 pt-4">
                     <span>Subtotal: {currency(order.subtotal)}</span>
                     <span>Frete: {currency(order.shippingCost)}</span>

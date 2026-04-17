@@ -5,6 +5,7 @@ import {
 } from "@nestjs/common";
 import {
   OrderStatus,
+  Order,
   PaymentMethod,
   Prisma,
   ProductStatus,
@@ -28,7 +29,8 @@ export class OrdersService {
   ) {}
 
   listAll(status?: OrderStatus) {
-    return this.prisma.order.findMany({
+    return this.prisma.order
+      .findMany({
       where: status ? { status } : undefined,
       include: {
         user: true,
@@ -41,11 +43,13 @@ export class OrdersService {
         }
       },
       orderBy: { createdAt: "desc" }
-    });
+      })
+      .then((orders) => orders.map((order) => this.attachMockPayment(order)));
   }
 
   listByUser(userId: string) {
-    return this.prisma.order.findMany({
+    return this.prisma.order
+      .findMany({
       where: { userId },
       include: {
         items: {
@@ -57,11 +61,13 @@ export class OrdersService {
         }
       },
       orderBy: { createdAt: "desc" }
-    });
+      })
+      .then((orders) => orders.map((order) => this.attachMockPayment(order)));
   }
 
   listByCustomerEmail(payload: LookupOrdersDto) {
-    return this.prisma.order.findMany({
+    return this.prisma.order
+      .findMany({
       where: {
         user: {
           email: payload.email.trim().toLowerCase()
@@ -78,7 +84,8 @@ export class OrdersService {
         }
       },
       orderBy: { createdAt: "desc" }
-    });
+      })
+      .then((orders) => orders.map((order) => this.attachMockPayment(order)));
   }
 
   calculateShipping(payload: CalculateShippingDto) {
@@ -217,14 +224,15 @@ export class OrdersService {
         await this.couponsService.incrementUsage(tx, couponApplication.couponId);
       }
 
-      return order;
+      return this.attachMockPayment(order);
     });
   }
 
   async updateStatus(id: string, payload: UpdateOrderStatusDto) {
     await this.ensureExists(id);
 
-    return this.prisma.order.update({
+    return this.prisma.order
+      .update({
       where: { id },
       data: {
         status: payload.status as OrderStatus
@@ -239,7 +247,8 @@ export class OrdersService {
           }
         }
       }
-    });
+      })
+      .then((order) => this.attachMockPayment(order));
   }
 
   private normalizeItems(items: CreateOrderDto["items"]) {
@@ -380,5 +389,95 @@ export class OrdersService {
     if (!order) {
       throw new NotFoundException("Pedido nao encontrado.");
     }
+  }
+
+  private attachMockPayment<T extends Order & { createdAt: Date; status: OrderStatus }>(
+    order: T
+  ) {
+    const paymentStatus = this.resolvePaymentStatus(order.status);
+    const paymentData = this.buildMockPaymentData(
+      order.id,
+      order.paymentMethod,
+      order.createdAt,
+      paymentStatus
+    );
+
+    return {
+      ...order,
+      paymentMock: paymentData
+    };
+  }
+
+  private resolvePaymentStatus(status: OrderStatus) {
+    switch (status) {
+      case OrderStatus.PAID:
+      case OrderStatus.SHIPPED:
+      case OrderStatus.DELIVERED:
+        return "CONFIRMED";
+      case OrderStatus.CANCELED:
+        return "CANCELED";
+      case OrderStatus.PENDING:
+      default:
+        return "PENDING";
+    }
+  }
+
+  private buildMockPaymentData(
+    orderId: string,
+    paymentMethod: PaymentMethod,
+    createdAt: Date,
+    paymentStatus: "PENDING" | "CONFIRMED" | "CANCELED"
+  ) {
+    const normalizedId = orderId.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+    const shortId = normalizedId.slice(0, 12).padEnd(12, "X");
+
+    if (paymentMethod === PaymentMethod.PIX) {
+      const expiresAt = new Date(createdAt);
+      expiresAt.setHours(expiresAt.getHours() + 2);
+
+      return {
+        status: paymentStatus,
+        instructions:
+          paymentStatus === "CONFIRMED"
+            ? "Pagamento PIX confirmado com sucesso."
+            : "Copie o codigo PIX ou use o QR code textual para simular o pagamento.",
+        reference: `PIX-${shortId}`,
+        expiresAt,
+        qrCode:
+          `00020126580014BR.GOV.BCB.PIX0136${shortId}` +
+          `5204000053039865406100.005802BR5920MAISON AUREA MOCK6009SAO PAULO62070503***6304ABCD`,
+        copyPasteCode:
+          `00020126580014BR.GOV.BCB.PIX0136${shortId}` +
+          `5204000053039865406100.005802BR5920MAISON AUREA MOCK6009SAO PAULO62070503***6304ABCD`
+      };
+    }
+
+    if (paymentMethod === PaymentMethod.BOLETO) {
+      const dueDate = new Date(createdAt);
+      dueDate.setDate(dueDate.getDate() + 3);
+
+      return {
+        status: paymentStatus,
+        instructions:
+          paymentStatus === "CONFIRMED"
+            ? "Boleto mock marcado como pago."
+            : "Use a linha digitavel abaixo para simular o pagamento do boleto.",
+        reference: `BOL-${shortId}`,
+        expiresAt: dueDate,
+        digitableLine: `34191.79001 ${shortId.slice(0, 5)}.${shortId.slice(5, 10)} 01043.510047 ${shortId.slice(2, 7)}.${shortId.slice(7, 12)} 7 99990000010000`
+      };
+    }
+
+    return {
+      status: paymentStatus,
+      instructions:
+        paymentStatus === "CONFIRMED"
+          ? "Cartao aprovado na autorizacao mock."
+          : "Pagamento em cartao aguardando captura mock do pedido.",
+      reference: `CC-${shortId}`,
+      authorizationCode: shortId.slice(-6),
+      cardBrand: "VISA",
+      installments: "1x sem juros"
+    };
   }
 }

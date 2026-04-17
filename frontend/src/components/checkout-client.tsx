@@ -22,7 +22,22 @@ const paymentOptions = [
 type CheckoutState =
   | { type: "idle" }
   | { type: "submitting" }
-  | { type: "success"; orderId: string }
+  | {
+      type: "success";
+      orderId: string;
+      paymentMock?: {
+        status: string;
+        instructions: string;
+        reference: string;
+        expiresAt?: string;
+        qrCode?: string;
+        copyPasteCode?: string;
+        digitableLine?: string;
+        authorizationCode?: string;
+        cardBrand?: string;
+        installments?: string;
+      };
+    }
   | { type: "error"; message: string };
 
 export function CheckoutClient() {
@@ -213,9 +228,27 @@ export function CheckoutClient() {
         throw new Error(message ?? "Nao foi possivel concluir o pedido.");
       }
 
-      const data = (await response.json()) as { id: string };
+      const data = (await response.json()) as {
+        id: string;
+        paymentMock?: {
+          status: string;
+          instructions: string;
+          reference: string;
+          expiresAt?: string;
+          qrCode?: string;
+          copyPasteCode?: string;
+          digitableLine?: string;
+          authorizationCode?: string;
+          cardBrand?: string;
+          installments?: string;
+        };
+      };
       clearCart();
-      setState({ type: "success", orderId: data.id });
+      setState({
+        type: "success",
+        orderId: data.id,
+        paymentMock: data.paymentMock
+      });
       form.reset();
       setShippingMethod("STANDARD");
       setShippingPostalCode("");
@@ -281,6 +314,44 @@ export function CheckoutClient() {
         {state.type === "success" ? (
           <div className="mt-8 rounded-[1.5rem] border border-moss/20 bg-moss/10 p-5 text-sm text-moss">
             Pedido concluido com sucesso. Codigo: <strong>{state.orderId}</strong>.
+            {state.paymentMock ? (
+              <div className="mt-4 space-y-2 rounded-[1.25rem] border border-moss/20 bg-white/50 p-4 text-espresso">
+                <p>
+                  <strong>Status do pagamento:</strong> {state.paymentMock.status}
+                </p>
+                <p>
+                  <strong>Referencia:</strong> {state.paymentMock.reference}
+                </p>
+                <p>{state.paymentMock.instructions}</p>
+                {state.paymentMock.expiresAt ? (
+                  <p>
+                    <strong>Validade:</strong>{" "}
+                    {new Date(state.paymentMock.expiresAt).toLocaleString("pt-BR")}
+                  </p>
+                ) : null}
+                {state.paymentMock.copyPasteCode ? (
+                  <p className="break-all">
+                    <strong>PIX copia e cola:</strong> {state.paymentMock.copyPasteCode}
+                  </p>
+                ) : null}
+                {state.paymentMock.digitableLine ? (
+                  <p className="break-all">
+                    <strong>Linha digitavel:</strong> {state.paymentMock.digitableLine}
+                  </p>
+                ) : null}
+                {state.paymentMock.authorizationCode ? (
+                  <p>
+                    <strong>Autorizacao:</strong> {state.paymentMock.authorizationCode}
+                    {state.paymentMock.cardBrand
+                      ? ` - ${state.paymentMock.cardBrand}`
+                      : ""}
+                    {state.paymentMock.installments
+                      ? ` - ${state.paymentMock.installments}`
+                      : ""}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
           </div>
         ) : null}
 
