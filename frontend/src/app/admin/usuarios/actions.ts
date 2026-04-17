@@ -32,10 +32,11 @@ export async function createUserAction(formData: FormData) {
       role: payload.role
     });
     revalidatePath("/admin/usuarios");
-    redirect("/admin/usuarios?success=user_created");
   } catch {
     redirect("/admin/usuarios?error=generic_error");
   }
+
+  redirect("/admin/usuarios?success=user_created");
 }
 
 export async function updateUserAction(formData: FormData) {
@@ -43,10 +44,11 @@ export async function updateUserAction(formData: FormData) {
     const id = String(formData.get("id") ?? "").trim();
     await updateAdminUser(id, parsePayload(formData));
     revalidatePath("/admin/usuarios");
-    redirect("/admin/usuarios?success=user_updated");
   } catch {
     redirect("/admin/usuarios?error=generic_error");
   }
+
+  redirect("/admin/usuarios?success=user_updated");
 }
 
 export async function deleteUserAction(formData: FormData) {
@@ -54,8 +56,9 @@ export async function deleteUserAction(formData: FormData) {
     const id = String(formData.get("id") ?? "").trim();
     await deleteAdminUser(id);
     revalidatePath("/admin/usuarios");
-    redirect("/admin/usuarios?success=user_deleted");
   } catch {
     redirect("/admin/usuarios?error=generic_error");
   }
+
+  redirect("/admin/usuarios?success=user_deleted");
 }

@@ -35,10 +35,11 @@ export async function createCategoryAction(formData: FormData) {
     await createAdminCategory(parsePayload(formData));
     revalidatePath("/admin/categorias");
     revalidatePath("/admin/produtos");
-    redirect("/admin/categorias?success=category_created");
   } catch {
     redirect("/admin/categorias?error=generic_error");
   }
+
+  redirect("/admin/categorias?success=category_created");
 }
 
 export async function updateCategoryAction(formData: FormData) {
@@ -47,10 +48,11 @@ export async function updateCategoryAction(formData: FormData) {
     await updateAdminCategory(id, parsePayload(formData));
     revalidatePath("/admin/categorias");
     revalidatePath("/admin/produtos");
-    redirect("/admin/categorias?success=category_updated");
   } catch {
     redirect("/admin/categorias?error=generic_error");
   }
+
+  redirect("/admin/categorias?success=category_updated");
 }
 
 export async function deleteCategoryAction(formData: FormData) {
@@ -59,8 +61,9 @@ export async function deleteCategoryAction(formData: FormData) {
     await deleteAdminCategory(id);
     revalidatePath("/admin/categorias");
     revalidatePath("/admin/produtos");
-    redirect("/admin/categorias?success=category_deleted");
   } catch {
     redirect("/admin/categorias?error=generic_error");
   }
+
+  redirect("/admin/categorias?success=category_deleted");
 }

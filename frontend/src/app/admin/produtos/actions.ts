@@ -63,10 +63,11 @@ export async function createProductAction(formData: FormData) {
     revalidatePath("/admin/produtos");
     revalidatePath("/produtos");
     revalidatePath("/");
-    redirect("/admin/produtos?success=product_created");
   } catch {
     redirect("/admin/produtos?error=generic_error");
   }
+
+  redirect("/admin/produtos?success=product_created");
 }
 
 export async function updateProductAction(formData: FormData) {
@@ -78,10 +79,11 @@ export async function updateProductAction(formData: FormData) {
     revalidatePath("/produtos");
     revalidatePath(`/produtos/${payload.slug}`);
     revalidatePath("/");
-    redirect("/admin/produtos?success=product_updated");
   } catch {
     redirect("/admin/produtos?error=generic_error");
   }
+
+  redirect("/admin/produtos?success=product_updated");
 }
 
 export async function deleteProductAction(formData: FormData) {
@@ -91,8 +93,9 @@ export async function deleteProductAction(formData: FormData) {
     revalidatePath("/admin/produtos");
     revalidatePath("/produtos");
     revalidatePath("/");
-    redirect("/admin/produtos?success=product_deleted");
   } catch {
     redirect("/admin/produtos?error=generic_error");
   }
+
+  redirect("/admin/produtos?success=product_deleted");
 }
