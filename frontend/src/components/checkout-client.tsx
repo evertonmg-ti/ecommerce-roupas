@@ -6,6 +6,16 @@ import { useCart } from "@/components/cart-provider";
 import { currency } from "@/lib/utils";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api/v1";
+const shippingOptions = [
+  { value: "STANDARD", label: "Entrega padrao", cost: 14.9 },
+  { value: "EXPRESS", label: "Entrega expressa", cost: 29.9 },
+  { value: "PICKUP", label: "Retirada na loja", cost: 0 }
+];
+const paymentOptions = [
+  { value: "PIX", label: "PIX" },
+  { value: "CREDIT_CARD", label: "Cartao de credito" },
+  { value: "BOLETO", label: "Boleto" }
+];
 
 type CheckoutState =
   | { type: "idle" }
@@ -16,8 +26,15 @@ type CheckoutState =
 export function CheckoutClient() {
   const { items, clearCart, totalPrice } = useCart();
   const [state, setState] = useState<CheckoutState>({ type: "idle" });
+  const [shippingMethod, setShippingMethod] = useState("STANDARD");
+  const shippingCost =
+    shippingOptions.find((option) => option.value === shippingMethod)?.cost ?? 0;
+  const grandTotal = totalPrice + shippingCost;
 
-  const canSubmit = useMemo(() => items.length > 0 && state.type !== "submitting", [items.length, state.type]);
+  const canSubmit = useMemo(
+    () => items.length > 0 && state.type !== "submitting",
+    [items.length, state.type]
+  );
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -34,11 +51,28 @@ export function CheckoutClient() {
     const formData = new FormData(event.currentTarget);
     const customerName = String(formData.get("customerName") ?? "").trim();
     const customerEmail = String(formData.get("customerEmail") ?? "").trim();
+    const paymentMethod = String(formData.get("paymentMethod") ?? "").trim();
+    const shippingMethodValue = String(formData.get("shippingMethod") ?? "").trim();
+    const shippingAddress = String(formData.get("shippingAddress") ?? "").trim();
+    const shippingAddress2 = String(formData.get("shippingAddress2") ?? "").trim();
+    const shippingCity = String(formData.get("shippingCity") ?? "").trim();
+    const shippingState = String(formData.get("shippingState") ?? "").trim();
+    const shippingPostalCode = String(formData.get("shippingPostalCode") ?? "").trim();
+    const notes = String(formData.get("notes") ?? "").trim();
 
-    if (!customerName || !customerEmail) {
+    if (
+      !customerName ||
+      !customerEmail ||
+      !paymentMethod ||
+      !shippingMethodValue ||
+      !shippingAddress ||
+      !shippingCity ||
+      !shippingState ||
+      !shippingPostalCode
+    ) {
       setState({
         type: "error",
-        message: "Informe nome e email para concluir o pedido."
+        message: "Preencha os dados de cliente, entrega e pagamento para concluir."
       });
       return;
     }
@@ -54,6 +88,14 @@ export function CheckoutClient() {
         body: JSON.stringify({
           customerName,
           customerEmail,
+          paymentMethod,
+          shippingMethod: shippingMethodValue,
+          shippingAddress,
+          shippingAddress2: shippingAddress2 || undefined,
+          shippingCity,
+          shippingState,
+          shippingPostalCode,
+          notes: notes || undefined,
           items: items.map((item) => ({
             productId: item.id,
             quantity: item.quantity
@@ -76,6 +118,7 @@ export function CheckoutClient() {
       clearCart();
       setState({ type: "success", orderId: data.id });
       form.reset();
+      setShippingMethod("STANDARD");
     } catch (error) {
       setState({
         type: "error",
@@ -93,8 +136,8 @@ export function CheckoutClient() {
         <p className="text-xs uppercase tracking-[0.3em] text-terracotta">Checkout</p>
         <h1 className="mt-4 font-display text-5xl">Concluir pedido</h1>
         <p className="mt-4 max-w-2xl text-espresso/70">
-          Finalize a compra com os dados do cliente. Nesta primeira versao, o pedido
-          ja cria ou reaproveita o cadastro do comprador na base.
+          Finalize a compra com dados do cliente, entrega e forma de pagamento. O
+          pedido cria ou reaproveita o cadastro do comprador na base.
         </p>
 
         {state.type === "success" ? (
@@ -131,9 +174,100 @@ export function CheckoutClient() {
             </label>
           </div>
 
+          <div className="grid gap-5 md:grid-cols-2">
+            <label className="space-y-2 text-sm">
+              <span className="text-espresso/70">Forma de pagamento</span>
+              <select
+                name="paymentMethod"
+                required
+                defaultValue="PIX"
+                className="w-full rounded-[1.5rem] border border-espresso/15 bg-transparent px-4 py-3"
+              >
+                {paymentOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="space-y-2 text-sm">
+              <span className="text-espresso/70">Frete</span>
+              <select
+                name="shippingMethod"
+                required
+                value={shippingMethod}
+                onChange={(event) => setShippingMethod(event.target.value)}
+                className="w-full rounded-[1.5rem] border border-espresso/15 bg-transparent px-4 py-3"
+              >
+                {shippingOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label} - {currency(option.cost)}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          <div className="grid gap-5 md:grid-cols-2">
+            <label className="space-y-2 text-sm md:col-span-2">
+              <span className="text-espresso/70">Endereco</span>
+              <input
+                name="shippingAddress"
+                required
+                minLength={5}
+                className="w-full rounded-[1.5rem] border border-espresso/15 bg-transparent px-4 py-3"
+              />
+            </label>
+            <label className="space-y-2 text-sm md:col-span-2">
+              <span className="text-espresso/70">Complemento</span>
+              <input
+                name="shippingAddress2"
+                className="w-full rounded-[1.5rem] border border-espresso/15 bg-transparent px-4 py-3"
+              />
+            </label>
+            <label className="space-y-2 text-sm">
+              <span className="text-espresso/70">Cidade</span>
+              <input
+                name="shippingCity"
+                required
+                minLength={2}
+                className="w-full rounded-[1.5rem] border border-espresso/15 bg-transparent px-4 py-3"
+              />
+            </label>
+            <label className="space-y-2 text-sm">
+              <span className="text-espresso/70">Estado</span>
+              <input
+                name="shippingState"
+                required
+                minLength={2}
+                maxLength={2}
+                className="w-full rounded-[1.5rem] border border-espresso/15 bg-transparent px-4 py-3 uppercase"
+              />
+            </label>
+            <label className="space-y-2 text-sm">
+              <span className="text-espresso/70">CEP</span>
+              <input
+                name="shippingPostalCode"
+                required
+                minLength={8}
+                className="w-full rounded-[1.5rem] border border-espresso/15 bg-transparent px-4 py-3"
+              />
+            </label>
+            <label className="space-y-2 text-sm md:col-span-2">
+              <span className="text-espresso/70">Observacoes</span>
+              <textarea
+                name="notes"
+                rows={3}
+                className="w-full rounded-[1.5rem] border border-espresso/15 bg-transparent px-4 py-3"
+                placeholder="Ponto de referencia, horario de entrega, etc."
+              />
+            </label>
+          </div>
+
           <div className="rounded-[1.5rem] border border-dashed border-espresso/15 bg-sand/35 p-4 text-sm text-espresso/65">
-            Pagamento e frete ainda estao em modo inicial. Nesta fase, o checkout
-            registra o pedido, reserva o estoque e permite evoluir o fluxo comercial.
+            O pagamento ainda esta em modo demonstracao, mas o pedido agora registra
+            entrega, frete escolhido e forma de pagamento para preparar a operacao real.
           </div>
 
           <button
@@ -169,9 +303,17 @@ export function CheckoutClient() {
         </div>
 
         <div className="mt-6 border-t border-espresso/10 pt-6">
+          <div className="mb-4 flex items-center justify-between gap-4 text-sm text-espresso/70">
+            <span>Subtotal</span>
+            <span>{currency(totalPrice)}</span>
+          </div>
+          <div className="mb-4 flex items-center justify-between gap-4 text-sm text-espresso/70">
+            <span>Frete</span>
+            <span>{currency(shippingCost)}</span>
+          </div>
           <div className="flex items-end justify-between gap-4">
             <span className="text-sm text-espresso/70">Total</span>
-            <span className="font-display text-4xl">{currency(totalPrice)}</span>
+            <span className="font-display text-4xl">{currency(grandTotal)}</span>
           </div>
         </div>
 

@@ -3,7 +3,14 @@ import {
   Injectable,
   NotFoundException
 } from "@nestjs/common";
-import { OrderStatus, Prisma, ProductStatus, Role } from "@prisma/client";
+import {
+  OrderStatus,
+  PaymentMethod,
+  Prisma,
+  ProductStatus,
+  Role,
+  ShippingMethod
+} from "@prisma/client";
 import * as bcrypt from "bcryptjs";
 import { randomUUID } from "crypto";
 import { PrismaService } from "../prisma/prisma.service";
@@ -105,10 +112,14 @@ export class OrdersService {
       };
     });
 
-    const total = items.reduce(
+    const subtotal = items.reduce(
       (sum, item) => sum.plus(item.unitPrice.mul(item.quantity)),
       new Prisma.Decimal(0)
     );
+    const shippingCost = new Prisma.Decimal(
+      this.resolveShippingCost(payload.shippingMethod)
+    );
+    const total = subtotal.plus(shippingCost);
 
     return this.prisma.$transaction(async (tx) => {
       const customer = await this.findOrCreateCustomer(
@@ -120,7 +131,17 @@ export class OrdersService {
       const order = await tx.order.create({
         data: {
           userId: customer.id,
+          subtotal,
+          shippingCost,
           total,
+          paymentMethod: payload.paymentMethod as PaymentMethod,
+          shippingMethod: payload.shippingMethod as ShippingMethod,
+          shippingAddress: payload.shippingAddress.trim(),
+          shippingAddress2: payload.shippingAddress2?.trim() || undefined,
+          shippingCity: payload.shippingCity.trim(),
+          shippingState: payload.shippingState.trim(),
+          shippingPostalCode: payload.shippingPostalCode.trim(),
+          notes: payload.notes?.trim() || undefined,
           items: {
             create: items.map((item) => ({
               productId: item.product.id,
@@ -197,6 +218,18 @@ export class OrdersService {
       productId,
       quantity
     }));
+  }
+
+  private resolveShippingCost(shippingMethod: ShippingMethod) {
+    switch (shippingMethod) {
+      case ShippingMethod.EXPRESS:
+        return 29.9;
+      case ShippingMethod.PICKUP:
+        return 0;
+      case ShippingMethod.STANDARD:
+      default:
+        return 14.9;
+    }
   }
 
   private async findOrCreateCustomer(

@@ -73,8 +73,18 @@ type UserResponse = {
 
 type OrderResponse = {
   id: string;
+  subtotal: number | string;
+  shippingCost: number | string;
   total: number | string;
   status: string;
+  paymentMethod: string;
+  shippingMethod: string;
+  shippingAddress: string;
+  shippingAddress2?: string | null;
+  shippingCity: string;
+  shippingState: string;
+  shippingPostalCode: string;
+  notes?: string | null;
   createdAt: string;
   user: {
     id: string;
@@ -151,8 +161,18 @@ export type AdminOrder = {
   id: string;
   customerName: string;
   customerEmail: string;
+  subtotal: number;
+  shippingCost: number;
   total: number;
   status: string;
+  paymentMethod: string;
+  shippingMethod: string;
+  shippingAddress: string;
+  shippingAddress2?: string;
+  shippingCity: string;
+  shippingState: string;
+  shippingPostalCode: string;
+  notes?: string;
   createdAt: string;
   items: Array<{
     id: string;
@@ -387,8 +407,18 @@ export async function getAdminOrders(status?: string): Promise<AdminOrder[]> {
     id: order.id,
     customerName: order.user.name,
     customerEmail: order.user.email,
+    subtotal: toNumber(order.subtotal),
+    shippingCost: toNumber(order.shippingCost),
     total: toNumber(order.total),
     status: order.status,
+    paymentMethod: order.paymentMethod,
+    shippingMethod: order.shippingMethod,
+    shippingAddress: order.shippingAddress,
+    shippingAddress2: order.shippingAddress2 ?? undefined,
+    shippingCity: order.shippingCity,
+    shippingState: order.shippingState,
+    shippingPostalCode: order.shippingPostalCode,
+    notes: order.notes ?? undefined,
     createdAt: formatDate(order.createdAt),
     items: order.items.map((item) => ({
       id: item.id,
@@ -469,8 +499,18 @@ export async function updateAdminOrderStatus(id: string, status: string) {
 
 export type CustomerOrder = {
   id: string;
+  subtotal: number;
+  shippingCost: number;
   total: number;
   status: string;
+  paymentMethod: string;
+  shippingMethod: string;
+  shippingAddress: string;
+  shippingAddress2?: string;
+  shippingCity: string;
+  shippingState: string;
+  shippingPostalCode: string;
+  notes?: string;
   createdAt: string;
   items: Array<{
     id: string;
@@ -489,8 +529,18 @@ export async function lookupCustomerOrders(email: string): Promise<CustomerOrder
 
   return orders.map((order) => ({
     id: order.id,
+    subtotal: toNumber(order.subtotal),
+    shippingCost: toNumber(order.shippingCost),
     total: toNumber(order.total),
     status: order.status,
+    paymentMethod: order.paymentMethod,
+    shippingMethod: order.shippingMethod,
+    shippingAddress: order.shippingAddress,
+    shippingAddress2: order.shippingAddress2 ?? undefined,
+    shippingCity: order.shippingCity,
+    shippingState: order.shippingState,
+    shippingPostalCode: order.shippingPostalCode,
+    notes: order.notes ?? undefined,
     createdAt: formatDate(order.createdAt),
     items: order.items.map((item) => ({
       id: item.id,

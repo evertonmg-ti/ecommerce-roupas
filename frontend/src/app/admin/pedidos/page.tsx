@@ -112,6 +112,30 @@ export default async function AdminOrdersPage({
                       </div>
                     ))}
                   </div>
+
+                  <div className="rounded-[1.5rem] border border-espresso/10 bg-white/60 p-4 text-sm text-espresso/70">
+                    <p>
+                      <strong>Pagamento:</strong> {order.paymentMethod}
+                    </p>
+                    <p className="mt-2">
+                      <strong>Entrega:</strong> {order.shippingMethod}
+                    </p>
+                    <p className="mt-2">
+                      <strong>Endereco:</strong> {order.shippingAddress}
+                      {order.shippingAddress2 ? `, ${order.shippingAddress2}` : ""} -{" "}
+                      {order.shippingCity}/{order.shippingState} - CEP {order.shippingPostalCode}
+                    </p>
+                    {order.notes ? (
+                      <p className="mt-2">
+                        <strong>Observacoes:</strong> {order.notes}
+                      </p>
+                    ) : null}
+                    <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-espresso/10 pt-4">
+                      <span>Subtotal: {currency(order.subtotal)}</span>
+                      <span>Frete: {currency(order.shippingCost)}</span>
+                      <strong>Total: {currency(order.total)}</strong>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="rounded-[1.5rem] border border-espresso/10 bg-sand/35 p-5">

@@ -26,6 +26,18 @@ enum OrderStatus {
   CANCELED
 }
 
+enum PaymentMethod {
+  PIX
+  CREDIT_CARD
+  BOLETO
+}
+
+enum ShippingMethod {
+  STANDARD
+  EXPRESS
+  PICKUP
+}
+
 model User {
   id           String   @id @default(cuid())
   name         String
@@ -65,14 +77,24 @@ model Product {
 }
 
 model Order {
-  id        String      @id @default(cuid())
-  userId    String
-  user      User        @relation(fields: [userId], references: [id])
-  total     Decimal     @db.Decimal(10, 2)
-  status    OrderStatus @default(PENDING)
-  items     OrderItem[]
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
+  id                 String         @id @default(cuid())
+  userId             String
+  user               User           @relation(fields: [userId], references: [id])
+  subtotal           Decimal        @db.Decimal(10, 2)
+  shippingCost       Decimal        @db.Decimal(10, 2)
+  total              Decimal        @db.Decimal(10, 2)
+  status             OrderStatus    @default(PENDING)
+  paymentMethod      PaymentMethod
+  shippingMethod     ShippingMethod
+  shippingAddress    String
+  shippingAddress2   String?
+  shippingCity       String
+  shippingState      String
+  shippingPostalCode String
+  notes              String?
+  items              OrderItem[]
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
 }
 
 model OrderItem {
@@ -84,4 +106,3 @@ model OrderItem {
   order     Order   @relation(fields: [orderId], references: [id])
   product   Product @relation(fields: [productId], references: [id])
 }
-
