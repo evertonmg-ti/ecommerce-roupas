@@ -1,7 +1,9 @@
 import { getAdminDashboardMetrics } from "@/lib/admin-api";
 
 export default async function AdminDashboardPage() {
-  const metrics = await getAdminDashboardMetrics().catch(() => null);
+  const dashboard = await getAdminDashboardMetrics().catch(() => null);
+  const metrics = dashboard?.metrics;
+  const recentOrders = dashboard?.recentOrders ?? [];
 
   return (
     <div className="space-y-6">
@@ -14,18 +16,59 @@ export default async function AdminDashboardPage() {
       </div>
 
       {metrics ? (
-        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
-          {metrics.map((item) => (
-            <article
-              key={item.label}
-              className="rounded-[2rem] border border-espresso/10 bg-white/75 p-5 shadow-soft"
-            >
-              <p className="text-sm text-espresso/55">{item.label}</p>
-              <p className="mt-3 font-display text-4xl">{item.value}</p>
-              <p className="mt-2 text-sm text-moss">{item.detail}</p>
-            </article>
-          ))}
-        </div>
+        <>
+          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+            {metrics.map((item) => (
+              <article
+                key={item.label}
+                className="rounded-[2rem] border border-espresso/10 bg-white/75 p-5 shadow-soft"
+              >
+                <p className="text-sm text-espresso/55">{item.label}</p>
+                <p className="mt-3 font-display text-4xl">{item.value}</p>
+                <p className="mt-2 text-sm text-moss">{item.detail}</p>
+              </article>
+            ))}
+          </div>
+
+          <section className="rounded-[2rem] border border-espresso/10 bg-white/80 p-6 shadow-soft">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-xs uppercase tracking-[0.3em] text-terracotta">
+                  Pedidos recentes
+                </p>
+                <h2 className="mt-2 font-display text-3xl">Ultimas movimentacoes</h2>
+              </div>
+            </div>
+
+            {recentOrders.length > 0 ? (
+              <div className="mt-6 space-y-3">
+                {recentOrders.map((order) => (
+                  <div
+                    key={order.id}
+                    className="flex flex-col gap-2 rounded-[1.5rem] border border-espresso/10 bg-sand/35 p-4 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div>
+                      <p className="font-medium">{order.customerName}</p>
+                      <p className="mt-1 text-sm text-espresso/60">
+                        {order.customerEmail} - {order.createdAt}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <span className="rounded-full bg-moss/10 px-3 py-1 text-xs text-moss">
+                        {order.status}
+                      </span>
+                      <p className="font-medium">{order.total.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="mt-6 rounded-[1.5rem] border border-espresso/10 bg-sand/35 p-4 text-sm text-espresso/70">
+                Ainda nao ha pedidos recentes para exibir.
+              </div>
+            )}
+          </section>
+        </>
       ) : (
         <div className="rounded-[2rem] border border-terracotta/20 bg-white/80 p-6 text-sm text-espresso/70 shadow-soft">
           Nao foi possivel carregar o resumo administrativo. Faca login novamente

@@ -27,6 +27,17 @@ type DashboardResponse = {
   products: number;
   orders: number;
   revenue: number | string | null;
+  lowStockProducts: number;
+  recentOrders: Array<{
+    id: string;
+    status: string;
+    total: number | string;
+    createdAt: string;
+    user: {
+      name: string;
+      email: string;
+    };
+  }>;
 };
 
 type ProductResponse = {
@@ -90,6 +101,20 @@ export type AdminMetric = {
   label: string;
   value: string;
   detail: string;
+};
+
+export type AdminRecentOrder = {
+  id: string;
+  customerName: string;
+  customerEmail: string;
+  status: string;
+  total: number;
+  createdAt: string;
+};
+
+export type AdminDashboardData = {
+  metrics: AdminMetric[];
+  recentOrders: AdminRecentOrder[];
 };
 
 export type AdminProduct = {
@@ -272,31 +297,41 @@ function formatDate(value: string) {
   }).format(new Date(value));
 }
 
-export async function getAdminDashboardMetrics(): Promise<AdminMetric[]> {
+export async function getAdminDashboardMetrics(): Promise<AdminDashboardData> {
   const data = await fetchAdmin<DashboardResponse>("/dashboard/summary");
 
-  return [
-    {
-      label: "Faturamento",
-      value: formatCurrency(toNumber(data.revenue)),
-      detail: "Receita consolidada dos pedidos"
-    },
-    {
-      label: "Pedidos",
-      value: String(data.orders),
-      detail: "Pedidos registrados na base"
-    },
-    {
-      label: "Produtos",
-      value: String(data.products),
-      detail: "Itens cadastrados no catalogo"
-    },
-    {
-      label: "Clientes",
-      value: String(data.users),
-      detail: "Usuarios criados na plataforma"
-    }
-  ];
+  return {
+    metrics: [
+      {
+        label: "Faturamento",
+        value: formatCurrency(toNumber(data.revenue)),
+        detail: "Receita consolidada dos pedidos"
+      },
+      {
+        label: "Pedidos",
+        value: String(data.orders),
+        detail: "Pedidos registrados na base"
+      },
+      {
+        label: "Produtos",
+        value: String(data.products),
+        detail: `${data.lowStockProducts} com estoque baixo`
+      },
+      {
+        label: "Clientes",
+        value: String(data.users),
+        detail: "Usuarios criados na plataforma"
+      }
+    ],
+    recentOrders: data.recentOrders.map((order) => ({
+      id: order.id,
+      customerName: order.user.name,
+      customerEmail: order.user.email,
+      status: order.status,
+      total: toNumber(order.total),
+      createdAt: formatDate(order.createdAt)
+    }))
+  };
 }
 
 export async function getAdminProducts(): Promise<AdminProduct[]> {
@@ -344,8 +379,9 @@ export async function getAdminUsers(): Promise<AdminUser[]> {
   }));
 }
 
-export async function getAdminOrders(): Promise<AdminOrder[]> {
-  const orders = await fetchAdmin<OrderResponse[]>("/orders");
+export async function getAdminOrders(status?: string): Promise<AdminOrder[]> {
+  const suffix = status ? `?status=${encodeURIComponent(status)}` : "";
+  const orders = await fetchAdmin<OrderResponse[]>(`/orders${suffix}`);
 
   return orders.map((order) => ({
     id: order.id,
@@ -429,4 +465,39 @@ export async function deleteAdminCategory(id: string) {
 
 export async function updateAdminOrderStatus(id: string, status: string) {
   return mutateAdmin(`/orders/${id}/status`, "PATCH", { status });
+}
+
+export type CustomerOrder = {
+  id: string;
+  total: number;
+  status: string;
+  createdAt: string;
+  items: Array<{
+    id: string;
+    name: string;
+    quantity: number;
+    unitPrice: number;
+    category: string;
+  }>;
+};
+
+export async function lookupCustomerOrders(email: string): Promise<CustomerOrder[]> {
+  const orders = await apiFetch<OrderResponse[]>("/orders/lookup", {
+    method: "POST",
+    body: JSON.stringify({ email })
+  });
+
+  return orders.map((order) => ({
+    id: order.id,
+    total: toNumber(order.total),
+    status: order.status,
+    createdAt: formatDate(order.createdAt),
+    items: order.items.map((item) => ({
+      id: item.id,
+      name: item.product.name,
+      quantity: item.quantity,
+      unitPrice: toNumber(item.unitPrice),
+      category: item.product.category?.name ?? "Colecao"
+    }))
+  }));
 }

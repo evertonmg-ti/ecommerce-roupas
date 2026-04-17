@@ -8,14 +8,16 @@ import * as bcrypt from "bcryptjs";
 import { randomUUID } from "crypto";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreateOrderDto } from "./dto/create-order.dto";
+import { LookupOrdersDto } from "./dto/lookup-orders.dto";
 import { UpdateOrderStatusDto } from "./dto/update-order-status.dto";
 
 @Injectable()
 export class OrdersService {
   constructor(private readonly prisma: PrismaService) {}
 
-  listAll() {
+  listAll(status?: OrderStatus) {
     return this.prisma.order.findMany({
+      where: status ? { status } : undefined,
       include: {
         user: true,
         items: {
@@ -34,6 +36,27 @@ export class OrdersService {
     return this.prisma.order.findMany({
       where: { userId },
       include: {
+        items: {
+          include: {
+            product: {
+              include: { category: true }
+            }
+          }
+        }
+      },
+      orderBy: { createdAt: "desc" }
+    });
+  }
+
+  listByCustomerEmail(payload: LookupOrdersDto) {
+    return this.prisma.order.findMany({
+      where: {
+        user: {
+          email: payload.email.trim().toLowerCase()
+        }
+      },
+      include: {
+        user: true,
         items: {
           include: {
             product: {

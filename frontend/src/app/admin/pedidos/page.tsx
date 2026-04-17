@@ -19,7 +19,11 @@ export default async function AdminOrdersPage({
   searchParams
 }: AdminOrdersPageProps) {
   const params = searchParams ? await searchParams : undefined;
-  const orders = await getAdminOrders().catch(() => null);
+  const activeStatus =
+    typeof params?.status === "string" && params.status !== "ALL"
+      ? params.status
+      : undefined;
+  const orders = await getAdminOrders(activeStatus).catch(() => null);
 
   return (
     <div className="space-y-6">
@@ -33,6 +37,29 @@ export default async function AdminOrdersPage({
       </div>
 
       <AdminFeedback searchParams={params} />
+
+      <section className="rounded-[2rem] border border-espresso/10 bg-white/80 p-6 shadow-soft">
+        <form className="flex flex-col gap-4 sm:flex-row sm:items-end">
+          <label className="space-y-2 text-sm">
+            <span>Filtrar por status</span>
+            <select
+              name="status"
+              defaultValue={activeStatus ?? "ALL"}
+              className="w-full rounded-2xl border border-espresso/15 bg-sand px-4 py-3 outline-none sm:min-w-56"
+            >
+              <option value="ALL">Todos</option>
+              {statusOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button className="rounded-full bg-espresso px-5 py-3 text-sand">
+            Aplicar filtro
+          </button>
+        </form>
+      </section>
 
       {orders && orders.length > 0 ? (
         <section className="space-y-4">

@@ -16,6 +16,7 @@ export async function Header() {
         <nav className="hidden items-center gap-6 text-sm md:flex">
           <Link href="/">Inicio</Link>
           <Link href="/produtos">Colecao</Link>
+          <Link href="/meus-pedidos">Pedidos</Link>
           <Link href="/admin">Admin</Link>
         </nav>
         <div className="flex items-center gap-3">
