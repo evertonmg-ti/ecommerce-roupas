@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { ShoppingBag, UserRound } from "lucide-react";
+import { UserRound } from "lucide-react";
+import { CartButton } from "@/components/cart-button";
 import { getAdminSession } from "@/lib/auth";
 import { logoutAction } from "@/app/login/actions";
 
@@ -38,9 +39,7 @@ export async function Header() {
               <UserRound className="h-5 w-5" />
             </Link>
           )}
-          <button className="rounded-full bg-espresso p-2 text-sand">
-            <ShoppingBag className="h-5 w-5" />
-          </button>
+          <CartButton />
         </div>
       </div>
     </header>

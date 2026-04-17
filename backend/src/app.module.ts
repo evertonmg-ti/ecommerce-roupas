@@ -4,6 +4,7 @@ import { AppController } from "./app.controller";
 import { AuthModule } from "./modules/auth/auth.module";
 import { CategoriesModule } from "./modules/categories/categories.module";
 import { DashboardModule } from "./modules/dashboard/dashboard.module";
+import { OrdersModule } from "./modules/orders/orders.module";
 import { PrismaModule } from "./modules/prisma/prisma.module";
 import { ProductsModule } from "./modules/products/products.module";
 import { UsersModule } from "./modules/users/users.module";
@@ -16,6 +17,7 @@ import { UsersModule } from "./modules/users/users.module";
     CategoriesModule,
     UsersModule,
     ProductsModule,
+    OrdersModule,
     DashboardModule
   ],
   controllers: [AppController]

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { CartProvider } from "@/components/cart-provider";
 import { Footer } from "@/components/footer";
 import { Header } from "@/components/header";
 import "./globals.css";
@@ -14,11 +15,12 @@ export default function RootLayout({
   return (
     <html lang="pt-BR">
       <body>
-        <Header />
-        <main>{children}</main>
-        <Footer />
+        <CartProvider>
+          <Header />
+          <main>{children}</main>
+          <Footer />
+        </CartProvider>
       </body>
     </html>
   );
 }
-

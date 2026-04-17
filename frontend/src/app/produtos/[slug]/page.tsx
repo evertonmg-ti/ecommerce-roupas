@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { ProductPurchaseActions } from "@/components/product-purchase-actions";
 import { fallbackProducts } from "@/lib/data";
 import { getPublicProductBySlug } from "@/lib/public-products";
 import { currency } from "@/lib/utils";
@@ -51,14 +52,17 @@ export default async function ProductDetailsPage({ params }: ProductPageProps) {
           ) : null}
         </div>
         <p className="mt-4 text-sm text-moss">Estoque disponivel: {product.stock} unidades</p>
-        <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-          <button className="rounded-full bg-espresso px-6 py-3 text-sand">
-            Adicionar ao carrinho
-          </button>
-          <button className="rounded-full border border-espresso/15 px-6 py-3">
-            Comprar agora
-          </button>
-        </div>
+        <ProductPurchaseActions
+          product={{
+            id: product.id,
+            name: product.name,
+            slug: product.slug,
+            price: product.price,
+            imageUrl: product.imageUrl,
+            category: product.category,
+            stock: product.stock
+          }}
+        />
       </div>
     </section>
   );
