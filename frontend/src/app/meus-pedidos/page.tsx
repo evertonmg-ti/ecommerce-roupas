@@ -1,5 +1,6 @@
 import { lookupCustomerOrders } from "@/lib/admin-api";
 import { currency } from "@/lib/utils";
+import { confirmMockPaymentAction } from "./actions";
 
 type CustomerOrdersPageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -14,6 +15,8 @@ export default async function CustomerOrdersPage({
 }: CustomerOrdersPageProps) {
   const params = searchParams ? await searchParams : undefined;
   const email = getParamValue(params?.email)?.trim();
+  const success = getParamValue(params?.success);
+  const error = getParamValue(params?.error);
   const orders = email ? await lookupCustomerOrders(email).catch(() => null) : null;
 
   return (
@@ -45,6 +48,18 @@ export default async function CustomerOrdersPage({
         {email && orders && orders.length === 0 ? (
           <div className="mt-8 rounded-[1.5rem] border border-espresso/10 bg-sand/35 p-4 text-sm text-espresso/70">
             Nenhum pedido foi encontrado para este email.
+          </div>
+        ) : null}
+
+        {success === "payment_confirmed" ? (
+          <div className="mt-8 rounded-[1.5rem] border border-moss/20 bg-moss/10 p-4 text-sm text-moss">
+            Pagamento mock confirmado. O pedido foi atualizado para pago.
+          </div>
+        ) : null}
+
+        {error === "payment_failed" ? (
+          <div className="mt-8 rounded-[1.5rem] border border-terracotta/20 bg-terracotta/10 p-4 text-sm text-terracotta">
+            Nao foi possivel confirmar o pagamento mock. Revise o pedido e tente novamente.
           </div>
         ) : null}
 
@@ -141,6 +156,15 @@ export default async function CustomerOrdersPage({
                             ? ` - ${order.paymentMock.installments}`
                             : ""}
                         </p>
+                      ) : null}
+                      {order.status === "PENDING" && email ? (
+                        <form action={confirmMockPaymentAction} className="mt-4">
+                          <input type="hidden" name="orderId" value={order.id} />
+                          <input type="hidden" name="email" value={email} />
+                          <button className="rounded-full bg-espresso px-5 py-3 text-sm text-sand">
+                            Simular pagamento
+                          </button>
+                        </form>
                       ) : null}
                     </div>
                   ) : null}

@@ -15,6 +15,7 @@ import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { RolesGuard } from "../../common/guards/roles.guard";
 import { CreateOrderDto } from "./dto/create-order.dto";
 import { CalculateShippingDto } from "./dto/calculate-shipping.dto";
+import { ConfirmMockPaymentDto } from "./dto/confirm-mock-payment.dto";
 import { LookupOrdersDto } from "./dto/lookup-orders.dto";
 import { OrdersService } from "./orders.service";
 import { UpdateOrderStatusDto } from "./dto/update-order-status.dto";
@@ -36,6 +37,14 @@ export class OrdersController {
   @Post("shipping-quote")
   calculateShipping(@Body() payload: CalculateShippingDto) {
     return this.ordersService.calculateShipping(payload);
+  }
+
+  @Post(":id/mock-payment/confirm")
+  confirmMockPayment(
+    @Param("id") id: string,
+    @Body() payload: ConfirmMockPaymentDto
+  ) {
+    return this.ordersService.confirmMockPayment(id, payload);
   }
 
   @Get("me")

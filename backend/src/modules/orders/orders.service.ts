@@ -17,6 +17,7 @@ import { randomUUID } from "crypto";
 import { CouponsService } from "../coupons/coupons.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { CalculateShippingDto } from "./dto/calculate-shipping.dto";
+import { ConfirmMockPaymentDto } from "./dto/confirm-mock-payment.dto";
 import { CreateOrderDto } from "./dto/create-order.dto";
 import { LookupOrdersDto } from "./dto/lookup-orders.dto";
 import { UpdateOrderStatusDto } from "./dto/update-order-status.dto";
@@ -31,18 +32,18 @@ export class OrdersService {
   listAll(status?: OrderStatus) {
     return this.prisma.order
       .findMany({
-      where: status ? { status } : undefined,
-      include: {
-        user: true,
-        items: {
-          include: {
-            product: {
-              include: { category: true }
+        where: status ? { status } : undefined,
+        include: {
+          user: true,
+          items: {
+            include: {
+              product: {
+                include: { category: true }
+              }
             }
           }
-        }
-      },
-      orderBy: { createdAt: "desc" }
+        },
+        orderBy: { createdAt: "desc" }
       })
       .then((orders) => orders.map((order) => this.attachMockPayment(order)));
   }
@@ -50,17 +51,17 @@ export class OrdersService {
   listByUser(userId: string) {
     return this.prisma.order
       .findMany({
-      where: { userId },
-      include: {
-        items: {
-          include: {
-            product: {
-              include: { category: true }
+        where: { userId },
+        include: {
+          items: {
+            include: {
+              product: {
+                include: { category: true }
+              }
             }
           }
-        }
-      },
-      orderBy: { createdAt: "desc" }
+        },
+        orderBy: { createdAt: "desc" }
       })
       .then((orders) => orders.map((order) => this.attachMockPayment(order)));
   }
@@ -68,22 +69,22 @@ export class OrdersService {
   listByCustomerEmail(payload: LookupOrdersDto) {
     return this.prisma.order
       .findMany({
-      where: {
-        user: {
-          email: payload.email.trim().toLowerCase()
-        }
-      },
-      include: {
-        user: true,
-        items: {
-          include: {
-            product: {
-              include: { category: true }
+        where: {
+          user: {
+            email: payload.email.trim().toLowerCase()
+          }
+        },
+        include: {
+          user: true,
+          items: {
+            include: {
+              product: {
+                include: { category: true }
+              }
             }
           }
-        }
-      },
-      orderBy: { createdAt: "desc" }
+        },
+        orderBy: { createdAt: "desc" }
       })
       .then((orders) => orders.map((order) => this.attachMockPayment(order)));
   }
@@ -233,9 +234,59 @@ export class OrdersService {
 
     return this.prisma.order
       .update({
+        where: { id },
+        data: {
+          status: payload.status as OrderStatus
+        },
+        include: {
+          user: true,
+          items: {
+            include: {
+              product: {
+                include: { category: true }
+              }
+            }
+          }
+        }
+      })
+      .then((order) => this.attachMockPayment(order));
+  }
+
+  async confirmMockPayment(id: string, payload: ConfirmMockPaymentDto) {
+    const order = await this.prisma.order.findUnique({
+      where: { id },
+      include: {
+        user: true,
+        items: {
+          include: {
+            product: {
+              include: { category: true }
+            }
+          }
+        }
+      }
+    });
+
+    if (!order) {
+      throw new NotFoundException("Pedido nao encontrado.");
+    }
+
+    if (order.user.email !== payload.email.trim().toLowerCase()) {
+      throw new BadRequestException("O email informado nao pertence a este pedido.");
+    }
+
+    if (order.status === OrderStatus.CANCELED) {
+      throw new BadRequestException("Nao e possivel pagar um pedido cancelado.");
+    }
+
+    if (order.status !== OrderStatus.PENDING) {
+      return this.attachMockPayment(order);
+    }
+
+    const paidOrder = await this.prisma.order.update({
       where: { id },
       data: {
-        status: payload.status as OrderStatus
+        status: OrderStatus.PAID
       },
       include: {
         user: true,
@@ -247,8 +298,9 @@ export class OrdersService {
           }
         }
       }
-      })
-      .then((order) => this.attachMockPayment(order));
+    });
+
+    return this.attachMockPayment(paidOrder);
   }
 
   private normalizeItems(items: CreateOrderDto["items"]) {

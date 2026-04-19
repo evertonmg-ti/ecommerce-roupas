@@ -758,7 +758,14 @@ export async function lookupCustomerOrders(email: string): Promise<CustomerOrder
       unitPrice: toNumber(item.unitPrice),
       category: item.product.category?.name ?? "Colecao"
     }))
-  }));
+    }));
+}
+
+export async function confirmCustomerMockPayment(orderId: string, email: string) {
+  return apiFetch<OrderResponse>(`/orders/${orderId}/mock-payment/confirm`, {
+    method: "POST",
+    body: JSON.stringify({ email })
+  });
 }
 
 export async function validateCoupon(code: string, subtotal: number, shippingCost = 0) {
