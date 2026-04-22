@@ -15,7 +15,21 @@ type ApiProduct = {
   imageUrl?: string | null;
   category?: {
     name: string;
+    slug?: string;
   } | null;
+};
+
+type ApiCategory = {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string | null;
+};
+
+export type PublicProductFilters = {
+  search?: string;
+  category?: string;
+  sort?: string;
 };
 
 function toNumber(value: number | string | null | undefined) {
@@ -45,8 +59,27 @@ function normalizeProduct(product: ApiProduct): Product {
   };
 }
 
-export async function getPublicProducts() {
-  const products = await apiFetch<ApiProduct[]>("/products");
+function buildProductsPath(filters?: PublicProductFilters) {
+  const params = new URLSearchParams();
+
+  if (filters?.search) {
+    params.set("search", filters.search);
+  }
+
+  if (filters?.category) {
+    params.set("category", filters.category);
+  }
+
+  if (filters?.sort) {
+    params.set("sort", filters.sort);
+  }
+
+  const query = params.toString();
+  return query ? `/products?${query}` : "/products";
+}
+
+export async function getPublicProducts(filters?: PublicProductFilters) {
+  const products = await apiFetch<ApiProduct[]>(buildProductsPath(filters));
   return products.map(normalizeProduct);
 }
 
@@ -58,4 +91,15 @@ export async function getFeaturedProducts(limit = 3) {
 export async function getPublicProductBySlug(slug: string) {
   const product = await apiFetch<ApiProduct>(`/products/${slug}`);
   return normalizeProduct(product);
+}
+
+export async function getPublicCategories() {
+  const categories = await apiFetch<ApiCategory[]>("/categories");
+
+  return categories.map((category) => ({
+    id: category.id,
+    name: category.name,
+    slug: category.slug,
+    description: category.description ?? undefined
+  }));
 }

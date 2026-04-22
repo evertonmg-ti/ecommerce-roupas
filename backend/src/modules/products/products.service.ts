@@ -8,11 +8,42 @@ import { UpdateProductDto } from "./dto/update-product.dto";
 export class ProductsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  listActive() {
+  listActive(filters?: { search?: string; category?: string; sort?: string }) {
+    const search = filters?.search?.trim();
+    const category = filters?.category?.trim();
+    const where: Prisma.ProductWhereInput = {
+      status: ProductStatus.ACTIVE,
+      ...(category
+        ? {
+            category: {
+              slug: category
+            }
+          }
+        : {}),
+      ...(search
+        ? {
+            OR: [
+              {
+                name: {
+                  contains: search,
+                  mode: "insensitive"
+                }
+              },
+              {
+                description: {
+                  contains: search,
+                  mode: "insensitive"
+                }
+              }
+            ]
+          }
+        : {})
+    };
+
     return this.prisma.product.findMany({
-      where: { status: ProductStatus.ACTIVE },
+      where,
       include: { category: true },
-      orderBy: { createdAt: "desc" }
+      orderBy: this.resolvePublicSort(filters?.sort)
     });
   }
 
@@ -80,5 +111,18 @@ export class ProductsService {
       throw new NotFoundException("Produto nao encontrado.");
     }
   }
-}
 
+  private resolvePublicSort(sort?: string): Prisma.ProductOrderByWithRelationInput {
+    switch (sort) {
+      case "price_asc":
+        return { price: "asc" };
+      case "price_desc":
+        return { price: "desc" };
+      case "name_asc":
+        return { name: "asc" };
+      case "newest":
+      default:
+        return { createdAt: "desc" };
+    }
+  }
+}

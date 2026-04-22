@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards
 } from "@nestjs/common";
 import { Role } from "@prisma/client";
@@ -21,8 +22,12 @@ export class ProductsController {
   constructor(private readonly productsService: ProductsService) {}
 
   @Get()
-  listActive() {
-    return this.productsService.listActive();
+  listActive(
+    @Query("search") search?: string,
+    @Query("category") category?: string,
+    @Query("sort") sort?: string
+  ) {
+    return this.productsService.listActive({ search, category, sort });
   }
 
   @Get("admin")
@@ -58,4 +63,3 @@ export class ProductsController {
     return this.productsService.remove(id);
   }
 }
-
