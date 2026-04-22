@@ -55,7 +55,8 @@ function normalizeProduct(product: ApiProduct): Product {
     stock: product.stock,
     status: product.status,
     imageUrl: product.imageUrl ?? fallbackProducts[0]?.imageUrl,
-    category: product.category?.name ?? "Colecao"
+    category: product.category?.name ?? "Colecao",
+    categorySlug: product.category?.slug
   };
 }
 
@@ -86,6 +87,15 @@ export async function getPublicProducts(filters?: PublicProductFilters) {
 export async function getFeaturedProducts(limit = 3) {
   const products = await getPublicProducts();
   return products.slice(0, limit);
+}
+
+export async function getRelatedProducts(product: Product, limit = 3) {
+  const products = await getPublicProducts({
+    category: product.categorySlug,
+    sort: "newest"
+  });
+
+  return products.filter((item) => item.id !== product.id).slice(0, limit);
 }
 
 export async function getPublicProductBySlug(slug: string) {

@@ -7,6 +7,7 @@ export type Product = {
   compareAt?: number;
   stock: number;
   category: string;
+  categorySlug?: string;
   imageUrl?: string;
   status?: string;
   featured?: boolean;
@@ -22,6 +23,7 @@ export const fallbackProducts: Product[] = [
     compareAt: 389.9,
     stock: 8,
     category: "Outerwear",
+    categorySlug: "outerwear",
     imageUrl: "https://images.unsplash.com/photo-1523398002811-999ca8dec234",
     featured: true
   },
@@ -33,6 +35,7 @@ export const fallbackProducts: Product[] = [
     price: 279.9,
     stock: 13,
     category: "Vestidos",
+    categorySlug: "vestidos",
     imageUrl: "https://images.unsplash.com/photo-1496747611176-843222e1e57c",
     featured: true
   },
@@ -44,6 +47,7 @@ export const fallbackProducts: Product[] = [
     price: 189.9,
     stock: 21,
     category: "Camisas",
+    categorySlug: "camisas",
     imageUrl: "https://images.unsplash.com/photo-1512436991641-6745cdb1723f"
   }
 ];
