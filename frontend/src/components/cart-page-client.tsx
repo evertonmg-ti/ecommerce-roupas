@@ -59,6 +59,11 @@ export function CartPageClient() {
                   <p className="mt-2 text-sm text-espresso/60">
                     Estoque disponivel: {item.stock}
                   </p>
+                  {item.quantity >= item.stock ? (
+                    <p className="mt-2 text-sm text-terracotta">
+                      Quantidade no limite do estoque.
+                    </p>
+                  ) : null}
                 </div>
                 <p className="font-display text-3xl">{currency(item.price)}</p>
               </div>
@@ -76,6 +81,9 @@ export function CartPageClient() {
                     className="w-20 rounded-full border border-espresso/15 bg-transparent px-4 py-2"
                   />
                 </label>
+                <p className="text-sm font-medium text-espresso">
+                  Total: {currency(item.price * item.quantity)}
+                </p>
                 <button
                   onClick={() => removeItem(item.id)}
                   className="inline-flex items-center gap-2 rounded-full border border-espresso/15 px-4 py-2 text-sm"
