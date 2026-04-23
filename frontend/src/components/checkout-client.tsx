@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useCart } from "@/components/cart-provider";
+import { CheckoutProfile, emptyCheckoutProfile } from "@/lib/checkout-profile";
 import { validateCoupon } from "@/lib/public-coupons";
 import { calculateShippingQuote } from "@/lib/public-shipping";
 import { currency } from "@/lib/utils";
@@ -18,6 +19,7 @@ const paymentOptions = [
   { value: "CREDIT_CARD", label: "Cartao de credito" },
   { value: "BOLETO", label: "Boleto" }
 ];
+const CHECKOUT_PROFILE_STORAGE_KEY = "maison-aurea-checkout-profile";
 
 type CheckoutState =
   | { type: "idle" }
@@ -45,6 +47,7 @@ export function CheckoutClient() {
   const [state, setState] = useState<CheckoutState>({ type: "idle" });
   const [shippingMethod, setShippingMethod] = useState("STANDARD");
   const [shippingPostalCode, setShippingPostalCode] = useState("");
+  const [profile, setProfile] = useState<CheckoutProfile>(emptyCheckoutProfile);
   const [couponCode, setCouponCode] = useState("");
   const [couponState, setCouponState] = useState<{
     status: "idle" | "applied" | "error";
@@ -70,6 +73,34 @@ export function CheckoutClient() {
     () => items.length > 0 && state.type !== "submitting",
     [items.length, state.type]
   );
+
+  useEffect(() => {
+    const stored = window.localStorage.getItem(CHECKOUT_PROFILE_STORAGE_KEY);
+
+    if (!stored) {
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(stored) as Partial<CheckoutProfile>;
+      const nextProfile = {
+        ...emptyCheckoutProfile,
+        ...parsed
+      };
+      setProfile(nextProfile);
+      setShippingMethod(nextProfile.shippingMethod || "STANDARD");
+      setShippingPostalCode(nextProfile.shippingPostalCode || "");
+    } catch {
+      window.localStorage.removeItem(CHECKOUT_PROFILE_STORAGE_KEY);
+    }
+  }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem(
+      CHECKOUT_PROFILE_STORAGE_KEY,
+      JSON.stringify(profile)
+    );
+  }, [profile]);
 
   useEffect(() => {
     if (items.length === 0) {
@@ -193,6 +224,19 @@ export function CheckoutClient() {
     setState({ type: "submitting" });
 
     try {
+      setProfile({
+        customerName,
+        customerEmail,
+        paymentMethod,
+        shippingMethod: shippingMethodValue,
+        shippingAddress,
+        shippingAddress2,
+        shippingCity,
+        shippingState,
+        shippingPostalCode,
+        notes
+      });
+
       const response = await fetch(`${API_URL}/orders/checkout`, {
         method: "POST",
         headers: {
@@ -250,8 +294,20 @@ export function CheckoutClient() {
         paymentMock: data.paymentMock
       });
       form.reset();
-      setShippingMethod("STANDARD");
-      setShippingPostalCode("");
+      setProfile({
+        customerName,
+        customerEmail,
+        paymentMethod,
+        shippingMethod: shippingMethodValue,
+        shippingAddress,
+        shippingAddress2,
+        shippingCity,
+        shippingState,
+        shippingPostalCode,
+        notes
+      });
+      setShippingMethod(shippingMethodValue);
+      setShippingPostalCode(shippingPostalCode);
       setCouponCode("");
       setCouponState({ status: "idle", discountAmount: 0 });
       setShippingQuoteState({
@@ -301,6 +357,23 @@ export function CheckoutClient() {
     }
   }
 
+  function updateProfile<K extends keyof CheckoutProfile>(
+    key: K,
+    value: CheckoutProfile[K]
+  ) {
+    setProfile((current) => ({
+      ...current,
+      [key]: value
+    }));
+  }
+
+  function clearSavedProfile() {
+    setProfile(emptyCheckoutProfile);
+    setShippingMethod("STANDARD");
+    setShippingPostalCode("");
+    window.localStorage.removeItem(CHECKOUT_PROFILE_STORAGE_KEY);
+  }
+
   return (
     <section className="mx-auto grid max-w-7xl gap-8 px-4 py-12 sm:px-6 lg:grid-cols-[1fr_0.85fr] lg:px-8">
       <div className="rounded-[2rem] border border-espresso/10 bg-white/80 p-8 shadow-soft">
@@ -310,6 +383,13 @@ export function CheckoutClient() {
           Finalize a compra com dados do cliente, entrega e forma de pagamento. O
           pedido cria ou reaproveita o cadastro do comprador na base.
         </p>
+        <button
+          type="button"
+          onClick={clearSavedProfile}
+          className="mt-5 rounded-full border border-espresso/15 px-4 py-2 text-sm"
+        >
+          Limpar dados salvos
+        </button>
 
         {state.type === "success" ? (
           <div className="mt-8 rounded-[1.5rem] border border-moss/20 bg-moss/10 p-5 text-sm text-moss">
@@ -369,6 +449,8 @@ export function CheckoutClient() {
                 name="customerName"
                 required
                 minLength={3}
+                value={profile.customerName}
+                onChange={(event) => updateProfile("customerName", event.target.value)}
                 className="w-full rounded-[1.5rem] border border-espresso/15 bg-transparent px-4 py-3"
               />
             </label>
@@ -378,6 +460,8 @@ export function CheckoutClient() {
                 name="customerEmail"
                 type="email"
                 required
+                value={profile.customerEmail}
+                onChange={(event) => updateProfile("customerEmail", event.target.value)}
                 className="w-full rounded-[1.5rem] border border-espresso/15 bg-transparent px-4 py-3"
               />
             </label>
@@ -389,7 +473,8 @@ export function CheckoutClient() {
               <select
                 name="paymentMethod"
                 required
-                defaultValue="PIX"
+                value={profile.paymentMethod}
+                onChange={(event) => updateProfile("paymentMethod", event.target.value)}
                 className="w-full rounded-[1.5rem] border border-espresso/15 bg-transparent px-4 py-3"
               >
                 {paymentOptions.map((option) => (
@@ -406,7 +491,10 @@ export function CheckoutClient() {
                 name="shippingMethod"
                 required
                 value={shippingMethod}
-                onChange={(event) => setShippingMethod(event.target.value)}
+                onChange={(event) => {
+                  setShippingMethod(event.target.value);
+                  updateProfile("shippingMethod", event.target.value);
+                }}
                 className="w-full rounded-[1.5rem] border border-espresso/15 bg-transparent px-4 py-3"
               >
                 {shippingOptions.map((option) => (
@@ -425,6 +513,8 @@ export function CheckoutClient() {
                 name="shippingAddress"
                 required
                 minLength={5}
+                value={profile.shippingAddress}
+                onChange={(event) => updateProfile("shippingAddress", event.target.value)}
                 className="w-full rounded-[1.5rem] border border-espresso/15 bg-transparent px-4 py-3"
               />
             </label>
@@ -432,6 +522,8 @@ export function CheckoutClient() {
               <span className="text-espresso/70">Complemento</span>
               <input
                 name="shippingAddress2"
+                value={profile.shippingAddress2}
+                onChange={(event) => updateProfile("shippingAddress2", event.target.value)}
                 className="w-full rounded-[1.5rem] border border-espresso/15 bg-transparent px-4 py-3"
               />
             </label>
@@ -441,6 +533,8 @@ export function CheckoutClient() {
                 name="shippingCity"
                 required
                 minLength={2}
+                value={profile.shippingCity}
+                onChange={(event) => updateProfile("shippingCity", event.target.value)}
                 className="w-full rounded-[1.5rem] border border-espresso/15 bg-transparent px-4 py-3"
               />
             </label>
@@ -451,6 +545,10 @@ export function CheckoutClient() {
                 required
                 minLength={2}
                 maxLength={2}
+                value={profile.shippingState}
+                onChange={(event) =>
+                  updateProfile("shippingState", event.target.value.toUpperCase())
+                }
                 className="w-full rounded-[1.5rem] border border-espresso/15 bg-transparent px-4 py-3 uppercase"
               />
             </label>
@@ -461,7 +559,10 @@ export function CheckoutClient() {
                 required
                 minLength={8}
                 value={shippingPostalCode}
-                onChange={(event) => setShippingPostalCode(event.target.value)}
+                onChange={(event) => {
+                  setShippingPostalCode(event.target.value);
+                  updateProfile("shippingPostalCode", event.target.value);
+                }}
                 className="w-full rounded-[1.5rem] border border-espresso/15 bg-transparent px-4 py-3"
               />
             </label>
@@ -470,6 +571,8 @@ export function CheckoutClient() {
               <textarea
                 name="notes"
                 rows={3}
+                value={profile.notes}
+                onChange={(event) => updateProfile("notes", event.target.value)}
                 className="w-full rounded-[1.5rem] border border-espresso/15 bg-transparent px-4 py-3"
                 placeholder="Ponto de referencia, horario de entrega, etc."
               />
