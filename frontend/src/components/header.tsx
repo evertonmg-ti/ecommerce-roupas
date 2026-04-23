@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { UserRound } from "lucide-react";
 import { CartButton } from "@/components/cart-button";
+import { FavoritesButton } from "@/components/favorites-button";
 import { getAdminSession } from "@/lib/auth";
 import { logoutAction } from "@/app/login/actions";
 
@@ -16,6 +17,7 @@ export async function Header() {
         <nav className="hidden items-center gap-6 text-sm md:flex">
           <Link href="/">Inicio</Link>
           <Link href="/produtos">Colecao</Link>
+          <Link href="/favoritos">Favoritos</Link>
           <Link href="/meus-pedidos">Pedidos</Link>
           <Link href="/admin">Admin</Link>
         </nav>
@@ -40,6 +42,7 @@ export async function Header() {
               <UserRound className="h-5 w-5" />
             </Link>
           )}
+          <FavoritesButton />
           <CartButton />
         </div>
       </div>
