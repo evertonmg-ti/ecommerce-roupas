@@ -111,6 +111,22 @@ type UserResponse = {
   createdAt: string;
 };
 
+type SettingsResponse = {
+  id: number;
+  storeName: string;
+  storeUrl: string;
+  supportEmail?: string | null;
+  emailEnabled: boolean;
+  emailFrom: string;
+  emailReplyTo?: string | null;
+  emailOrdersTo?: string | null;
+  smtpHost?: string | null;
+  smtpPort: number;
+  smtpSecure: boolean;
+  smtpUser?: string | null;
+  smtpPass?: string | null;
+};
+
 type OrderResponse = {
   id: string;
   couponCode?: string | null;
@@ -260,6 +276,21 @@ export type AdminUser = {
   role: string;
   status: string;
   createdAt: string;
+};
+
+export type AdminSettings = {
+  storeName: string;
+  storeUrl: string;
+  supportEmail?: string;
+  emailEnabled: boolean;
+  emailFrom: string;
+  emailReplyTo?: string;
+  emailOrdersTo?: string;
+  smtpHost?: string;
+  smtpPort: number;
+  smtpSecure: boolean;
+  smtpUser?: string;
+  smtpPass?: string;
 };
 
 export type AdminOrder = {
@@ -628,6 +659,25 @@ export async function getAdminUsers(): Promise<AdminUser[]> {
   }));
 }
 
+export async function getAdminSettings(): Promise<AdminSettings> {
+  const settings = await fetchAdmin<SettingsResponse>("/settings");
+
+  return {
+    storeName: settings.storeName,
+    storeUrl: settings.storeUrl,
+    supportEmail: settings.supportEmail ?? undefined,
+    emailEnabled: settings.emailEnabled,
+    emailFrom: settings.emailFrom,
+    emailReplyTo: settings.emailReplyTo ?? undefined,
+    emailOrdersTo: settings.emailOrdersTo ?? undefined,
+    smtpHost: settings.smtpHost ?? undefined,
+    smtpPort: settings.smtpPort,
+    smtpSecure: settings.smtpSecure,
+    smtpUser: settings.smtpUser ?? undefined,
+    smtpPass: settings.smtpPass ?? undefined
+  };
+}
+
 function normalizeAdminOrder(order: OrderResponse): AdminOrder {
   return {
     id: order.id,
@@ -793,12 +843,31 @@ export type SaveCouponInput = {
   expiresAt?: string;
 };
 
+export type SaveSettingsInput = {
+  storeName: string;
+  storeUrl: string;
+  supportEmail?: string;
+  emailEnabled: boolean;
+  emailFrom: string;
+  emailReplyTo?: string;
+  emailOrdersTo?: string;
+  smtpHost?: string;
+  smtpPort: number;
+  smtpSecure: boolean;
+  smtpUser?: string;
+  smtpPass?: string;
+};
+
 export async function createAdminCoupon(payload: SaveCouponInput) {
   return mutateAdmin("/coupons", "POST", payload);
 }
 
 export async function updateAdminCoupon(id: string, payload: SaveCouponInput) {
   return mutateAdmin(`/coupons/${id}`, "PATCH", payload);
+}
+
+export async function updateAdminSettings(payload: SaveSettingsInput) {
+  return mutateAdmin("/settings", "PATCH", payload);
 }
 
 export async function deleteAdminCoupon(id: string) {

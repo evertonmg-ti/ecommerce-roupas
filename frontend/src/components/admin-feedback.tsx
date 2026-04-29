@@ -15,6 +15,7 @@ const messages: Record<string, string> = {
   user_created: "Usuario criado com sucesso.",
   user_updated: "Usuario atualizado com sucesso.",
   user_deleted: "Usuario excluido com sucesso.",
+  settings_updated: "Configuracoes atualizadas com sucesso.",
   order_updated: "Status do pedido atualizado com sucesso.",
   slug_conflict: "Ja existe um cadastro com este slug. Escolha outro identificador.",
   email_conflict: "Ja existe um usuario com este email.",

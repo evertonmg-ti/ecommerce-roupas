@@ -1,7 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { ConfigService } from "@nestjs/config";
 import nodemailer, { Transporter } from "nodemailer";
 import SMTPTransport from "nodemailer/lib/smtp-transport";
+import { SettingsService } from "../settings/settings.service";
 import {
   buildAdminOrderCreatedEmail,
   buildOrderCreatedEmail,
@@ -12,57 +12,50 @@ import {
 @Injectable()
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
-  private readonly transporter?: Transporter<SMTPTransport.SentMessageInfo>;
-  private readonly emailEnabled: boolean;
-  private readonly emailFrom: string;
-  private readonly emailReplyTo?: string;
-  private readonly ordersInbox?: string;
 
-  constructor(private readonly configService: ConfigService) {
-    this.emailEnabled =
-      this.configService.get<string>("EMAIL_ENABLED", "false") === "true";
-    this.emailFrom = this.configService.get<string>(
-      "EMAIL_FROM",
-      "Maison Aurea <no-reply@maisonaurea.local>"
-    );
-    this.emailReplyTo = this.configService.get<string>("EMAIL_REPLY_TO");
-    this.ordersInbox = this.configService.get<string>("EMAIL_ORDERS_TO");
-
-    const host = this.configService.get<string>("SMTP_HOST");
-    const port = Number(this.configService.get<string>("SMTP_PORT", "587"));
-    const secure =
-      this.configService.get<string>("SMTP_SECURE", "false") === "true";
-    const user = this.configService.get<string>("SMTP_USER");
-    const pass = this.configService.get<string>("SMTP_PASS");
-
-    if (this.emailEnabled && host) {
-      this.transporter = nodemailer.createTransport({
-        host,
-        port,
-        secure,
-        auth: user ? { user, pass } : undefined
-      });
-    }
-  }
+  constructor(private readonly settingsService: SettingsService) {}
 
   async sendOrderCreated(payload: OrderEmailPayload) {
-    await this.safeSend(payload.customerEmail, buildOrderCreatedEmail(payload));
+    const settings = await this.settingsService.getSettings();
+    const messagePayload = {
+      ...payload,
+      storeUrl: settings.storeUrl
+    };
+    await this.safeSend(
+      settings,
+      payload.customerEmail,
+      buildOrderCreatedEmail(messagePayload)
+    );
 
-    if (this.ordersInbox) {
-      await this.safeSend(this.ordersInbox, buildAdminOrderCreatedEmail(payload));
+    if (settings.emailOrdersTo) {
+      await this.safeSend(
+        settings,
+        settings.emailOrdersTo,
+        buildAdminOrderCreatedEmail(messagePayload)
+      );
     }
   }
 
   async sendOrderStatusUpdated(payload: OrderEmailPayload) {
-    await this.safeSend(payload.customerEmail, buildOrderStatusEmail(payload));
+    const settings = await this.settingsService.getSettings();
+
+    await this.safeSend(
+      settings,
+      payload.customerEmail,
+      buildOrderStatusEmail({
+        ...payload,
+        storeUrl: settings.storeUrl
+      })
+    );
   }
 
   private async safeSend(
+    settings: Awaited<ReturnType<SettingsService["getSettings"]>>,
     to: string,
     message: { subject: string; text: string; html: string }
   ) {
     try {
-      await this.send(to, message);
+      await this.send(settings, to, message);
     } catch (error) {
       this.logger.error(
         `Falha ao enviar email para ${to}: ${error instanceof Error ? error.message : "erro desconhecido"}`
@@ -71,23 +64,46 @@ export class EmailService {
   }
 
   private async send(
+    settings: Awaited<ReturnType<SettingsService["getSettings"]>>,
     to: string,
     message: { subject: string; text: string; html: string }
   ) {
-    if (!this.emailEnabled || !this.transporter) {
+    const transporter = this.buildTransporter(settings);
+
+    if (!settings.emailEnabled || !transporter) {
       this.logger.log(
         `Email transacional (modo log) para ${to} | ${message.subject}\n${message.text}`
       );
       return;
     }
 
-    await this.transporter.sendMail({
-      from: this.emailFrom,
-      replyTo: this.emailReplyTo,
+    await transporter.sendMail({
+      from: settings.emailFrom,
+      replyTo: settings.emailReplyTo ?? undefined,
       to,
       subject: message.subject,
       text: message.text,
       html: message.html
+    });
+  }
+
+  private buildTransporter(
+    settings: Awaited<ReturnType<SettingsService["getSettings"]>>
+  ): Transporter<SMTPTransport.SentMessageInfo> | undefined {
+    if (!settings.smtpHost) {
+      return undefined;
+    }
+
+    return nodemailer.createTransport({
+      host: settings.smtpHost,
+      port: settings.smtpPort,
+      secure: settings.smtpSecure,
+      auth: settings.smtpUser
+        ? {
+            user: settings.smtpUser,
+            pass: settings.smtpPass ?? undefined
+          }
+        : undefined
     });
   }
 }

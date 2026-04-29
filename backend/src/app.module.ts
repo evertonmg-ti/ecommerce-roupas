@@ -9,6 +9,7 @@ import { EmailModule } from "./modules/email/email.module";
 import { OrdersModule } from "./modules/orders/orders.module";
 import { PrismaModule } from "./modules/prisma/prisma.module";
 import { ProductsModule } from "./modules/products/products.module";
+import { SettingsModule } from "./modules/settings/settings.module";
 import { UsersModule } from "./modules/users/users.module";
 
 @Module({
@@ -19,6 +20,7 @@ import { UsersModule } from "./modules/users/users.module";
     CategoriesModule,
     CouponsModule,
     EmailModule,
+    SettingsModule,
     UsersModule,
     ProductsModule,
     OrdersModule,

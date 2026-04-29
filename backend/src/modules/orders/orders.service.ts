@@ -728,7 +728,6 @@ export class OrdersService {
       shippingCity: order.shippingCity,
       shippingState: order.shippingState,
       shippingPostalCode: order.shippingPostalCode,
-      storeUrl: process.env.STORE_URL,
       items: order.items.map((item) => ({
         name: item.product.name,
         quantity: item.quantity,
