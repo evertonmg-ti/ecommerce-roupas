@@ -180,6 +180,7 @@ model Product {
   category    Category      @relation(fields: [categoryId], references: [id])
   orderItems  OrderItem[]
   inventoryMovements InventoryMovement[]
+  backInStockSubscriptions BackInStockSubscription[]
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 }
@@ -249,4 +250,51 @@ model OrderItem {
   unitPrice Decimal @db.Decimal(10, 2)
   order     Order   @relation(fields: [orderId], references: [id])
   product   Product @relation(fields: [productId], references: [id])
+}
+
+model AbandonedCart {
+  id            String              @id @default(cuid())
+  email         String
+  customerName  String?
+  token         String              @unique
+  lastEmailSentAt DateTime?
+  recoveredAt   DateTime?
+  items         AbandonedCartItem[]
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  @@index([email, updatedAt])
+  @@index([token])
+}
+
+model AbandonedCartItem {
+  id           String        @id @default(cuid())
+  cartId       String
+  productId    String
+  productName  String
+  productSlug  String
+  imageUrl     String?
+  categoryName String?
+  quantity     Int
+  unitPrice    Decimal       @db.Decimal(10, 2)
+  cart         AbandonedCart @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  createdAt    DateTime      @default(now())
+
+  @@index([cartId])
+  @@index([productId])
+}
+
+model BackInStockSubscription {
+  id         String   @id @default(cuid())
+  email      String
+  productId  String
+  active     Boolean  @default(true)
+  notifiedAt DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([email, productId])
+  @@index([productId, active])
+  @@index([email, active])
 }

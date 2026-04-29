@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { ReorderOrderButton } from "@/components/reorder-order-button";
 import { lookupCustomerOrders } from "@/lib/admin-api";
 import { currency } from "@/lib/utils";
 import { cancelOrderAction, confirmMockPaymentAction } from "./actions";
@@ -47,6 +49,9 @@ export default async function CustomerOrdersPage({
   const success = getParamValue(params?.success);
   const error = getParamValue(params?.error);
   const orders = email ? await lookupCustomerOrders(email).catch(() => null) : null;
+  const totalOrders = orders?.length ?? 0;
+  const totalSpent = orders?.reduce((sum, order) => sum + order.total, 0) ?? 0;
+  const lastOrder = orders?.[0];
 
   return (
     <section className="mx-auto max-w-5xl px-4 py-12 sm:px-6 lg:px-8">
@@ -73,6 +78,31 @@ export default async function CustomerOrdersPage({
             Buscar pedidos
           </button>
         </form>
+        <div className="mt-4">
+          <Link
+            href={email ? `/cliente?email=${encodeURIComponent(email)}` : "/cliente"}
+            className="inline-flex rounded-full border border-espresso/15 px-5 py-3 text-sm"
+          >
+            Abrir centro do cliente
+          </Link>
+        </div>
+
+        {orders && orders.length > 0 ? (
+          <div className="mt-8 grid gap-4 md:grid-cols-3">
+            <div className="rounded-[1.5rem] border border-espresso/10 bg-sand/35 p-4">
+              <p className="text-sm text-espresso/55">Pedidos encontrados</p>
+              <p className="mt-2 font-display text-3xl">{totalOrders}</p>
+            </div>
+            <div className="rounded-[1.5rem] border border-espresso/10 bg-sand/35 p-4">
+              <p className="text-sm text-espresso/55">Total comprado</p>
+              <p className="mt-2 font-display text-3xl">{currency(totalSpent)}</p>
+            </div>
+            <div className="rounded-[1.5rem] border border-espresso/10 bg-sand/35 p-4">
+              <p className="text-sm text-espresso/55">Ultimo pedido</p>
+              <p className="mt-2 font-display text-3xl">{lastOrder?.createdAt ?? "-"}</p>
+            </div>
+          </div>
+        ) : null}
 
         {email && orders && orders.length === 0 ? (
           <div className="mt-8 rounded-[1.5rem] border border-espresso/10 bg-sand/35 p-4 text-sm text-espresso/70">
@@ -146,6 +176,25 @@ export default async function CustomerOrdersPage({
                 </div>
 
                 <div className="mt-4 rounded-[1.25rem] border border-espresso/10 bg-white/50 p-4 text-sm text-espresso/70">
+                  <div className="mb-4 flex flex-wrap gap-3">
+                    <ReorderOrderButton
+                      items={order.items.map((item) => ({
+                        id: item.productId,
+                        name: item.name,
+                        slug: item.slug,
+                        category: item.category,
+                        unitPrice: item.unitPrice,
+                        quantity: item.quantity,
+                        imageUrl: item.imageUrl
+                      }))}
+                    />
+                    <Link
+                      href="/favoritos"
+                      className="rounded-full border border-espresso/15 px-5 py-3 text-sm"
+                    >
+                      Ver favoritos
+                    </Link>
+                  </div>
                   {order.recipientName ? (
                     <p>
                       <strong>Destinatario:</strong> {order.recipientName}
@@ -252,7 +301,7 @@ export default async function CustomerOrdersPage({
                   <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-espresso/10 pt-4">
                     <span>Subtotal: {currency(order.subtotal)}</span>
                     <span>Frete: {currency(order.shippingCost)}</span>
-                    <strong>Total: {currency(order.total)}</strong>
+                      <strong>Total: {currency(order.total)}</strong>
                   </div>
                   {renderTimeline(order)}
                 </div>

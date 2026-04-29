@@ -48,6 +48,14 @@ export function FavoritesPageClient() {
           Limpar lista
         </button>
       </div>
+      <div className="mt-4">
+        <Link
+          href="/cliente"
+          className="inline-flex rounded-full border border-espresso/15 px-5 py-3 text-sm"
+        >
+          Ir para o centro do cliente
+        </Link>
+      </div>
 
       <div className="mt-10 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
         {items.map((item) => (

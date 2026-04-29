@@ -392,6 +392,47 @@ type AdminAuditLogResponse = {
   createdAt: string;
 };
 
+type AbandonedCartResponse = {
+  id: string;
+  email: string;
+  customerName?: string | null;
+  token: string;
+  itemsCount: number;
+  itemsQuantity: number;
+  estimatedTotal: number | string;
+  lastEmailSentAt?: string | null;
+  recoveredAt?: string | null;
+  updatedAt: string;
+  items: Array<{
+    id: string;
+    productId: string;
+    productName: string;
+    productSlug: string;
+    imageUrl?: string | null;
+    categoryName?: string | null;
+    quantity: number;
+    unitPrice: number | string;
+  }>;
+};
+
+type BackInStockSubscriptionResponse = {
+  id: string;
+  email: string;
+  active: boolean;
+  notifiedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  product: {
+    id: string;
+    name: string;
+    slug: string;
+    stock: number;
+    status: string;
+    imageUrl?: string | null;
+    categoryName: string;
+  };
+};
+
 type PaginatedEventsResponse = {
   items: ObservabilityEventResponse[];
   total: number;
@@ -817,6 +858,47 @@ export type AdminAuditLogList = {
   page: number;
   pageSize: number;
   totalPages: number;
+};
+
+export type AdminAbandonedCart = {
+  id: string;
+  email: string;
+  customerName?: string;
+  token: string;
+  itemsCount: number;
+  itemsQuantity: number;
+  estimatedTotal: number;
+  lastEmailSentAt?: string;
+  recoveredAt?: string;
+  updatedAt: string;
+  items: Array<{
+    id: string;
+    productId: string;
+    productName: string;
+    productSlug: string;
+    imageUrl?: string;
+    categoryName?: string;
+    quantity: number;
+    unitPrice: number;
+  }>;
+};
+
+export type AdminBackInStockSubscription = {
+  id: string;
+  email: string;
+  active: boolean;
+  notifiedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+  product: {
+    id: string;
+    name: string;
+    slug: string;
+    stock: number;
+    status: string;
+    imageUrl?: string;
+    categoryName: string;
+  };
 };
 
 export type AdminOrder = {
@@ -1605,6 +1687,63 @@ export async function getAdminAuditLogs(filters?: {
   };
 }
 
+export async function getAdminAbandonedCarts(): Promise<AdminAbandonedCart[]> {
+  const carts = await fetchAdmin<AbandonedCartResponse[]>("/engagement/admin/abandoned-carts");
+
+  return carts.map((cart) => ({
+    id: cart.id,
+    email: cart.email,
+    customerName: cart.customerName ?? undefined,
+    token: cart.token,
+    itemsCount: cart.itemsCount,
+    itemsQuantity: cart.itemsQuantity,
+    estimatedTotal: toNumber(cart.estimatedTotal),
+    lastEmailSentAt: cart.lastEmailSentAt
+      ? formatDateTime(cart.lastEmailSentAt)
+      : undefined,
+    recoveredAt: cart.recoveredAt ? formatDateTime(cart.recoveredAt) : undefined,
+    updatedAt: formatDateTime(cart.updatedAt),
+    items: cart.items.map((item) => ({
+      id: item.id,
+      productId: item.productId,
+      productName: item.productName,
+      productSlug: item.productSlug,
+      imageUrl: item.imageUrl ?? undefined,
+      categoryName: item.categoryName ?? undefined,
+      quantity: item.quantity,
+      unitPrice: toNumber(item.unitPrice)
+    }))
+  }));
+}
+
+export async function getAdminBackInStockSubscriptions(): Promise<
+  AdminBackInStockSubscription[]
+> {
+  const subscriptions = await fetchAdmin<BackInStockSubscriptionResponse[]>(
+    "/engagement/admin/back-in-stock"
+  );
+
+  return subscriptions.map((subscription) => ({
+    id: subscription.id,
+    email: subscription.email,
+    active: subscription.active,
+    notifiedAt: subscription.notifiedAt
+      ? formatDateTime(subscription.notifiedAt)
+      : undefined,
+    createdAt: formatDateTime(subscription.createdAt),
+    updatedAt: formatDateTime(subscription.updatedAt),
+    product: {
+      id: subscription.product.id,
+      name: subscription.product.name,
+      slug: subscription.product.slug,
+      stock: subscription.product.stock,
+      status: subscription.product.status,
+      imageUrl: subscription.product.imageUrl ?? undefined,
+      categoryName: subscription.product.categoryName
+    }
+  }));
+}
+
 function normalizeAdminOrder(order: OrderResponse): AdminOrder {
   return {
     id: order.id,
@@ -1867,10 +2006,13 @@ export type CustomerOrder = {
   createdAt: string;
   items: Array<{
     id: string;
+    productId: string;
     name: string;
+    slug: string;
     quantity: number;
     unitPrice: number;
     category: string;
+    imageUrl?: string;
   }>;
 };
 
@@ -1923,10 +2065,13 @@ export async function lookupCustomerOrders(email: string): Promise<CustomerOrder
     createdAt: formatDate(order.createdAt),
     items: order.items.map((item) => ({
       id: item.id,
+      productId: item.product.id,
       name: item.product.name,
+      slug: item.product.slug,
       quantity: item.quantity,
       unitPrice: toNumber(item.unitPrice),
-      category: item.product.category?.name ?? "Colecao"
+      category: item.product.category?.name ?? "Colecao",
+      imageUrl: item.product.imageUrl ?? undefined
     }))
     }));
 }

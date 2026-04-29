@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { InventoryMovementType, Prisma, ProductStatus } from "@prisma/client";
+import { EngagementService } from "../engagement/engagement.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { AdjustStockDto } from "./dto/adjust-stock.dto";
 import { CreateProductDto } from "./dto/create-product.dto";
@@ -15,7 +16,10 @@ type AdminActor = {
 
 @Injectable()
 export class ProductsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly engagementService: EngagementService
+  ) {}
 
   listActive(filters?: { search?: string; category?: string; sort?: string }) {
     const search = filters?.search?.trim();
@@ -243,6 +247,8 @@ export class ProductsService {
         });
       }
 
+      await this.engagementService.notifyBackInStockIfNeeded(product.id);
+
       return product;
     });
   }
@@ -285,6 +291,10 @@ export class ProductsService {
         });
       }
 
+      if (existing.stock <= 0 && updated.stock > 0) {
+        await this.engagementService.notifyBackInStockIfNeeded(updated.id);
+      }
+
       return updated;
     });
   }
@@ -320,6 +330,10 @@ export class ProductsService {
         nextStock,
         reason: payload.reason?.trim() || "Ajuste manual realizado no painel."
       });
+
+      if (existing.stock <= 0 && updated.stock > 0) {
+        await this.engagementService.notifyBackInStockIfNeeded(updated.id);
+      }
 
       return updated;
     });

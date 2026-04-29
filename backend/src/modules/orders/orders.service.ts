@@ -18,6 +18,7 @@ import * as bcrypt from "bcryptjs";
 import { randomUUID } from "crypto";
 import { CouponsService } from "../coupons/coupons.service";
 import { EmailService } from "../email/email.service";
+import { EngagementService } from "../engagement/engagement.service";
 import { ObservabilityService } from "../observability/observability.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { ProductsService } from "../products/products.service";
@@ -34,6 +35,7 @@ export class OrdersService {
     private readonly prisma: PrismaService,
     private readonly couponsService: CouponsService,
     private readonly emailService: EmailService,
+    private readonly engagementService: EngagementService,
     private readonly observabilityService: ObservabilityService,
     private readonly productsService: ProductsService
   ) {}
@@ -280,6 +282,7 @@ export class OrdersService {
     });
 
     await this.emailService.sendOrderCreated(this.toEmailPayload(order));
+    await this.engagementService.markRecoveredByEmail(order.user.email);
     await this.observabilityService.logEvent({
       type: "order.created",
       source: "orders",
@@ -741,6 +744,14 @@ export class OrdersService {
 
     if (shouldNotify) {
       await this.emailService.sendOrderStatusUpdated(this.toEmailPayload(result));
+    }
+
+    if (nextStatus === OrderStatus.CANCELED) {
+      await Promise.all(
+        result.items.map((item) =>
+          this.engagementService.notifyBackInStockIfNeeded(item.product.id)
+        )
+      );
     }
 
     await this.observabilityService.logEvent({

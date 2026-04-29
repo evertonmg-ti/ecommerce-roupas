@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { useCart } from "@/components/cart-provider";
 import { CartProductInput } from "@/lib/cart";
+import { subscribeBackInStock } from "@/lib/public-engagement";
 
 type ProductPurchaseActionsProps = {
   product: CartProductInput;
@@ -15,6 +16,11 @@ export function ProductPurchaseActions({
   const { addItem } = useCart();
   const [added, setAdded] = useState(false);
   const [quantity, setQuantity] = useState(1);
+  const [notifyEmail, setNotifyEmail] = useState("");
+  const [notifyState, setNotifyState] = useState<{
+    type: "idle" | "success" | "error";
+    message?: string;
+  }>({ type: "idle" });
   const isUnavailable = product.stock < 1;
   const maxQuantity = Math.max(product.stock, 1);
 
@@ -37,12 +43,60 @@ export function ProductPurchaseActions({
     setQuantity(Math.max(1, Math.min(Math.trunc(value), maxQuantity)));
   }
 
+  async function handleNotifyMe() {
+    const email = notifyEmail.trim().toLowerCase();
+
+    if (!email) {
+      setNotifyState({
+        type: "error",
+        message: "Informe um email para receber o aviso."
+      });
+      return;
+    }
+
+    try {
+      await subscribeBackInStock(product.id, email);
+      setNotifyState({
+        type: "success",
+        message: "Avisaremos por email quando este produto voltar ao estoque."
+      });
+    } catch (error) {
+      setNotifyState({
+        type: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Nao foi possivel salvar o aviso de estoque."
+      });
+    }
+  }
+
   return (
     <div className="mt-8 space-y-4">
       {isUnavailable ? (
-        <div className="rounded-[1.5rem] border border-terracotta/20 bg-terracotta/10 p-4 text-sm text-terracotta">
-          Produto indisponivel no momento. Ajuste o estoque no painel para liberar
-          novas compras.
+        <div className="space-y-4 rounded-[1.5rem] border border-terracotta/20 bg-terracotta/10 p-4 text-sm text-terracotta">
+          <p>Produto indisponivel no momento. Deixe seu email para receber o aviso.</p>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <input
+              type="email"
+              value={notifyEmail}
+              onChange={(event) => setNotifyEmail(event.target.value)}
+              placeholder="seu@email.com"
+              className="flex-1 rounded-full border border-terracotta/25 bg-white/70 px-4 py-3 text-espresso outline-none"
+            />
+            <button
+              type="button"
+              onClick={handleNotifyMe}
+              className="rounded-full bg-espresso px-6 py-3 text-sand"
+            >
+              Avise-me
+            </button>
+          </div>
+          {notifyState.type !== "idle" ? (
+            <p className={notifyState.type === "success" ? "text-moss" : "text-terracotta"}>
+              {notifyState.message}
+            </p>
+          ) : null}
         </div>
       ) : null}
 

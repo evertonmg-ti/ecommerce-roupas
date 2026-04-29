@@ -16,6 +16,8 @@ export type CheckoutProfile = {
   notes: string;
 };
 
+export const CHECKOUT_PROFILE_STORAGE_KEY = "maison-aurea-checkout-profile";
+
 export const emptyCheckoutProfile: CheckoutProfile = {
   customerName: "",
   customerEmail: "",

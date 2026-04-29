@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useCart } from "@/components/cart-provider";
 import { CheckoutProfile, emptyCheckoutProfile } from "@/lib/checkout-profile";
 import { getCartSnapshotKey } from "@/lib/cart";
@@ -14,6 +15,7 @@ import {
   isValidPhone
 } from "@/lib/checkout-formatters";
 import { validateCoupon } from "@/lib/public-coupons";
+import { getSavedAbandonedCart, saveAbandonedCart } from "@/lib/public-engagement";
 import {
   CartAvailabilityIssue,
   reconcileCartWithAvailability,
@@ -57,6 +59,7 @@ type CheckoutState =
   | { type: "error"; message: string };
 
 export function CheckoutClient() {
+  const searchParams = useSearchParams();
   const { items, clearCart, replaceItems, totalPrice } = useCart();
   const [state, setState] = useState<CheckoutState>({ type: "idle" });
   const [shippingMethod, setShippingMethod] = useState("STANDARD");
@@ -84,11 +87,64 @@ export function CheckoutClient() {
   const shippingCost = shippingQuoteState.shippingCost;
   const grandTotal = Math.max(0, totalPrice - couponState.discountAmount + shippingCost);
   const snapshotKey = getCartSnapshotKey(items);
+  const restoredToken = searchParams.get("cart");
+  const lastAbandonedSyncRef = useRef<string | null>(null);
 
   const canSubmit = useMemo(
     () => items.length > 0 && state.type !== "submitting",
     [items.length, state.type]
   );
+
+  useEffect(() => {
+    if (!restoredToken) {
+      return;
+    }
+
+    let active = true;
+
+    getSavedAbandonedCart(restoredToken)
+      .then((cart) => {
+        if (!active) {
+          return;
+        }
+
+        replaceItems(
+          cart.items
+            .filter((item) => item.status === "ACTIVE" && item.availableStock > 0)
+            .map((item) => ({
+              id: item.productId,
+              name: item.productName,
+              slug: item.productSlug,
+              price: item.unitPrice,
+              imageUrl: item.imageUrl ?? undefined,
+              category: item.categoryName ?? "Colecao",
+              stock: item.availableStock,
+              quantity: Math.max(1, Math.min(item.quantity, item.availableStock))
+            }))
+        );
+        setProfile((current) => ({
+          ...current,
+          customerEmail: cart.email,
+          customerName: cart.customerName ?? current.customerName
+        }));
+        setState({
+          type: "error",
+          message: "Recuperamos seu carrinho salvo para voce continuar a compra."
+        });
+      })
+      .catch(() => {
+        if (active) {
+          setState({
+            type: "error",
+            message: "Nao foi possivel recuperar o carrinho salvo."
+          });
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [replaceItems, restoredToken]);
 
   useEffect(() => {
     const stored = window.localStorage.getItem(CHECKOUT_PROFILE_STORAGE_KEY);
@@ -117,6 +173,44 @@ export function CheckoutClient() {
       JSON.stringify(profile)
     );
   }, [profile]);
+
+  useEffect(() => {
+    const normalizedEmail = profile.customerEmail.trim().toLowerCase();
+
+    if (!normalizedEmail || items.length === 0 || state.type === "success") {
+      return;
+    }
+
+    const syncKey = `${normalizedEmail}:${snapshotKey}`;
+
+    if (lastAbandonedSyncRef.current === syncKey) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      saveAbandonedCart({
+        email: normalizedEmail,
+        customerName: profile.customerName.trim() || undefined,
+        items: items.map((item) => ({
+          productId: item.id,
+          productName: item.name,
+          productSlug: item.slug,
+          imageUrl: item.imageUrl,
+          categoryName: item.category,
+          quantity: item.quantity,
+          unitPrice: item.price
+        }))
+      })
+        .then(() => {
+          lastAbandonedSyncRef.current = syncKey;
+        })
+        .catch(() => undefined);
+    }, 1200);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [items, profile.customerEmail, profile.customerName, snapshotKey, state.type]);
 
   useEffect(() => {
     if (items.length === 0) {

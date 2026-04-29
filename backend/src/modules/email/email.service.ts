@@ -82,6 +82,77 @@ export class EmailService {
     await this.safeSend(settings, payload.to, { subject, text, html });
   }
 
+  async sendAbandonedCartReminder(payload: {
+    email: string;
+    customerName: string;
+    token: string;
+    items: Array<{
+      name: string;
+      quantity: number;
+      unitPrice: number;
+    }>;
+  }) {
+    const settings = await this.settingsService.getSettings();
+    const cartUrl = `${settings.storeUrl.replace(/\/+$/, "")}/checkout?cart=${encodeURIComponent(payload.token)}`;
+    const subject = "Seu carrinho continua te esperando";
+    const itemsText = payload.items
+      .map((item) => `- ${item.name} | ${item.quantity} x R$ ${item.unitPrice.toFixed(2)}`)
+      .join("\n");
+    const text = [
+      `Ola, ${payload.customerName}.`,
+      "",
+      "Salvamos o seu carrinho para voce continuar a compra quando quiser.",
+      "",
+      itemsText,
+      "",
+      `Retomar compra: ${cartUrl}`
+    ].join("\n");
+    const html = `
+      <div style="font-family:Arial,sans-serif;color:#2d241d;line-height:1.6;">
+        <h2>Seu carrinho continua te esperando</h2>
+        <p>Ola, <strong>${payload.customerName}</strong>.</p>
+        <p>Salvamos o seu carrinho para voce continuar a compra quando quiser.</p>
+        <ul>
+          ${payload.items
+            .map(
+              (item) =>
+                `<li>${item.name} - ${item.quantity} x R$ ${item.unitPrice.toFixed(2)}</li>`
+            )
+            .join("")}
+        </ul>
+        <p><a href="${cartUrl}">Retomar compra</a></p>
+      </div>
+    `;
+
+    await this.safeSend(settings, payload.email, { subject, text, html });
+  }
+
+  async sendBackInStockEmail(payload: {
+    to: string;
+    productName: string;
+    productSlug: string;
+    categoryName: string;
+    imageUrl?: string;
+  }) {
+    const settings = await this.settingsService.getSettings();
+    const productUrl = `${settings.storeUrl.replace(/\/+$/, "")}/produtos/${payload.productSlug}`;
+    const subject = `${payload.productName} voltou ao estoque`;
+    const text = [
+      "Boa noticia!",
+      `${payload.productName} voltou ao estoque na categoria ${payload.categoryName}.`,
+      `Comprar agora: ${productUrl}`
+    ].join("\n");
+    const html = `
+      <div style="font-family:Arial,sans-serif;color:#2d241d;line-height:1.6;">
+        <h2>${payload.productName} voltou ao estoque</h2>
+        <p>O produto da categoria <strong>${payload.categoryName}</strong> esta disponivel novamente.</p>
+        <p><a href="${productUrl}">Ver produto</a></p>
+      </div>
+    `;
+
+    await this.safeSend(settings, payload.to, { subject, text, html });
+  }
+
   async sendTestEmail(
     settings: Awaited<ReturnType<SettingsService["getSettings"]>>,
     to: string

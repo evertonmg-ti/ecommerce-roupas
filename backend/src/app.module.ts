@@ -5,6 +5,7 @@ import { AuthModule } from "./modules/auth/auth.module";
 import { CategoriesModule } from "./modules/categories/categories.module";
 import { CouponsModule } from "./modules/coupons/coupons.module";
 import { DashboardModule } from "./modules/dashboard/dashboard.module";
+import { EngagementModule } from "./modules/engagement/engagement.module";
 import { EmailModule } from "./modules/email/email.module";
 import { OrdersModule } from "./modules/orders/orders.module";
 import { ObservabilityModule } from "./modules/observability/observability.module";
@@ -26,7 +27,8 @@ import { UsersModule } from "./modules/users/users.module";
     UsersModule,
     ProductsModule,
     OrdersModule,
-    DashboardModule
+    DashboardModule,
+    EngagementModule
   ],
   controllers: [AppController]
 })

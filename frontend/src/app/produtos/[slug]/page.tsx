@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { ProductBundleSuggestions } from "@/components/product-bundle-suggestions";
 import { ProductPurchaseActions } from "@/components/product-purchase-actions";
 import { ProductCard } from "@/components/product-card";
 import { fallbackProducts } from "@/lib/data";
@@ -84,6 +85,11 @@ export default async function ProductDetailsPage({ params }: ProductPageProps) {
           />
         </div>
       </section>
+
+      <ProductBundleSuggestions
+        mainProduct={product}
+        relatedProducts={relatedProducts}
+      />
 
       <section className="mt-14">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">

@@ -2,10 +2,13 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Trash2 } from "lucide-react";
+import { CartUpsellRecommendations } from "@/components/cart-upsell-recommendations";
 import { useCart } from "@/components/cart-provider";
 import { getCartSnapshotKey } from "@/lib/cart";
+import { CHECKOUT_PROFILE_STORAGE_KEY, CheckoutProfile } from "@/lib/checkout-profile";
+import { saveAbandonedCart } from "@/lib/public-engagement";
 import {
   CartAvailabilityIssue,
   reconcileCartWithAvailability,
@@ -24,7 +27,26 @@ export function CartPageClient() {
   } = useCart();
   const [availabilityIssues, setAvailabilityIssues] = useState<CartAvailabilityIssue[]>([]);
   const [isValidating, setIsValidating] = useState(false);
+  const [checkoutEmail, setCheckoutEmail] = useState("");
+  const [checkoutName, setCheckoutName] = useState("");
   const snapshotKey = getCartSnapshotKey(items);
+  const lastAbandonedSyncRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const stored = window.localStorage.getItem(CHECKOUT_PROFILE_STORAGE_KEY);
+
+    if (!stored) {
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(stored) as Partial<CheckoutProfile>;
+      setCheckoutEmail(parsed.customerEmail?.trim().toLowerCase() ?? "");
+      setCheckoutName(parsed.customerName?.trim() ?? "");
+    } catch {
+      window.localStorage.removeItem(CHECKOUT_PROFILE_STORAGE_KEY);
+    }
+  }, []);
 
   useEffect(() => {
     if (items.length === 0) {
@@ -76,6 +98,42 @@ export function CartPageClient() {
     };
   }, [items, replaceItems, snapshotKey]);
 
+  useEffect(() => {
+    if (!checkoutEmail || items.length === 0) {
+      return;
+    }
+
+    const syncKey = `${checkoutEmail}:${snapshotKey}`;
+
+    if (lastAbandonedSyncRef.current === syncKey) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      saveAbandonedCart({
+        email: checkoutEmail,
+        customerName: checkoutName || undefined,
+        items: items.map((item) => ({
+          productId: item.id,
+          productName: item.name,
+          productSlug: item.slug,
+          imageUrl: item.imageUrl,
+          categoryName: item.category,
+          quantity: item.quantity,
+          unitPrice: item.price
+        }))
+      })
+        .then(() => {
+          lastAbandonedSyncRef.current = syncKey;
+        })
+        .catch(() => undefined);
+    }, 1200);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [checkoutEmail, checkoutName, items, snapshotKey]);
+
   if (items.length === 0) {
     return (
       <section className="mx-auto max-w-4xl px-4 py-16 sm:px-6 lg:px-8">
@@ -97,8 +155,9 @@ export function CartPageClient() {
   }
 
   return (
-    <section className="mx-auto grid max-w-7xl gap-8 px-4 py-12 sm:px-6 lg:grid-cols-[1.2fr_0.8fr] lg:px-8">
-      <div className="space-y-4">
+    <>
+      <section className="mx-auto grid max-w-7xl gap-8 px-4 py-12 sm:px-6 lg:grid-cols-[1.2fr_0.8fr] lg:px-8">
+        <div className="space-y-4">
         <div>
           <p className="text-xs uppercase tracking-[0.3em] text-terracotta">Carrinho</p>
           <h1 className="mt-3 font-display text-5xl">Itens selecionados</h1>
@@ -169,37 +228,45 @@ export function CartPageClient() {
             </div>
           </article>
         ))}
-      </div>
+        </div>
 
-      <aside className="rounded-[2rem] border border-espresso/10 bg-white/80 p-6 shadow-soft">
-        <p className="text-xs uppercase tracking-[0.3em] text-terracotta">Resumo</p>
-        <div className="mt-6 space-y-4 text-sm text-espresso/70">
-          <div className="flex items-center justify-between">
-            <span>Itens</span>
-            <span>{totalItems}</span>
+        <aside className="rounded-[2rem] border border-espresso/10 bg-white/80 p-6 shadow-soft">
+          <p className="text-xs uppercase tracking-[0.3em] text-terracotta">Resumo</p>
+          <div className="mt-6 space-y-4 text-sm text-espresso/70">
+            <div className="flex items-center justify-between">
+              <span>Itens</span>
+              <span>{totalItems}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span>Subtotal</span>
+              <span>{currency(totalPrice)}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span>Frete estimado</span>
+              <span>Calculado no checkout</span>
+            </div>
           </div>
-          <div className="flex items-center justify-between">
-            <span>Subtotal</span>
-            <span>{currency(totalPrice)}</span>
+          <div className="mt-6 border-t border-espresso/10 pt-6">
+            <div className="flex items-end justify-between gap-4">
+              <span className="text-sm text-espresso/70">Total estimado</span>
+              <span className="font-display text-4xl">{currency(totalPrice)}</span>
+            </div>
+            <Link
+              href="/checkout"
+              className="mt-6 inline-flex w-full items-center justify-center rounded-full bg-espresso px-6 py-3 text-sand"
+            >
+              {isValidating ? "Validando estoque..." : "Ir para checkout"}
+            </Link>
+            <Link
+              href={checkoutEmail ? `/cliente?email=${encodeURIComponent(checkoutEmail)}` : "/cliente"}
+              className="mt-3 inline-flex w-full items-center justify-center rounded-full border border-espresso/15 px-6 py-3 text-sm"
+            >
+              Abrir centro do cliente
+            </Link>
           </div>
-          <div className="flex items-center justify-between">
-            <span>Frete estimado</span>
-            <span>Calculado no checkout</span>
-          </div>
-        </div>
-        <div className="mt-6 border-t border-espresso/10 pt-6">
-          <div className="flex items-end justify-between gap-4">
-            <span className="text-sm text-espresso/70">Total estimado</span>
-            <span className="font-display text-4xl">{currency(totalPrice)}</span>
-          </div>
-          <Link
-            href="/checkout"
-            className="mt-6 inline-flex w-full items-center justify-center rounded-full bg-espresso px-6 py-3 text-sand"
-          >
-            {isValidating ? "Validando estoque..." : "Ir para checkout"}
-          </Link>
-        </div>
-      </aside>
-    </section>
+        </aside>
+      </section>
+      <CartUpsellRecommendations />
+    </>
   );
 }
