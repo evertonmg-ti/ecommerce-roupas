@@ -536,12 +536,13 @@ export class OrdersService {
       );
     }
 
-    if (
-      nextStatus === OrderStatus.CANCELED &&
-      ![OrderStatus.PENDING, OrderStatus.PAID].includes(order.status)
-    ) {
-      throw new BadRequestException(
-        "Nao e possivel cancelar um pedido que ja foi enviado ou entregue."
+      if (
+        nextStatus === OrderStatus.CANCELED &&
+        order.status !== OrderStatus.PENDING &&
+        order.status !== OrderStatus.PAID
+      ) {
+        throw new BadRequestException(
+          "Nao e possivel cancelar um pedido que ja foi enviado ou entregue."
       );
     }
 
