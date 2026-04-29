@@ -126,6 +126,11 @@ type OrderResponse = {
   shippingCity: string;
   shippingState: string;
   shippingPostalCode: string;
+  trackingCode?: string | null;
+  paidAt?: string | null;
+  shippedAt?: string | null;
+  deliveredAt?: string | null;
+  canceledAt?: string | null;
   notes?: string | null;
   paymentMock?: {
     status: string;
@@ -269,6 +274,11 @@ export type AdminOrder = {
   shippingCity: string;
   shippingState: string;
   shippingPostalCode: string;
+  trackingCode?: string;
+  paidAt?: string;
+  shippedAt?: string;
+  deliveredAt?: string;
+  canceledAt?: string;
   notes?: string;
   paymentMock?: {
     status: string;
@@ -626,6 +636,11 @@ function normalizeAdminOrder(order: OrderResponse): AdminOrder {
     shippingCity: order.shippingCity,
     shippingState: order.shippingState,
     shippingPostalCode: order.shippingPostalCode,
+    trackingCode: order.trackingCode ?? undefined,
+    paidAt: order.paidAt ?? undefined,
+    shippedAt: order.shippedAt ?? undefined,
+    deliveredAt: order.deliveredAt ?? undefined,
+    canceledAt: order.canceledAt ?? undefined,
     notes: order.notes ?? undefined,
     paymentMock: order.paymentMock
       ? {
@@ -775,8 +790,15 @@ export async function deleteAdminCoupon(id: string) {
   return mutateAdmin(`/coupons/${id}`, "DELETE");
 }
 
-export async function updateAdminOrderStatus(id: string, status: string) {
-  return mutateAdmin(`/orders/${id}/status`, "PATCH", { status });
+export async function updateAdminOrderStatus(
+  id: string,
+  status: string,
+  trackingCode?: string
+) {
+  return mutateAdmin(`/orders/${id}/status`, "PATCH", {
+    status,
+    trackingCode: trackingCode?.trim() || undefined
+  });
 }
 
 export type CustomerOrder = {
@@ -794,6 +816,11 @@ export type CustomerOrder = {
   shippingCity: string;
   shippingState: string;
   shippingPostalCode: string;
+  trackingCode?: string;
+  paidAt?: string;
+  shippedAt?: string;
+  deliveredAt?: string;
+  canceledAt?: string;
   notes?: string;
   paymentMock?: {
     status: string;
@@ -838,6 +865,11 @@ export async function lookupCustomerOrders(email: string): Promise<CustomerOrder
     shippingCity: order.shippingCity,
     shippingState: order.shippingState,
     shippingPostalCode: order.shippingPostalCode,
+    trackingCode: order.trackingCode ?? undefined,
+    paidAt: order.paidAt ?? undefined,
+    shippedAt: order.shippedAt ?? undefined,
+    deliveredAt: order.deliveredAt ?? undefined,
+    canceledAt: order.canceledAt ?? undefined,
     notes: order.notes ?? undefined,
     paymentMock: order.paymentMock
       ? {

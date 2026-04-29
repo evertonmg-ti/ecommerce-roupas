@@ -14,7 +14,8 @@ export async function updateOrderStatusAction(formData: FormData) {
   try {
     const id = String(formData.get("id") ?? "").trim();
     const status = String(formData.get("status") ?? "").trim();
-    await updateAdminOrderStatus(id, status);
+    const trackingCode = String(formData.get("trackingCode") ?? "").trim();
+    await updateAdminOrderStatus(id, status, trackingCode);
     revalidatePath("/admin/pedidos");
     revalidatePath("/admin");
   } catch (error) {

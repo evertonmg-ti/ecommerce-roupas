@@ -117,6 +117,11 @@ model Order {
   shippingCity       String         @default("Nao informado")
   shippingState      String         @default("NI")
   shippingPostalCode String         @default("00000000")
+  trackingCode       String?
+  paidAt             DateTime?
+  shippedAt          DateTime?
+  deliveredAt        DateTime?
+  canceledAt         DateTime?
   notes              String?
   items              OrderItem[]
   createdAt          DateTime       @default(now())

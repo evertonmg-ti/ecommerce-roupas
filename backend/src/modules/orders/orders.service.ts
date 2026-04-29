@@ -251,7 +251,10 @@ export class OrdersService {
   }
 
   async updateStatus(id: string, payload: UpdateOrderStatusDto) {
-    return this.updateStatusWithSideEffects(id, payload.status as OrderStatus);
+    return this.updateStatusWithSideEffects(id, {
+      status: payload.status as OrderStatus,
+      trackingCode: payload.trackingCode
+    });
   }
 
   async confirmMockPayment(id: string, payload: ConfirmMockPaymentDto) {
@@ -296,7 +299,9 @@ export class OrdersService {
       throw new BadRequestException("O email informado nao pertence a este pedido.");
     }
 
-    return this.updateStatusWithSideEffects(id, OrderStatus.CANCELED);
+    return this.updateStatusWithSideEffects(id, {
+      status: OrderStatus.CANCELED
+    });
   }
 
   private normalizeItems(items: CreateOrderDto["items"]) {
@@ -543,11 +548,18 @@ export class OrdersService {
     return order;
   }
 
-  private async updateStatusWithSideEffects(id: string, nextStatus: OrderStatus) {
+  private async updateStatusWithSideEffects(
+    id: string,
+    payload: { status: OrderStatus; trackingCode?: string }
+  ) {
     const order = await this.getOrderDetailsOrThrow(id);
+    const nextStatus = payload.status;
+    const trackingCode = payload.trackingCode?.trim() || undefined;
 
     if (order.status === nextStatus) {
-      return this.attachMockPayment(order);
+      if (trackingCode === order.trackingCode) {
+        return this.attachMockPayment(order);
+      }
     }
 
     if (order.status === OrderStatus.CANCELED && nextStatus !== OrderStatus.CANCELED) {
@@ -570,7 +582,37 @@ export class OrdersService {
       const updatedOrder = await tx.order.update({
         where: { id },
         data: {
-          status: nextStatus
+          status: nextStatus,
+          trackingCode:
+            nextStatus === OrderStatus.SHIPPED || trackingCode
+              ? trackingCode
+              : nextStatus === OrderStatus.PENDING || nextStatus === OrderStatus.CANCELED
+                ? null
+                : order.trackingCode,
+          paidAt:
+            nextStatus === OrderStatus.PAID && !order.paidAt
+              ? new Date()
+              : nextStatus === OrderStatus.PENDING
+                ? null
+                : order.paidAt,
+          shippedAt:
+            nextStatus === OrderStatus.SHIPPED && !order.shippedAt
+              ? new Date()
+              : nextStatus === OrderStatus.PENDING || nextStatus === OrderStatus.PAID
+                ? null
+                : order.shippedAt,
+          deliveredAt:
+            nextStatus === OrderStatus.DELIVERED && !order.deliveredAt
+              ? new Date()
+              : nextStatus !== OrderStatus.DELIVERED
+                ? null
+                : order.deliveredAt,
+          canceledAt:
+            nextStatus === OrderStatus.CANCELED && !order.canceledAt
+              ? new Date()
+              : nextStatus !== OrderStatus.CANCELED
+                ? null
+                : order.canceledAt
         },
         include: {
           user: true,

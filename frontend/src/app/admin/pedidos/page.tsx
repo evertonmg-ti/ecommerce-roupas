@@ -151,6 +151,11 @@ export default async function AdminOrdersPage({
                     <p>
                       <strong>Pagamento:</strong> {order.paymentMethod}
                     </p>
+                    {order.trackingCode ? (
+                      <p className="mt-2">
+                        <strong>Rastreio:</strong> {order.trackingCode}
+                      </p>
+                    ) : null}
                     <p className="mt-2">
                       <strong>Entrega:</strong> {order.shippingMethod}
                     </p>
@@ -207,6 +212,35 @@ export default async function AdminOrdersPage({
                       <span>Frete: {currency(order.shippingCost)}</span>
                       <strong>Total: {currency(order.total)}</strong>
                     </div>
+                    <div className="mt-4 grid gap-2 rounded-[1rem] border border-espresso/10 bg-sand/35 p-4 text-xs text-espresso/70">
+                      <p>
+                        <strong>Criado em:</strong> {order.createdAt}
+                      </p>
+                      {order.paidAt ? (
+                        <p>
+                          <strong>Pago em:</strong>{" "}
+                          {new Date(order.paidAt).toLocaleString("pt-BR")}
+                        </p>
+                      ) : null}
+                      {order.shippedAt ? (
+                        <p>
+                          <strong>Enviado em:</strong>{" "}
+                          {new Date(order.shippedAt).toLocaleString("pt-BR")}
+                        </p>
+                      ) : null}
+                      {order.deliveredAt ? (
+                        <p>
+                          <strong>Entregue em:</strong>{" "}
+                          {new Date(order.deliveredAt).toLocaleString("pt-BR")}
+                        </p>
+                      ) : null}
+                      {order.canceledAt ? (
+                        <p>
+                          <strong>Cancelado em:</strong>{" "}
+                          {new Date(order.canceledAt).toLocaleString("pt-BR")}
+                        </p>
+                      ) : null}
+                    </div>
                   </div>
                 </div>
 
@@ -234,6 +268,15 @@ export default async function AdminOrdersPage({
                           </option>
                         ))}
                       </select>
+                    </label>
+                    <label className="space-y-2 text-sm">
+                      <span>Codigo de rastreio</span>
+                      <input
+                        name="trackingCode"
+                        defaultValue={order.trackingCode ?? ""}
+                        placeholder="Opcional"
+                        className="w-full rounded-2xl border border-espresso/15 bg-white px-4 py-3 outline-none"
+                      />
                     </label>
                     <button className="rounded-full bg-espresso px-5 py-3 text-sand">
                       Salvar status

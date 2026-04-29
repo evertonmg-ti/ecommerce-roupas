@@ -10,6 +10,35 @@ function getParamValue(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
 }
 
+function renderTimeline(order: {
+  createdAt: string;
+  paidAt?: string;
+  shippedAt?: string;
+  deliveredAt?: string;
+  canceledAt?: string;
+}) {
+  const steps = [
+    { label: "Pedido criado", value: order.createdAt },
+    { label: "Pagamento confirmado", value: order.paidAt },
+    { label: "Pedido enviado", value: order.shippedAt },
+    { label: "Pedido entregue", value: order.deliveredAt },
+    { label: "Pedido cancelado", value: order.canceledAt }
+  ].filter((step) => step.value);
+
+  return (
+    <div className="mt-4 grid gap-2 rounded-[1rem] border border-espresso/10 bg-sand/35 p-4 text-xs text-espresso/70">
+      {steps.map((step) => (
+        <p key={step.label}>
+          <strong>{step.label}:</strong>{" "}
+          {step.value === order.createdAt
+            ? order.createdAt
+            : new Date(step.value as string).toLocaleString("pt-BR")}
+        </p>
+      ))}
+    </div>
+  );
+}
+
 export default async function CustomerOrdersPage({
   searchParams
 }: CustomerOrdersPageProps) {
@@ -123,6 +152,11 @@ export default async function CustomerOrdersPage({
                   <p className="mt-2">
                     <strong>Entrega:</strong> {order.shippingMethod}
                   </p>
+                  {order.trackingCode ? (
+                    <p className="mt-2">
+                      <strong>Rastreio:</strong> {order.trackingCode}
+                    </p>
+                  ) : null}
                   <p className="mt-2">
                     <strong>Endereco:</strong> {order.shippingAddress}
                     {order.shippingAddress2 ? `, ${order.shippingAddress2}` : ""} -{" "}
@@ -203,6 +237,7 @@ export default async function CustomerOrdersPage({
                     <span>Frete: {currency(order.shippingCost)}</span>
                     <strong>Total: {currency(order.total)}</strong>
                   </div>
+                  {renderTimeline(order)}
                 </div>
               </article>
             ))}
