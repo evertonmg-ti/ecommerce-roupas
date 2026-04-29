@@ -224,6 +224,7 @@ export class ProductsService {
         data: {
           ...payload,
           price: new Prisma.Decimal(payload.price),
+          costPrice: new Prisma.Decimal(payload.costPrice),
           compareAt:
             payload.compareAt === undefined
               ? undefined
@@ -258,6 +259,10 @@ export class ProductsService {
             payload.price === undefined
               ? undefined
               : new Prisma.Decimal(payload.price),
+          costPrice:
+            payload.costPrice === undefined
+              ? undefined
+              : new Prisma.Decimal(payload.costPrice),
           compareAt:
             payload.compareAt === undefined
               ? undefined

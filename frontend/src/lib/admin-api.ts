@@ -31,6 +31,8 @@ type DashboardResponse = {
   recentRevenue: number | string | null;
   inventoryUnits: number;
   inventoryEstimatedValue: number | string | null;
+  grossProfit: number | string | null;
+  profitMargin: number;
   lowStockProducts: number;
   paidOrders: number;
   couponOrders: number;
@@ -86,6 +88,34 @@ type DashboardResponse = {
       } | null;
     } | null;
   }>;
+  funnel: {
+    totalOrders: number;
+    pending: number;
+    paid: number;
+    shipped: number;
+    delivered: number;
+    canceled: number;
+    paymentApprovalRate: number;
+    deliveryRate: number;
+    cancellationRate: number;
+  };
+  topProductsByProfit: Array<{
+    productId: string;
+    productName: string;
+    categoryName: string;
+    quantitySold: number;
+    revenue: number;
+    grossProfit: number;
+    marginRate: number;
+  }>;
+  topCategoriesByProfit: Array<{
+    categoryId: string;
+    categoryName: string;
+    quantitySold: number;
+    revenue: number;
+    grossProfit: number;
+    marginRate: number;
+  }>;
 };
 
 type ProductResponse = {
@@ -94,6 +124,7 @@ type ProductResponse = {
   slug: string;
   description: string;
   price: number | string;
+  costPrice: number | string;
   compareAt?: number | string | null;
   stock: number;
   status: string;
@@ -329,6 +360,11 @@ export type AdminDashboardData = {
     value: string;
     detail: string;
   }>;
+  funnelHighlights: Array<{
+    label: string;
+    value: string;
+    detail: string;
+  }>;
   lowStockItems: Array<{
     id: string;
     name: string;
@@ -348,6 +384,23 @@ export type AdminDashboardData = {
     actorName?: string;
     orderId?: string;
   }>;
+  profitabilityByProduct: Array<{
+    id: string;
+    name: string;
+    category: string;
+    quantitySold: number;
+    revenue: number;
+    grossProfit: number;
+    marginRate: number;
+  }>;
+  profitabilityByCategory: Array<{
+    id: string;
+    name: string;
+    quantitySold: number;
+    revenue: number;
+    grossProfit: number;
+    marginRate: number;
+  }>;
 };
 
 export type AdminProduct = {
@@ -356,6 +409,7 @@ export type AdminProduct = {
   slug: string;
   description: string;
   price: number;
+  costPrice: number;
   compareAt?: number;
   stock: number;
   status: string;
@@ -756,6 +810,33 @@ export async function getAdminDashboardMetrics(): Promise<AdminDashboardData> {
         label: "Estoque estimado",
         value: formatCurrency(toNumber(data.inventoryEstimatedValue)),
         detail: "Valor estimado pelo preco atual"
+      },
+      {
+        label: "Lucro bruto",
+        value: formatCurrency(toNumber(data.grossProfit)),
+        detail: `${Math.round(data.profitMargin)}% de margem estimada`
+      }
+    ],
+    funnelHighlights: [
+      {
+        label: "Aprovacao de pagamento",
+        value: `${Math.round(data.funnel.paymentApprovalRate)}%`,
+        detail: `${data.funnel.paid} pedidos aprovados`
+      },
+      {
+        label: "Entrega concluida",
+        value: `${Math.round(data.funnel.deliveryRate)}%`,
+        detail: `${data.funnel.delivered} pedidos entregues`
+      },
+      {
+        label: "Cancelamento",
+        value: `${Math.round(data.funnel.cancellationRate)}%`,
+        detail: `${data.funnel.canceled} pedidos cancelados`
+      },
+      {
+        label: "Aguardando acao",
+        value: String(data.funnel.pending),
+        detail: "Pedidos pendentes no inicio do funil"
       }
     ],
     recentOrders: data.recentOrders.map((order) => ({
@@ -784,6 +865,23 @@ export async function getAdminDashboardMetrics(): Promise<AdminDashboardData> {
       createdAt: formatDateTime(movement.createdAt),
       actorName: movement.actorUser?.name ?? undefined,
       orderId: movement.order?.id ?? undefined
+    })),
+    profitabilityByProduct: data.topProductsByProfit.map((item) => ({
+      id: item.productId,
+      name: item.productName,
+      category: item.categoryName,
+      quantitySold: item.quantitySold,
+      revenue: item.revenue,
+      grossProfit: item.grossProfit,
+      marginRate: item.marginRate
+    })),
+    profitabilityByCategory: data.topCategoriesByProfit.map((item) => ({
+      id: item.categoryId,
+      name: item.categoryName,
+      quantitySold: item.quantitySold,
+      revenue: item.revenue,
+      grossProfit: item.grossProfit,
+      marginRate: item.marginRate
     }))
   };
 }
@@ -795,6 +893,7 @@ function normalizeAdminProduct(product: ProductResponse): AdminProduct {
     slug: product.slug,
     description: product.description,
     price: toNumber(product.price),
+    costPrice: toNumber(product.costPrice),
     compareAt:
       product.compareAt === null || product.compareAt === undefined
         ? undefined
@@ -1159,6 +1258,7 @@ export type SaveProductInput = {
   slug: string;
   description: string;
   price: number;
+  costPrice: number;
   compareAt?: number;
   stock: number;
   status: string;

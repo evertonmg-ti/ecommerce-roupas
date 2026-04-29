@@ -23,6 +23,10 @@ export class CreateProductDto {
   @Min(0)
   price!: number;
 
+  @IsNumber()
+  @Min(0)
+  costPrice!: number;
+
   @IsOptional()
   @IsNumber()
   @Min(0)
@@ -43,4 +47,3 @@ export class CreateProductDto {
   @IsEnum(ProductStatus)
   status?: ProductStatus;
 }
-

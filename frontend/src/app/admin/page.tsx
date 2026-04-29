@@ -5,8 +5,11 @@ export default async function AdminDashboardPage() {
   const metrics = dashboard?.metrics;
   const recentOrders = dashboard?.recentOrders ?? [];
   const commerceHighlights = dashboard?.commerceHighlights ?? [];
+  const funnelHighlights = dashboard?.funnelHighlights ?? [];
   const lowStockItems = dashboard?.lowStockItems ?? [];
   const inventoryHighlights = dashboard?.inventoryHighlights ?? [];
+  const profitabilityByProduct = dashboard?.profitabilityByProduct ?? [];
+  const profitabilityByCategory = dashboard?.profitabilityByCategory ?? [];
 
   return (
     <div className="space-y-6">
@@ -86,6 +89,26 @@ export default async function AdminDashboardPage() {
           </div>
 
           <section className="rounded-[2rem] border border-espresso/10 bg-white/80 p-6 shadow-soft">
+            <p className="text-xs uppercase tracking-[0.3em] text-terracotta">
+              Funil comercial
+            </p>
+            <h2 className="mt-2 font-display text-3xl">Saude da conversao</h2>
+
+            <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              {funnelHighlights.map((item) => (
+                <article
+                  key={item.label}
+                  className="rounded-[1.5rem] border border-espresso/10 bg-sand/35 p-4"
+                >
+                  <p className="text-sm text-espresso/55">{item.label}</p>
+                  <p className="mt-2 font-display text-3xl">{item.value}</p>
+                  <p className="mt-2 text-sm text-moss">{item.detail}</p>
+                </article>
+              ))}
+            </div>
+          </section>
+
+          <section className="rounded-[2rem] border border-espresso/10 bg-white/80 p-6 shadow-soft">
             <div className="flex items-center justify-between gap-4">
               <div>
                 <p className="text-xs uppercase tracking-[0.3em] text-terracotta">
@@ -123,6 +146,105 @@ export default async function AdminDashboardPage() {
               </div>
             )}
           </section>
+
+          <div className="grid gap-5 lg:grid-cols-2">
+            <section className="rounded-[2rem] border border-espresso/10 bg-white/80 p-6 shadow-soft">
+              <p className="text-xs uppercase tracking-[0.3em] text-terracotta">
+                Rentabilidade
+              </p>
+              <h2 className="mt-2 font-display text-3xl">Produtos mais lucrativos</h2>
+
+              {profitabilityByProduct.length > 0 ? (
+                <div className="mt-6 space-y-3">
+                  {profitabilityByProduct.map((item) => (
+                    <div
+                      key={item.id}
+                      className="rounded-[1.5rem] border border-espresso/10 bg-sand/35 p-4"
+                    >
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <p className="font-medium">{item.name}</p>
+                          <p className="mt-1 text-sm text-espresso/60">{item.category}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-medium">
+                            {item.grossProfit.toLocaleString("pt-BR", {
+                              style: "currency",
+                              currency: "BRL"
+                            })}
+                          </p>
+                          <p className="mt-1 text-sm text-moss">
+                            {Math.round(item.marginRate)}% de margem
+                          </p>
+                        </div>
+                      </div>
+                      <p className="mt-3 text-sm text-espresso/65">
+                        {item.quantitySold} unidades -{" "}
+                        {item.revenue.toLocaleString("pt-BR", {
+                          style: "currency",
+                          currency: "BRL"
+                        })}{" "}
+                        de receita
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="mt-6 rounded-[1.5rem] border border-espresso/10 bg-sand/35 p-4 text-sm text-espresso/70">
+                  Ainda nao ha base suficiente para calcular lucro por produto.
+                </div>
+              )}
+            </section>
+
+            <section className="rounded-[2rem] border border-espresso/10 bg-white/80 p-6 shadow-soft">
+              <p className="text-xs uppercase tracking-[0.3em] text-terracotta">
+                Rentabilidade
+              </p>
+              <h2 className="mt-2 font-display text-3xl">Categorias mais lucrativas</h2>
+
+              {profitabilityByCategory.length > 0 ? (
+                <div className="mt-6 space-y-3">
+                  {profitabilityByCategory.map((item) => (
+                    <div
+                      key={item.id}
+                      className="rounded-[1.5rem] border border-espresso/10 bg-sand/35 p-4"
+                    >
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <p className="font-medium">{item.name}</p>
+                          <p className="mt-1 text-sm text-espresso/60">
+                            {item.quantitySold} unidades vendidas
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-medium">
+                            {item.grossProfit.toLocaleString("pt-BR", {
+                              style: "currency",
+                              currency: "BRL"
+                            })}
+                          </p>
+                          <p className="mt-1 text-sm text-moss">
+                            {Math.round(item.marginRate)}% de margem
+                          </p>
+                        </div>
+                      </div>
+                      <p className="mt-3 text-sm text-espresso/65">
+                        Receita de{" "}
+                        {item.revenue.toLocaleString("pt-BR", {
+                          style: "currency",
+                          currency: "BRL"
+                        })}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="mt-6 rounded-[1.5rem] border border-espresso/10 bg-sand/35 p-4 text-sm text-espresso/70">
+                  Ainda nao ha base suficiente para calcular lucro por categoria.
+                </div>
+              )}
+            </section>
+          </div>
 
           <section className="rounded-[2rem] border border-espresso/10 bg-white/80 p-6 shadow-soft">
             <div className="flex items-center justify-between gap-4">

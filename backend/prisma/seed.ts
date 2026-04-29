@@ -35,6 +35,7 @@ async function main() {
       slug: "camiseta-essentials-off-white",
       description: "Malha premium com caimento solto e toque macio.",
       price: 149.9,
+      costPrice: 59.9,
       compareAt: 189.9,
       stock: 25,
       status: ProductStatus.ACTIVE,

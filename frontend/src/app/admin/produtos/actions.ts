@@ -40,6 +40,9 @@ function parsePayload(formData: FormData) {
   const rawSlug = String(formData.get("slug") ?? "").trim();
   const description = String(formData.get("description") ?? "").trim();
   const price = Number(String(formData.get("price") ?? "0").replace(",", "."));
+  const costPrice = Number(
+    String(formData.get("costPrice") ?? "0").replace(",", ".")
+  );
   const stock = Number(String(formData.get("stock") ?? "0"));
   const status = String(formData.get("status") ?? "DRAFT").trim();
   const categoryId = String(formData.get("categoryId") ?? "").trim();
@@ -51,6 +54,7 @@ function parsePayload(formData: FormData) {
     slug: slugify(rawSlug || name),
     description,
     price,
+    costPrice,
     compareAt,
     stock,
     status,

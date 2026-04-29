@@ -158,6 +158,18 @@ export default async function AdminProductsPage({
             </label>
 
             <label className="space-y-2 text-sm">
+              <span>Custo unitario</span>
+              <input
+                name="costPrice"
+                type="number"
+                step="0.01"
+                min="0"
+                required
+                className="w-full rounded-2xl border border-espresso/15 bg-sand px-4 py-3 outline-none"
+              />
+            </label>
+
+            <label className="space-y-2 text-sm">
               <span>Preco de comparacao</span>
               <input
                 name="compareAt"
@@ -295,6 +307,19 @@ export default async function AdminProductsPage({
                     step="0.01"
                     min="0"
                     defaultValue={product.price}
+                    required
+                    className="w-full rounded-2xl border border-espresso/15 bg-sand px-4 py-3 outline-none"
+                  />
+                </label>
+
+                <label className="space-y-2 text-sm">
+                  <span>Custo unitario</span>
+                  <input
+                    name="costPrice"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    defaultValue={product.costPrice}
                     required
                     className="w-full rounded-2xl border border-espresso/15 bg-sand px-4 py-3 outline-none"
                   />

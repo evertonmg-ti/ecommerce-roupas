@@ -28,7 +28,8 @@ export class DashboardService {
       canceledOrders,
       inventoryAggregate,
       inventoryProducts,
-      recentInventoryMovements
+      recentInventoryMovements,
+      profitabilityItems
     ] = await Promise.all([
       this.prisma.user.count(),
       this.prisma.product.count(),
@@ -135,6 +136,23 @@ export class DashboardService {
             }
           }
         }
+      }),
+      this.prisma.orderItem.findMany({
+        where: {
+          order: {
+            status: {
+              in: [OrderStatus.PAID, OrderStatus.SHIPPED, OrderStatus.DELIVERED]
+            }
+          }
+        },
+        include: {
+          product: {
+            include: {
+              category: true
+            }
+          },
+          order: true
+        }
       })
     ]);
 
@@ -145,6 +163,79 @@ export class DashboardService {
       (sum, product) => sum + Number(product.price) * product.stock,
       0
     );
+    const productProfitMap = new Map<
+      string,
+      {
+        productId: string;
+        productName: string;
+        categoryId: string;
+        categoryName: string;
+        quantitySold: number;
+        revenue: number;
+        grossProfit: number;
+      }
+    >();
+    const categoryProfitMap = new Map<
+      string,
+      {
+        categoryId: string;
+        categoryName: string;
+        quantitySold: number;
+        revenue: number;
+        grossProfit: number;
+      }
+    >();
+
+    for (const item of profitabilityItems) {
+      const quantitySold = item.quantity;
+      const revenueItem = Number(item.unitPrice) * quantitySold;
+      const cost = Number(item.product.costPrice) * quantitySold;
+      const grossProfitItem = revenueItem - cost;
+      const categoryId = item.product.category.id;
+      const categoryName = item.product.category.name;
+      const existingProduct = productProfitMap.get(item.productId);
+      const existingCategory = categoryProfitMap.get(categoryId);
+
+      productProfitMap.set(item.productId, {
+        productId: item.productId,
+        productName: item.product.name,
+        categoryId,
+        categoryName,
+        quantitySold: (existingProduct?.quantitySold ?? 0) + quantitySold,
+        revenue: (existingProduct?.revenue ?? 0) + revenueItem,
+        grossProfit: (existingProduct?.grossProfit ?? 0) + grossProfitItem
+      });
+
+      categoryProfitMap.set(categoryId, {
+        categoryId,
+        categoryName,
+        quantitySold: (existingCategory?.quantitySold ?? 0) + quantitySold,
+        revenue: (existingCategory?.revenue ?? 0) + revenueItem,
+        grossProfit: (existingCategory?.grossProfit ?? 0) + grossProfitItem
+      });
+    }
+
+    const topProductsByProfit = Array.from(productProfitMap.values())
+      .map((item) => ({
+        ...item,
+        marginRate: item.revenue > 0 ? (item.grossProfit / item.revenue) * 100 : 0
+      }))
+      .sort((left, right) => right.grossProfit - left.grossProfit)
+      .slice(0, 5);
+    const topCategoriesByProfit = Array.from(categoryProfitMap.values())
+      .map((item) => ({
+        ...item,
+        marginRate: item.revenue > 0 ? (item.grossProfit / item.revenue) * 100 : 0
+      }))
+      .sort((left, right) => right.grossProfit - left.grossProfit)
+      .slice(0, 5);
+    const grossProfit = Array.from(productProfitMap.values()).reduce(
+      (sum, item) => sum + item.grossProfit,
+      0
+    );
+    const paymentApprovalRate = orders > 0 ? (paidOrders / orders) * 100 : 0;
+    const deliveryRate = orders > 0 ? (deliveredOrders / orders) * 100 : 0;
+    const cancellationRate = orders > 0 ? (canceledOrders / orders) * 100 : 0;
 
     return {
       users,
@@ -155,6 +246,8 @@ export class DashboardService {
       recentRevenue,
       inventoryUnits,
       inventoryEstimatedValue,
+      grossProfit,
+      profitMargin: Number(revenue) > 0 ? (grossProfit / Number(revenue)) * 100 : 0,
       lowStockProducts,
       paidOrders,
       couponOrders,
@@ -166,7 +259,20 @@ export class DashboardService {
       },
       recentOrders,
       lowStockItems,
-      recentInventoryMovements
+      recentInventoryMovements,
+      funnel: {
+        totalOrders: orders,
+        pending: pendingOrders,
+        paid: paidOrders,
+        shipped: shippedOrders,
+        delivered: deliveredOrders,
+        canceled: canceledOrders,
+        paymentApprovalRate,
+        deliveryRate,
+        cancellationRate
+      },
+      topProductsByProfit,
+      topCategoriesByProfit
     };
   }
 }
