@@ -388,6 +388,17 @@ export class DashboardService {
           0,
           Math.ceil(item.averageDailySales * targetCoverageDays - item.currentStock)
         );
+        const productCostPrice =
+          stockForecastItems.find((stockItem) => stockItem.productId === item.productId)?.product
+            .costPrice ?? 0;
+        const projectedCoverageDays =
+          item.averageDailySales > 0
+            ? (item.currentStock + suggestedQuantity) / item.averageDailySales
+            : null;
+        const addedCoverageDays =
+          item.coverageDays !== null && projectedCoverageDays !== null
+            ? projectedCoverageDays - item.coverageDays
+            : null;
 
         return {
           productId: item.productId,
@@ -399,6 +410,9 @@ export class DashboardService {
           coverageDays: item.coverageDays,
           targetCoverageDays,
           suggestedQuantity,
+          estimatedPurchaseCost: Number(productCostPrice) * suggestedQuantity,
+          projectedCoverageDays,
+          addedCoverageDays,
           priority: (
             item.coverageDays !== null && item.coverageDays <= 7
               ? "CRITICAL"
@@ -430,6 +444,9 @@ export class DashboardService {
         totalCurrentStock: number;
         totalCoverageDays: number;
         coveredProducts: number;
+        estimatedPurchaseCost: number;
+        projectedCoverageDaysTotal: number;
+        projectedCoverageProducts: number;
         highestPriority: ReplenishmentPriority;
       }
     >();
@@ -444,6 +461,13 @@ export class DashboardService {
         totalCurrentStock: (existing?.totalCurrentStock ?? 0) + item.currentStock,
         totalCoverageDays: (existing?.totalCoverageDays ?? 0) + (item.coverageDays ?? 0),
         coveredProducts: (existing?.coveredProducts ?? 0) + (item.coverageDays !== null ? 1 : 0),
+        estimatedPurchaseCost:
+          (existing?.estimatedPurchaseCost ?? 0) + item.estimatedPurchaseCost,
+        projectedCoverageDaysTotal:
+          (existing?.projectedCoverageDaysTotal ?? 0) + (item.projectedCoverageDays ?? 0),
+        projectedCoverageProducts:
+          (existing?.projectedCoverageProducts ?? 0) +
+          (item.projectedCoverageDays !== null ? 1 : 0),
         highestPriority: this.maxPriority(existing?.highestPriority, item.priority)
       });
     }
@@ -454,8 +478,13 @@ export class DashboardService {
         productsAtRisk: item.productsAtRisk,
         totalSuggestedUnits: item.totalSuggestedUnits,
         totalCurrentStock: item.totalCurrentStock,
+        estimatedPurchaseCost: item.estimatedPurchaseCost,
         averageCoverageDays:
           item.coveredProducts > 0 ? item.totalCoverageDays / item.coveredProducts : null,
+        projectedCoverageDays:
+          item.projectedCoverageProducts > 0
+            ? item.projectedCoverageDaysTotal / item.projectedCoverageProducts
+            : null,
         priority: item.highestPriority
       }))
       .sort((left, right) => {

@@ -338,6 +338,16 @@ export default async function AdminDashboardPage() {
                         {item.averageCoverageDays !== undefined
                           ? ` / cobertura media de ${Math.round(item.averageCoverageDays)} dias`
                           : ""}
+                        {item.projectedCoverageDays !== undefined
+                          ? ` / cobertura projetada de ${Math.round(item.projectedCoverageDays)} dias`
+                          : ""}
+                      </p>
+                      <p className="mt-2 text-sm text-moss">
+                        Orcamento sugerido de{" "}
+                        {item.estimatedPurchaseCost.toLocaleString("pt-BR", {
+                          style: "currency",
+                          currency: "BRL"
+                        })}
                       </p>
                     </div>
                   ))}
@@ -377,6 +387,19 @@ export default async function AdminDashboardPage() {
                         giro de {item.averageDailySales.toFixed(1)} un./dia
                         {item.coverageDays !== undefined
                           ? ` / cobertura atual ${Math.round(item.coverageDays)} dias`
+                          : ""}
+                        {item.projectedCoverageDays !== undefined
+                          ? ` / cobertura apos compra ${Math.round(item.projectedCoverageDays)} dias`
+                          : ""}
+                      </p>
+                      <p className="mt-2 text-sm text-moss">
+                        Investimento estimado de{" "}
+                        {item.estimatedPurchaseCost.toLocaleString("pt-BR", {
+                          style: "currency",
+                          currency: "BRL"
+                        })}
+                        {item.addedCoverageDays !== undefined
+                          ? ` para ganhar cerca de ${Math.round(item.addedCoverageDays)} dias de cobertura`
                           : ""}
                       </p>
                     </div>

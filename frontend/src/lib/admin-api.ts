@@ -136,7 +136,9 @@ type DashboardResponse = {
     productsAtRisk: number;
     totalSuggestedUnits: number;
     totalCurrentStock: number;
+    estimatedPurchaseCost: number;
     averageCoverageDays: number | null;
+    projectedCoverageDays: number | null;
     priority: string;
   }>;
   purchaseSuggestions: Array<{
@@ -149,6 +151,9 @@ type DashboardResponse = {
     coverageDays: number | null;
     targetCoverageDays: number;
     suggestedQuantity: number;
+    estimatedPurchaseCost: number;
+    projectedCoverageDays: number | null;
+    addedCoverageDays: number | null;
     priority: string;
   }>;
   customerInsights: {
@@ -494,7 +499,9 @@ export type AdminDashboardData = {
     productsAtRisk: number;
     totalSuggestedUnits: number;
     totalCurrentStock: number;
+    estimatedPurchaseCost: number;
     averageCoverageDays?: number;
+    projectedCoverageDays?: number;
     priority: string;
   }>;
   purchaseSuggestions: Array<{
@@ -507,6 +514,9 @@ export type AdminDashboardData = {
     coverageDays?: number;
     targetCoverageDays: number;
     suggestedQuantity: number;
+    estimatedPurchaseCost: number;
+    projectedCoverageDays?: number;
+    addedCoverageDays?: number;
     priority: string;
   }>;
   customerHighlights: Array<{
@@ -1074,7 +1084,9 @@ export async function getAdminDashboardMetrics(): Promise<AdminDashboardData> {
       productsAtRisk: item.productsAtRisk,
       totalSuggestedUnits: item.totalSuggestedUnits,
       totalCurrentStock: item.totalCurrentStock,
+      estimatedPurchaseCost: item.estimatedPurchaseCost,
       averageCoverageDays: item.averageCoverageDays ?? undefined,
+      projectedCoverageDays: item.projectedCoverageDays ?? undefined,
       priority: item.priority
     })),
     purchaseSuggestions: data.purchaseSuggestions.map((item) => ({
@@ -1087,6 +1099,9 @@ export async function getAdminDashboardMetrics(): Promise<AdminDashboardData> {
       coverageDays: item.coverageDays ?? undefined,
       targetCoverageDays: item.targetCoverageDays,
       suggestedQuantity: item.suggestedQuantity,
+      estimatedPurchaseCost: item.estimatedPurchaseCost,
+      projectedCoverageDays: item.projectedCoverageDays ?? undefined,
+      addedCoverageDays: item.addedCoverageDays ?? undefined,
       priority: item.priority
     })),
     customerHighlights: [
