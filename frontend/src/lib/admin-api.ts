@@ -509,6 +509,7 @@ type OrderResponse = {
     id: string;
     quantity: number;
     unitPrice: number | string;
+    variantId?: string | null;
     variantSku?: string | null;
     variantLabel?: string | null;
     product: {
