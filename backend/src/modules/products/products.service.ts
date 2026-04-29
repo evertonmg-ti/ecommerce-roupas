@@ -48,11 +48,34 @@ export class ProductsService {
     });
   }
 
-  listAll() {
-    return this.prisma.product.findMany({
-      include: { category: true },
-      orderBy: { createdAt: "desc" }
-    });
+  async listAll(filters?: {
+    search?: string;
+    status?: string;
+    page?: string;
+    pageSize?: string;
+  }) {
+    const page = this.parsePositiveInteger(filters?.page, 1);
+    const pageSize = Math.min(this.parsePositiveInteger(filters?.pageSize, 10), 50);
+    const skip = (page - 1) * pageSize;
+    const where = this.buildAdminProductWhere(filters?.search, filters?.status);
+    const [total, items] = await this.prisma.$transaction([
+      this.prisma.product.count({ where }),
+      this.prisma.product.findMany({
+        where,
+        include: { category: true },
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: pageSize
+      })
+    ]);
+
+    return {
+      items,
+      total,
+      page,
+      pageSize,
+      totalPages: Math.max(1, Math.ceil(total / pageSize))
+    };
   }
 
   async findBySlug(slug: string) {
@@ -210,6 +233,58 @@ export class ProductsService {
       productId,
       quantity
     }));
+  }
+
+  private buildAdminProductWhere(search?: string, status?: string) {
+    const normalizedSearch = search?.trim();
+    const normalizedStatus =
+      status && Object.values(ProductStatus).includes(status as ProductStatus)
+        ? (status as ProductStatus)
+        : undefined;
+
+    if (!normalizedSearch && !normalizedStatus) {
+      return undefined;
+    }
+
+    return {
+      ...(normalizedStatus ? { status: normalizedStatus } : {}),
+      ...(normalizedSearch
+        ? {
+            OR: [
+              {
+                name: {
+                  contains: normalizedSearch,
+                  mode: "insensitive" as const
+                }
+              },
+              {
+                slug: {
+                  contains: normalizedSearch,
+                  mode: "insensitive" as const
+                }
+              },
+              {
+                category: {
+                  name: {
+                    contains: normalizedSearch,
+                    mode: "insensitive" as const
+                  }
+                }
+              }
+            ]
+          }
+        : {})
+    } satisfies Prisma.ProductWhereInput;
+  }
+
+  private parsePositiveInteger(value: string | undefined, fallback: number) {
+    const parsed = Number(value);
+
+    if (!Number.isFinite(parsed) || parsed < 1) {
+      return fallback;
+    }
+
+    return Math.trunc(parsed);
   }
 
   private resolvePublicSort(sort?: string): Prisma.ProductOrderByWithRelationInput {

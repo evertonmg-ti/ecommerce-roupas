@@ -23,7 +23,32 @@ export default async function AdminOrdersPage({
     typeof params?.status === "string" && params.status !== "ALL"
       ? params.status
       : undefined;
-  const orders = await getAdminOrders(activeStatus).catch(() => null);
+  const search =
+    typeof params?.search === "string" && params.search.trim()
+      ? params.search.trim()
+      : undefined;
+  const page =
+    typeof params?.page === "string" && Number(params.page) > 0
+      ? Number(params.page)
+      : 1;
+  const orderList = await getAdminOrders({
+    status: activeStatus,
+    search,
+    page,
+    pageSize: 12
+  }).catch(() => null);
+  const orders = orderList?.items ?? [];
+  const baseParams = new URLSearchParams();
+
+  if (activeStatus) {
+    baseParams.set("status", activeStatus);
+  }
+
+  if (search) {
+    baseParams.set("search", search);
+  }
+
+  const basePath = `/admin/pedidos${baseParams.toString() ? `?${baseParams.toString()}` : ""}`;
 
   return (
     <div className="space-y-6">
@@ -40,6 +65,15 @@ export default async function AdminOrdersPage({
 
       <section className="rounded-[2rem] border border-espresso/10 bg-white/80 p-6 shadow-soft">
         <form className="flex flex-col gap-4 sm:flex-row sm:items-end">
+          <label className="space-y-2 text-sm sm:min-w-72">
+            <span>Buscar pedido, cliente, email ou cupom</span>
+            <input
+              name="search"
+              defaultValue={search}
+              placeholder="Ex.: ana, pedido, desconto10"
+              className="w-full rounded-2xl border border-espresso/15 bg-sand px-4 py-3 outline-none"
+            />
+          </label>
           <label className="space-y-2 text-sm">
             <span>Filtrar por status</span>
             <select
@@ -61,7 +95,7 @@ export default async function AdminOrdersPage({
         </form>
       </section>
 
-      {orders && orders.length > 0 ? (
+      {orders.length > 0 ? (
         <section className="space-y-4">
           {orders.map((order) => (
             <article
@@ -182,6 +216,11 @@ export default async function AdminOrdersPage({
                   </p>
                   <form action={updateOrderStatusAction} className="mt-5 space-y-4">
                     <input type="hidden" name="id" value={order.id} />
+                    <input
+                      type="hidden"
+                      name="returnTo"
+                      value={`${basePath}${basePath.includes("?") ? "&" : "?"}page=${orderList?.page ?? 1}`}
+                    />
                     <label className="space-y-2 text-sm">
                       <span>Status atual</span>
                       <select
@@ -211,6 +250,32 @@ export default async function AdminOrdersPage({
           aparecerao aqui para acompanhamento da operacao.
         </div>
       )}
+
+      {orderList && orderList.totalPages > 1 ? (
+        <section className="flex flex-wrap items-center justify-between gap-4 rounded-[2rem] border border-espresso/10 bg-white/80 p-5 shadow-soft">
+          <p className="text-sm text-espresso/70">
+            Pagina {orderList.page} de {orderList.totalPages} - {orderList.total} pedidos
+          </p>
+          <div className="flex items-center gap-3">
+            {orderList.page > 1 ? (
+              <a
+                href={`${basePath}${basePath.includes("?") ? "&" : "?"}page=${orderList.page - 1}`}
+                className="rounded-full border border-espresso/15 px-4 py-2 text-sm"
+              >
+                Anterior
+              </a>
+            ) : null}
+            {orderList.page < orderList.totalPages ? (
+              <a
+                href={`${basePath}${basePath.includes("?") ? "&" : "?"}page=${orderList.page + 1}`}
+                className="rounded-full border border-espresso/15 px-4 py-2 text-sm"
+              >
+                Proxima
+              </a>
+            ) : null}
+          </div>
+        </section>
+      ) : null}
     </div>
   );
 }

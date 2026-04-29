@@ -21,10 +21,39 @@ export default async function AdminProductsPage({
   searchParams
 }: AdminProductsPageProps) {
   const params = searchParams ? await searchParams : undefined;
-  const [products, categories] = await Promise.all([
-    getAdminProducts().catch(() => null),
+  const search =
+    typeof params?.search === "string" && params.search.trim()
+      ? params.search.trim()
+      : undefined;
+  const activeStatus =
+    typeof params?.status === "string" && params.status !== "ALL"
+      ? params.status
+      : undefined;
+  const page =
+    typeof params?.page === "string" && Number(params.page) > 0
+      ? Number(params.page)
+      : 1;
+  const [productList, categories] = await Promise.all([
+    getAdminProducts({
+      search,
+      status: activeStatus,
+      page,
+      pageSize: 10
+    }).catch(() => null),
     getAdminCategories().catch(() => [])
   ]);
+  const products = productList?.items ?? [];
+  const baseParams = new URLSearchParams();
+
+  if (search) {
+    baseParams.set("search", search);
+  }
+
+  if (activeStatus) {
+    baseParams.set("status", activeStatus);
+  }
+
+  const basePath = `/admin/produtos${baseParams.toString() ? `?${baseParams.toString()}` : ""}`;
 
   return (
     <div className="space-y-6">
@@ -38,6 +67,38 @@ export default async function AdminProductsPage({
       </div>
 
       <AdminFeedback searchParams={params} />
+
+      <section className="rounded-[2rem] border border-espresso/10 bg-white/80 p-6 shadow-soft">
+        <form className="flex flex-col gap-4 sm:flex-row sm:items-end">
+          <label className="space-y-2 text-sm sm:min-w-72">
+            <span>Buscar por nome, slug ou categoria</span>
+            <input
+              name="search"
+              defaultValue={search}
+              placeholder="Ex.: camiseta, studio, vestidos"
+              className="w-full rounded-2xl border border-espresso/15 bg-sand px-4 py-3 outline-none"
+            />
+          </label>
+          <label className="space-y-2 text-sm">
+            <span>Status</span>
+            <select
+              name="status"
+              defaultValue={activeStatus ?? "ALL"}
+              className="w-full rounded-2xl border border-espresso/15 bg-sand px-4 py-3 outline-none sm:min-w-56"
+            >
+              <option value="ALL">Todos</option>
+              {statusOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button className="rounded-full bg-espresso px-5 py-3 text-sand">
+            Aplicar filtro
+          </button>
+        </form>
+      </section>
 
       <section className="rounded-[2rem] border border-espresso/10 bg-white/80 p-6 shadow-soft">
         <div className="flex items-center justify-between gap-4">
@@ -171,7 +232,7 @@ export default async function AdminProductsPage({
         )}
       </section>
 
-      {products ? (
+      {productList ? (
         <section className="space-y-4">
           {products.map((product) => (
             <article
@@ -182,7 +243,7 @@ export default async function AdminProductsPage({
                 <div>
                   <p className="font-display text-3xl">{product.name}</p>
                   <p className="mt-1 text-sm text-espresso/60">
-                    {product.slug} • {product.category} • {currency(product.price)}
+                    {product.slug} - {product.category} - {currency(product.price)}
                   </p>
                 </div>
                 <span className="rounded-full bg-moss/10 px-3 py-1 text-xs text-moss">
@@ -326,6 +387,32 @@ export default async function AdminProductsPage({
           para renovar a sessao administrativa.
         </div>
       )}
+
+      {productList && productList.totalPages > 1 ? (
+        <section className="flex flex-wrap items-center justify-between gap-4 rounded-[2rem] border border-espresso/10 bg-white/80 p-5 shadow-soft">
+          <p className="text-sm text-espresso/70">
+            Pagina {productList.page} de {productList.totalPages} - {productList.total} produtos
+          </p>
+          <div className="flex items-center gap-3">
+            {productList.page > 1 ? (
+              <a
+                href={`${basePath}${basePath.includes("?") ? "&" : "?"}page=${productList.page - 1}`}
+                className="rounded-full border border-espresso/15 px-4 py-2 text-sm"
+              >
+                Anterior
+              </a>
+            ) : null}
+            {productList.page < productList.totalPages ? (
+              <a
+                href={`${basePath}${basePath.includes("?") ? "&" : "?"}page=${productList.page + 1}`}
+                className="rounded-full border border-espresso/15 px-4 py-2 text-sm"
+              >
+                Proxima
+              </a>
+            ) : null}
+          </div>
+        </section>
+      ) : null}
     </div>
   );
 }

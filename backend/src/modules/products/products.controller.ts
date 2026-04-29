@@ -34,8 +34,13 @@ export class ProductsController {
   @Get("admin")
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN)
-  listAll() {
-    return this.productsService.listAll();
+  listAll(
+    @Query("search") search?: string,
+    @Query("status") status?: string,
+    @Query("page") page?: string,
+    @Query("pageSize") pageSize?: string
+  ) {
+    return this.productsService.listAll({ search, status, page, pageSize });
   }
 
   @Get(":slug")

@@ -9,6 +9,8 @@ import {
 } from "@/lib/admin-api";
 
 export async function updateOrderStatusAction(formData: FormData) {
+  const returnTo = String(formData.get("returnTo") ?? "/admin/pedidos");
+
   try {
     const id = String(formData.get("id") ?? "").trim();
     const status = String(formData.get("status") ?? "").trim();
@@ -21,11 +23,21 @@ export async function updateOrderStatusAction(formData: FormData) {
     }
 
     if (error instanceof AdminRequestError) {
-      redirect(`/admin/pedidos?error=${error.code}`);
+      redirect(appendQueryParam(returnTo, "error", error.code));
     }
 
-    redirect("/admin/pedidos?error=generic_error");
+    redirect(appendQueryParam(returnTo, "error", "generic_error"));
   }
 
-  redirect("/admin/pedidos?success=order_updated");
+  redirect(appendQueryParam(returnTo, "success", "order_updated"));
+}
+
+function appendQueryParam(path: string, key: string, value: string) {
+  const [pathname, queryString] = path.split("?");
+  const params = new URLSearchParams(queryString ?? "");
+  params.delete("error");
+  params.delete("success");
+  params.set(key, value);
+  const nextQuery = params.toString();
+  return nextQuery ? `${pathname}?${nextQuery}` : pathname;
 }

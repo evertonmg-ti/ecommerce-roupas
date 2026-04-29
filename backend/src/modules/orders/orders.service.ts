@@ -30,10 +30,20 @@ export class OrdersService {
     private readonly couponsService: CouponsService
   ) {}
 
-  listAll(status?: OrderStatus) {
-    return this.prisma.order
-      .findMany({
-        where: status ? { status } : undefined,
+  async listAll(filters?: {
+    status?: OrderStatus;
+    search?: string;
+    page?: string;
+    pageSize?: string;
+  }) {
+    const page = this.parsePositiveInteger(filters?.page, 1);
+    const pageSize = Math.min(this.parsePositiveInteger(filters?.pageSize, 12), 50);
+    const skip = (page - 1) * pageSize;
+    const where = this.buildAdminOrderWhere(filters?.status, filters?.search);
+    const [total, orders] = await this.prisma.$transaction([
+      this.prisma.order.count({ where }),
+      this.prisma.order.findMany({
+        where,
         include: {
           user: true,
           items: {
@@ -44,9 +54,19 @@ export class OrdersService {
             }
           }
         },
-        orderBy: { createdAt: "desc" }
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: pageSize
       })
-      .then((orders) => orders.map((order) => this.attachMockPayment(order)));
+    ]);
+
+    return {
+      items: orders.map((order) => this.attachMockPayment(order)),
+      total,
+      page,
+      pageSize,
+      totalPages: Math.max(1, Math.ceil(total / pageSize))
+    };
   }
 
   listByUser(userId: string) {
@@ -536,13 +556,13 @@ export class OrdersService {
       );
     }
 
-      if (
-        nextStatus === OrderStatus.CANCELED &&
-        order.status !== OrderStatus.PENDING &&
-        order.status !== OrderStatus.PAID
-      ) {
-        throw new BadRequestException(
-          "Nao e possivel cancelar um pedido que ja foi enviado ou entregue."
+    if (
+      nextStatus === OrderStatus.CANCELED &&
+      order.status !== OrderStatus.PENDING &&
+      order.status !== OrderStatus.PAID
+    ) {
+      throw new BadRequestException(
+        "Nao e possivel cancelar um pedido que ja foi enviado ou entregue."
       );
     }
 
@@ -579,8 +599,13 @@ export class OrdersService {
         );
 
         if (order.couponId) {
-          await tx.coupon.update({
-            where: { id: order.couponId },
+          await tx.coupon.updateMany({
+            where: {
+              id: order.couponId,
+              usedCount: {
+                gt: 0
+              }
+            },
             data: {
               usedCount: {
                 decrement: 1
@@ -592,5 +617,63 @@ export class OrdersService {
 
       return this.attachMockPayment(updatedOrder);
     });
+  }
+
+  private buildAdminOrderWhere(status?: OrderStatus, rawSearch?: string) {
+    const search = rawSearch?.trim();
+
+    if (!status && !search) {
+      return undefined;
+    }
+
+    const searchWhere = search
+      ? {
+          OR: [
+            {
+              id: {
+                contains: search,
+                mode: "insensitive" as const
+              }
+            },
+            {
+              couponCode: {
+                contains: search,
+                mode: "insensitive" as const
+              }
+            },
+            {
+              user: {
+                name: {
+                  contains: search,
+                  mode: "insensitive" as const
+                }
+              }
+            },
+            {
+              user: {
+                email: {
+                  contains: search,
+                  mode: "insensitive" as const
+                }
+              }
+            }
+          ]
+        }
+      : undefined;
+
+    return {
+      ...(status ? { status } : {}),
+      ...(searchWhere ?? {})
+    } satisfies Prisma.OrderWhereInput;
+  }
+
+  private parsePositiveInteger(value: string | undefined, fallback: number) {
+    const parsed = Number(value);
+
+    if (!Number.isFinite(parsed) || parsed < 1) {
+      return fallback;
+    }
+
+    return Math.trunc(parsed);
   }
 }

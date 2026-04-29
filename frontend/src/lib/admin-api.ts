@@ -74,6 +74,14 @@ type ProductResponse = {
   } | null;
 };
 
+type PaginatedProductsResponse = {
+  items: ProductResponse[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+};
+
 type CategoryResponse = {
   id: string;
   name: string;
@@ -153,6 +161,14 @@ type OrderResponse = {
   }>;
 };
 
+type PaginatedOrdersResponse = {
+  items: OrderResponse[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+};
+
 export type AdminMetric = {
   label: string;
   value: string;
@@ -196,6 +212,14 @@ export type AdminProduct = {
   imageUrl?: string;
   categoryId: string;
   category: string;
+};
+
+export type AdminProductList = {
+  items: AdminProduct[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
 };
 
 export type AdminCategory = {
@@ -268,6 +292,14 @@ export type AdminOrder = {
     quantity: number;
     unitPrice: number;
   }>;
+};
+
+export type AdminOrderList = {
+  items: AdminOrder[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
 };
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
@@ -479,10 +511,8 @@ export async function getAdminDashboardMetrics(): Promise<AdminDashboardData> {
   };
 }
 
-export async function getAdminProducts(): Promise<AdminProduct[]> {
-  const products = await fetchAdmin<ProductResponse[]>("/products/admin");
-
-  return products.map((product) => ({
+function normalizeAdminProduct(product: ProductResponse): AdminProduct {
+  return {
     id: product.id,
     name: product.name,
     slug: product.slug,
@@ -497,7 +527,43 @@ export async function getAdminProducts(): Promise<AdminProduct[]> {
     imageUrl: product.imageUrl ?? undefined,
     categoryId: product.categoryId,
     category: product.category?.name ?? "Sem categoria"
-  }));
+  };
+}
+
+export async function getAdminProducts(filters?: {
+  search?: string;
+  status?: string;
+  page?: number;
+  pageSize?: number;
+}): Promise<AdminProductList> {
+  const params = new URLSearchParams();
+
+  if (filters?.search) {
+    params.set("search", filters.search);
+  }
+
+  if (filters?.status) {
+    params.set("status", filters.status);
+  }
+
+  if (filters?.page) {
+    params.set("page", String(filters.page));
+  }
+
+  if (filters?.pageSize) {
+    params.set("pageSize", String(filters.pageSize));
+  }
+
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+  const response = await fetchAdmin<PaginatedProductsResponse>(`/products/admin${suffix}`);
+
+  return {
+    items: response.items.map(normalizeAdminProduct),
+    total: response.total,
+    page: response.page,
+    pageSize: response.pageSize,
+    totalPages: response.totalPages
+  };
 }
 
 export async function getAdminCategories(): Promise<AdminCategory[]> {
@@ -542,11 +608,8 @@ export async function getAdminUsers(): Promise<AdminUser[]> {
   }));
 }
 
-export async function getAdminOrders(status?: string): Promise<AdminOrder[]> {
-  const suffix = status ? `?status=${encodeURIComponent(status)}` : "";
-  const orders = await fetchAdmin<OrderResponse[]>(`/orders${suffix}`);
-
-  return orders.map((order) => ({
+function normalizeAdminOrder(order: OrderResponse): AdminOrder {
+  return {
     id: order.id,
     customerName: order.user.name,
     customerEmail: order.user.email,
@@ -588,7 +651,43 @@ export async function getAdminOrders(status?: string): Promise<AdminOrder[]> {
       quantity: item.quantity,
       unitPrice: toNumber(item.unitPrice)
     }))
-  }));
+  };
+}
+
+export async function getAdminOrders(filters?: {
+  status?: string;
+  search?: string;
+  page?: number;
+  pageSize?: number;
+}): Promise<AdminOrderList> {
+  const params = new URLSearchParams();
+
+  if (filters?.status) {
+    params.set("status", filters.status);
+  }
+
+  if (filters?.search) {
+    params.set("search", filters.search);
+  }
+
+  if (filters?.page) {
+    params.set("page", String(filters.page));
+  }
+
+  if (filters?.pageSize) {
+    params.set("pageSize", String(filters.pageSize));
+  }
+
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+  const response = await fetchAdmin<PaginatedOrdersResponse>(`/orders${suffix}`);
+
+  return {
+    items: response.items.map(normalizeAdminOrder),
+    total: response.total,
+    page: response.page,
+    pageSize: response.pageSize,
+    totalPages: response.totalPages
+  };
 }
 
 export type SaveUserInput = {

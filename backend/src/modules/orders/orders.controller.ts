@@ -62,8 +62,18 @@ export class OrdersController {
   @Get()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN)
-  listAll(@Query("status") status?: OrderStatus) {
-    return this.ordersService.listAll(status);
+  listAll(
+    @Query("status") status?: OrderStatus,
+    @Query("search") search?: string,
+    @Query("page") page?: string,
+    @Query("pageSize") pageSize?: string
+  ) {
+    return this.ordersService.listAll({
+      status,
+      search,
+      page,
+      pageSize
+    });
   }
 
   @Patch(":id/status")
