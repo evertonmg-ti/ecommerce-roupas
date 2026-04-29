@@ -1,0 +1,262 @@
+import "server-only";
+
+import { getCustomerSession } from "@/lib/auth";
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api/v1";
+
+type OrderResponse = {
+  id: string;
+  total: number | string;
+  subtotal: number | string;
+  shippingCost: number | string;
+  status: string;
+  paymentMethod: string;
+  shippingMethod: string;
+  trackingCode?: string | null;
+  createdAt: string;
+  items: Array<{
+    id: string;
+    quantity: number;
+    unitPrice: number | string;
+    product: {
+      id: string;
+      name: string;
+      slug: string;
+      imageUrl?: string | null;
+      category?: {
+        name: string;
+      } | null;
+    };
+  }>;
+};
+
+type AddressResponse = {
+  id: string;
+  label: string;
+  recipientName: string;
+  customerDocument?: string | null;
+  customerPhone?: string | null;
+  shippingAddress: string;
+  shippingNumber: string;
+  shippingAddress2?: string | null;
+  shippingNeighborhood: string;
+  shippingCity: string;
+  shippingState: string;
+  shippingPostalCode: string;
+  isDefault: boolean;
+  createdAt: string;
+};
+
+type CurrentUserResponse = {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  createdAt: string;
+  addresses?: AddressResponse[];
+};
+
+export type CustomerAccount = {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  createdAt: string;
+  addresses: CustomerAddress[];
+};
+
+export type CustomerAddress = {
+  id: string;
+  label: string;
+  recipientName: string;
+  customerDocument?: string;
+  customerPhone?: string;
+  shippingAddress: string;
+  shippingNumber: string;
+  shippingAddress2?: string;
+  shippingNeighborhood: string;
+  shippingCity: string;
+  shippingState: string;
+  shippingPostalCode: string;
+  isDefault: boolean;
+  createdAt: string;
+};
+
+export type CustomerOrderSummary = {
+  id: string;
+  total: number;
+  subtotal: number;
+  shippingCost: number;
+  status: string;
+  paymentMethod: string;
+  shippingMethod: string;
+  trackingCode?: string;
+  createdAt: string;
+  items: Array<{
+    id: string;
+    productId: string;
+    name: string;
+    slug: string;
+    imageUrl?: string;
+    category: string;
+    quantity: number;
+    unitPrice: number;
+  }>;
+};
+
+function toNumber(value: number | string) {
+  return typeof value === "number" ? value : Number(value);
+}
+
+function formatDateTime(value: string) {
+  return new Date(value).toLocaleString("pt-BR");
+}
+
+async function fetchCustomer<T>(path: string, init?: RequestInit): Promise<T> {
+  const session = await getCustomerSession();
+
+  if (!session?.token) {
+    throw new Error("Sessao do cliente nao encontrada.");
+  }
+
+  const response = await fetch(`${API_URL}${path}`, {
+    ...init,
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${session.token}`,
+      ...(init?.headers ?? {})
+    },
+    cache: "no-store"
+  });
+
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as
+      | { message?: string | string[] }
+      | null;
+    const message = Array.isArray(payload?.message)
+      ? payload.message[0]
+      : payload?.message;
+
+    throw new Error(message ?? "Falha na operacao do cliente.");
+  }
+
+  return (await response.json()) as T;
+}
+
+function normalizeAddress(address: AddressResponse): CustomerAddress {
+  return {
+    id: address.id,
+    label: address.label,
+    recipientName: address.recipientName,
+    customerDocument: address.customerDocument ?? undefined,
+    customerPhone: address.customerPhone ?? undefined,
+    shippingAddress: address.shippingAddress,
+    shippingNumber: address.shippingNumber,
+    shippingAddress2: address.shippingAddress2 ?? undefined,
+    shippingNeighborhood: address.shippingNeighborhood,
+    shippingCity: address.shippingCity,
+    shippingState: address.shippingState,
+    shippingPostalCode: address.shippingPostalCode,
+    isDefault: address.isDefault,
+    createdAt: formatDateTime(address.createdAt)
+  };
+}
+
+export async function getCurrentCustomerAccount(): Promise<CustomerAccount> {
+  const user = await fetchCustomer<CurrentUserResponse>("/users/me");
+
+  return {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    createdAt: formatDateTime(user.createdAt),
+    addresses: (user.addresses ?? []).map(normalizeAddress)
+  };
+}
+
+export async function getCurrentCustomerOrders(): Promise<CustomerOrderSummary[]> {
+  const orders = await fetchCustomer<OrderResponse[]>("/orders/me");
+
+  return orders.map((order) => ({
+    id: order.id,
+    total: toNumber(order.total),
+    subtotal: toNumber(order.subtotal),
+    shippingCost: toNumber(order.shippingCost),
+    status: order.status,
+    paymentMethod: order.paymentMethod,
+    shippingMethod: order.shippingMethod,
+    trackingCode: order.trackingCode ?? undefined,
+    createdAt: formatDateTime(order.createdAt),
+    items: order.items.map((item) => ({
+      id: item.id,
+      productId: item.product.id,
+      name: item.product.name,
+      slug: item.product.slug,
+      imageUrl: item.product.imageUrl ?? undefined,
+      category: item.product.category?.name ?? "Colecao",
+      quantity: item.quantity,
+      unitPrice: toNumber(item.unitPrice)
+    }))
+  }));
+}
+
+export async function updateCurrentCustomerProfile(payload: {
+  name?: string;
+  email?: string;
+  password?: string;
+}) {
+  return fetchCustomer("/users/me", {
+    method: "PATCH",
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function createCurrentCustomerAddress(payload: {
+  label: string;
+  recipientName: string;
+  customerDocument?: string;
+  customerPhone?: string;
+  shippingAddress: string;
+  shippingNumber: string;
+  shippingAddress2?: string;
+  shippingNeighborhood: string;
+  shippingCity: string;
+  shippingState: string;
+  shippingPostalCode: string;
+  isDefault?: boolean;
+}) {
+  return fetchCustomer("/users/me/addresses", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function updateCurrentCustomerAddress(
+  addressId: string,
+  payload: {
+    label: string;
+    recipientName: string;
+    customerDocument?: string;
+    customerPhone?: string;
+    shippingAddress: string;
+    shippingNumber: string;
+    shippingAddress2?: string;
+    shippingNeighborhood: string;
+    shippingCity: string;
+    shippingState: string;
+    shippingPostalCode: string;
+    isDefault?: boolean;
+  }
+) {
+  return fetchCustomer(`/users/me/addresses/${addressId}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function deleteCurrentCustomerAddress(addressId: string) {
+  return fetchCustomer(`/users/me/addresses/${addressId}`, {
+    method: "DELETE"
+  });
+}

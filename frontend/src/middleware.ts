@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { ADMIN_ROLE_COOKIE, ADMIN_TOKEN_COOKIE } from "./lib/auth-constants";
+import {
+  ADMIN_ROLE_COOKIE,
+  ADMIN_TOKEN_COOKIE,
+  CUSTOMER_TOKEN_COOKIE
+} from "./lib/auth-constants";
 
 function getBaseUrl(request: NextRequest) {
   const forwardedHost = request.headers.get("x-forwarded-host");
@@ -14,8 +18,13 @@ function getBaseUrl(request: NextRequest) {
 export function middleware(request: NextRequest) {
   const token = request.cookies.get(ADMIN_TOKEN_COOKIE)?.value;
   const role = request.cookies.get(ADMIN_ROLE_COOKIE)?.value;
+  const customerToken = request.cookies.get(CUSTOMER_TOKEN_COOKIE)?.value;
   const isAdminRoute = request.nextUrl.pathname.startsWith("/admin");
   const isLoginRoute = request.nextUrl.pathname.startsWith("/login");
+  const isCustomerAccountRoute = request.nextUrl.pathname.startsWith("/conta");
+  const isCustomerAuthRoute =
+    request.nextUrl.pathname.startsWith("/entrar") ||
+    request.nextUrl.pathname.startsWith("/cadastro");
   const baseUrl = getBaseUrl(request);
 
   if (isAdminRoute && (!token || role !== "ADMIN")) {
@@ -28,10 +37,19 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/admin", baseUrl));
   }
 
+  if (isCustomerAccountRoute && !customerToken) {
+    const url = new URL("/entrar", baseUrl);
+    url.searchParams.set("redirectTo", request.nextUrl.pathname);
+    return NextResponse.redirect(url);
+  }
+
+  if (isCustomerAuthRoute && customerToken) {
+    return NextResponse.redirect(new URL("/conta", baseUrl));
+  }
+
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/login"]
+  matcher: ["/admin/:path*", "/login", "/conta/:path*", "/entrar", "/cadastro"]
 };
-

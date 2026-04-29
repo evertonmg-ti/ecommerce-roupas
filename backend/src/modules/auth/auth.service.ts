@@ -198,6 +198,25 @@ export class AuthService {
     return { success: true };
   }
 
+  async getCurrentUser(id: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        createdAt: true
+      }
+    });
+
+    if (!user) {
+      throw new UnauthorizedException("Sessao invalida.");
+    }
+
+    return user;
+  }
+
   private buildAuthResponse(user: {
     id: string;
     name: string;

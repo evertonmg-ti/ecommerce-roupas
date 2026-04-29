@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getAdminSession } from "@/lib/auth";
 import { ForgotPasswordForm } from "./forgot-password-form";
 import { LoginForm } from "./login-form";
@@ -21,6 +22,12 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
             : "Use uma conta administrativa para acessar o painel."}
         </p>
         <LoginForm redirectTo={params?.redirectTo} />
+        <div className="mt-6 text-sm text-espresso/65">
+          Conta de cliente?{" "}
+          <Link href="/entrar" className="text-terracotta underline">
+            Entrar aqui
+          </Link>
+        </div>
         <ForgotPasswordForm />
       </div>
     </section>

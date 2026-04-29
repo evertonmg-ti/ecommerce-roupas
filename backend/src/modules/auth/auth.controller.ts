@@ -1,5 +1,7 @@
-import { Body, Controller, Post } from "@nestjs/common";
+import { Body, Controller, Get, Post, UseGuards } from "@nestjs/common";
+import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { RateLimit } from "../../common/decorators/rate-limit.decorator";
+import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { AuthService } from "./auth.service";
 import { ForgotPasswordDto } from "./dto/forgot-password.dto";
 import { LoginDto } from "./dto/login.dto";
@@ -32,5 +34,11 @@ export class AuthController {
   @RateLimit({ limit: 10, windowSec: 300, keyPrefix: "auth-reset-password" })
   resetPassword(@Body() payload: ResetPasswordDto) {
     return this.authService.resetPassword(payload);
+  }
+
+  @Get("me")
+  @UseGuards(JwtAuthGuard)
+  me(@CurrentUser() user: { id: string }) {
+    return this.authService.getCurrentUser(user.id);
   }
 }
