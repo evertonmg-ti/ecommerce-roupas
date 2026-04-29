@@ -156,6 +156,33 @@ type DashboardResponse = {
     addedCoverageDays: number | null;
     priority: string;
   }>;
+  monthlyPurchasePlan: Array<{
+    categoryName: string;
+    priority: string;
+    productsAtRisk: number;
+    totalSuggestedUnits: number;
+    estimatedPurchaseCost: number;
+    averageCoverageDays: number | null;
+    projectedCoverageDays: number | null;
+    budgetShare: number;
+  }>;
+  purchasePlanSummary: {
+    totalEstimatedInvestment: number;
+    totalSuggestedUnits: number;
+    categoriesInPlan: number;
+    itemsInPlan: number;
+  };
+  budgetScenarios: Array<{
+    name: string;
+    description: string;
+    investment: number;
+    suggestedUnits: number;
+    coveredItems: number;
+    totalItems: number;
+    averageCoverageGain: number;
+    coverageShare: number;
+    prioritiesCovered: string[];
+  }>;
   customerInsights: {
     totalCustomers: number;
     repeatCustomers: number;
@@ -518,6 +545,32 @@ export type AdminDashboardData = {
     projectedCoverageDays?: number;
     addedCoverageDays?: number;
     priority: string;
+  }>;
+  monthlyPurchasePlan: Array<{
+    category: string;
+    priority: string;
+    productsAtRisk: number;
+    totalSuggestedUnits: number;
+    estimatedPurchaseCost: number;
+    averageCoverageDays?: number;
+    projectedCoverageDays?: number;
+    budgetShare: number;
+  }>;
+  purchasePlanSummary: Array<{
+    label: string;
+    value: string;
+    detail: string;
+  }>;
+  budgetScenarios: Array<{
+    name: string;
+    description: string;
+    investment: number;
+    suggestedUnits: number;
+    coveredItems: number;
+    totalItems: number;
+    averageCoverageGain: number;
+    coverageShare: number;
+    prioritiesCovered: string[];
   }>;
   customerHighlights: Array<{
     label: string;
@@ -1104,6 +1157,39 @@ export async function getAdminDashboardMetrics(): Promise<AdminDashboardData> {
       addedCoverageDays: item.addedCoverageDays ?? undefined,
       priority: item.priority
     })),
+    monthlyPurchasePlan: data.monthlyPurchasePlan.map((item) => ({
+      category: item.categoryName,
+      priority: item.priority,
+      productsAtRisk: item.productsAtRisk,
+      totalSuggestedUnits: item.totalSuggestedUnits,
+      estimatedPurchaseCost: item.estimatedPurchaseCost,
+      averageCoverageDays: item.averageCoverageDays ?? undefined,
+      projectedCoverageDays: item.projectedCoverageDays ?? undefined,
+      budgetShare: item.budgetShare
+    })),
+    purchasePlanSummary: [
+      {
+        label: "Investimento total",
+        value: formatCurrency(toNumber(data.purchasePlanSummary.totalEstimatedInvestment)),
+        detail: "Orcamento integral sugerido para a reposicao"
+      },
+      {
+        label: "Unidades sugeridas",
+        value: String(data.purchasePlanSummary.totalSuggestedUnits),
+        detail: "Quantidade total recomendada para compra"
+      },
+      {
+        label: "Categorias no plano",
+        value: String(data.purchasePlanSummary.categoriesInPlan),
+        detail: "Categorias com demanda de reposicao no ciclo"
+      },
+      {
+        label: "SKUs no plano",
+        value: String(data.purchasePlanSummary.itemsInPlan),
+        detail: "Itens contemplados na sugestao de compra"
+      }
+    ],
+    budgetScenarios: data.budgetScenarios,
     customerHighlights: [
       {
         label: "Clientes recorrentes",

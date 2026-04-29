@@ -497,6 +497,82 @@ export class DashboardService {
 
         return right.totalSuggestedUnits - left.totalSuggestedUnits;
       });
+    const totalSuggestedPurchaseCost = purchaseSuggestions.reduce(
+      (sum, item) => sum + item.estimatedPurchaseCost,
+      0
+    );
+    const totalSuggestedUnits = purchaseSuggestions.reduce(
+      (sum, item) => sum + item.suggestedQuantity,
+      0
+    );
+    const monthlyPurchasePlan = replenishmentByCategory.map((item) => ({
+      categoryName: item.categoryName,
+      priority: item.priority,
+      productsAtRisk: item.productsAtRisk,
+      totalSuggestedUnits: item.totalSuggestedUnits,
+      estimatedPurchaseCost: item.estimatedPurchaseCost,
+      averageCoverageDays: item.averageCoverageDays,
+      projectedCoverageDays: item.projectedCoverageDays,
+      budgetShare:
+        totalSuggestedPurchaseCost > 0
+          ? (item.estimatedPurchaseCost / totalSuggestedPurchaseCost) * 100
+          : 0
+    }));
+    const priorityOrder: ReplenishmentPriority[] = ["CRITICAL", "HIGH", "MEDIUM", "LOW"];
+    const buildBudgetScenario = (
+      name: string,
+      description: string,
+      allowedPriorities: ReplenishmentPriority[]
+    ) => {
+      const coveredItems = purchaseSuggestions.filter((item) =>
+        allowedPriorities.includes(item.priority)
+      );
+      const investment = coveredItems.reduce(
+        (sum, item) => sum + item.estimatedPurchaseCost,
+        0
+      );
+      const suggestedUnits = coveredItems.reduce(
+        (sum, item) => sum + item.suggestedQuantity,
+        0
+      );
+      const averageCoverageGain =
+        coveredItems.length > 0
+          ? coveredItems.reduce((sum, item) => sum + (item.addedCoverageDays ?? 0), 0) /
+            coveredItems.length
+          : 0;
+
+      return {
+        name,
+        description,
+        investment,
+        suggestedUnits,
+        coveredItems: coveredItems.length,
+        totalItems: purchaseSuggestions.length,
+        averageCoverageGain,
+        coverageShare:
+          purchaseSuggestions.length > 0
+            ? (coveredItems.length / purchaseSuggestions.length) * 100
+            : 0,
+        prioritiesCovered: allowedPriorities
+      };
+    };
+    const budgetScenarios = [
+      buildBudgetScenario(
+        "Essencial",
+        "Foca apenas nos itens com maior risco de ruptura imediata.",
+        priorityOrder.filter((priority) => priority === "CRITICAL" || priority === "HIGH")
+      ),
+      buildBudgetScenario(
+        "Balanceado",
+        "Cobre ruptura e tambem a reposicao de giro intermediario.",
+        priorityOrder.filter((priority) => priority !== "LOW")
+      ),
+      buildBudgetScenario(
+        "Completo",
+        "Executa o plano inteiro sugerido para recompor cobertura.",
+        priorityOrder
+      )
+    ];
     const stockoutRiskItems = stockCoverage.filter(
       (item) => item.coverageDays !== null && item.coverageDays <= 14
     );
@@ -683,6 +759,14 @@ export class DashboardService {
       stockCoverage: stockCoverage.slice(0, 8),
       replenishmentByCategory: replenishmentByCategory.slice(0, 6),
       purchaseSuggestions: purchaseSuggestions.slice(0, 8),
+      monthlyPurchasePlan: monthlyPurchasePlan.slice(0, 6),
+      purchasePlanSummary: {
+        totalEstimatedInvestment: totalSuggestedPurchaseCost,
+        totalSuggestedUnits,
+        categoriesInPlan: monthlyPurchasePlan.length,
+        itemsInPlan: purchaseSuggestions.length
+      },
+      budgetScenarios,
       customerInsights: {
         totalCustomers: customers.length,
         repeatCustomers: repeatCustomers.length,

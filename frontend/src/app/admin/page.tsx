@@ -14,6 +14,9 @@ export default async function AdminDashboardPage() {
   const stockCoverage = dashboard?.stockCoverage ?? [];
   const replenishmentByCategory = dashboard?.replenishmentByCategory ?? [];
   const purchaseSuggestions = dashboard?.purchaseSuggestions ?? [];
+  const monthlyPurchasePlan = dashboard?.monthlyPurchasePlan ?? [];
+  const purchasePlanSummary = dashboard?.purchasePlanSummary ?? [];
+  const budgetScenarios = dashboard?.budgetScenarios ?? [];
   const customerHighlights = dashboard?.customerHighlights ?? [];
   const customerCohorts = dashboard?.customerCohorts ?? [];
   const topRecurringCustomers = dashboard?.topRecurringCustomers ?? [];
@@ -408,6 +411,122 @@ export default async function AdminDashboardPage() {
               ) : (
                 <div className="mt-6 rounded-[1.5rem] border border-espresso/10 bg-sand/35 p-4 text-sm text-espresso/70">
                   Nenhum SKU exige compra sugerida com base no giro recente.
+                </div>
+              )}
+            </section>
+          </div>
+
+          <section className="rounded-[2rem] border border-espresso/10 bg-white/80 p-6 shadow-soft">
+            <p className="text-xs uppercase tracking-[0.3em] text-terracotta">
+              Plano mensal
+            </p>
+            <h2 className="mt-2 font-display text-3xl">Resumo de compra sugerida</h2>
+
+            <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              {purchasePlanSummary.map((item) => (
+                <article
+                  key={item.label}
+                  className="rounded-[1.5rem] border border-espresso/10 bg-sand/35 p-4"
+                >
+                  <p className="text-sm text-espresso/55">{item.label}</p>
+                  <p className="mt-2 font-display text-3xl">{item.value}</p>
+                  <p className="mt-2 text-sm text-moss">{item.detail}</p>
+                </article>
+              ))}
+            </div>
+          </section>
+
+          <div className="grid gap-5 lg:grid-cols-[0.95fr_1.05fr]">
+            <section className="rounded-[2rem] border border-espresso/10 bg-white/80 p-6 shadow-soft">
+              <p className="text-xs uppercase tracking-[0.3em] text-terracotta">
+                Plano consolidado
+              </p>
+              <h2 className="mt-2 font-display text-3xl">Compra mensal por categoria</h2>
+
+              {monthlyPurchasePlan.length > 0 ? (
+                <div className="mt-6 space-y-3">
+                  {monthlyPurchasePlan.map((item) => (
+                    <div
+                      key={item.category}
+                      className="rounded-[1.5rem] border border-espresso/10 bg-sand/35 p-4"
+                    >
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <p className="font-medium">{item.category}</p>
+                          <p className="mt-1 text-sm text-espresso/60">
+                            {item.productsAtRisk} SKUs / {item.totalSuggestedUnits} un. sugeridas
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-medium">
+                            {item.estimatedPurchaseCost.toLocaleString("pt-BR", {
+                              style: "currency",
+                              currency: "BRL"
+                            })}
+                          </p>
+                          <p className="mt-1 text-sm text-terracotta">
+                            {item.priority} / {Math.round(item.budgetShare)}% do budget
+                          </p>
+                        </div>
+                      </div>
+                      <p className="mt-3 text-sm text-espresso/65">
+                        {item.averageCoverageDays !== undefined
+                          ? `Cobertura media atual ${Math.round(item.averageCoverageDays)} dias`
+                          : "Cobertura media atual indisponivel"}
+                        {item.projectedCoverageDays !== undefined
+                          ? ` / cobertura projetada ${Math.round(item.projectedCoverageDays)} dias`
+                          : ""}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="mt-6 rounded-[1.5rem] border border-espresso/10 bg-sand/35 p-4 text-sm text-espresso/70">
+                  Ainda nao ha categorias suficientes para montar um plano mensal de compra.
+                </div>
+              )}
+            </section>
+
+            <section className="rounded-[2rem] border border-espresso/10 bg-white/80 p-6 shadow-soft">
+              <p className="text-xs uppercase tracking-[0.3em] text-terracotta">
+                Simulacao de budget
+              </p>
+              <h2 className="mt-2 font-display text-3xl">Cenarios de orcamento</h2>
+
+              {budgetScenarios.length > 0 ? (
+                <div className="mt-6 space-y-3">
+                  {budgetScenarios.map((scenario) => (
+                    <div
+                      key={scenario.name}
+                      className="rounded-[1.5rem] border border-espresso/10 bg-sand/35 p-4"
+                    >
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <p className="font-medium">{scenario.name}</p>
+                          <p className="mt-1 text-sm text-espresso/60">{scenario.description}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-medium">
+                            {scenario.investment.toLocaleString("pt-BR", {
+                              style: "currency",
+                              currency: "BRL"
+                            })}
+                          </p>
+                          <p className="mt-1 text-sm text-moss">
+                            {scenario.coveredItems}/{scenario.totalItems} SKUs
+                          </p>
+                        </div>
+                      </div>
+                      <p className="mt-3 text-sm text-espresso/65">
+                        {scenario.suggestedUnits} un. / {Math.round(scenario.coverageShare)}% do
+                        plano / ganho medio de {Math.round(scenario.averageCoverageGain)} dias
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="mt-6 rounded-[1.5rem] border border-espresso/10 bg-sand/35 p-4 text-sm text-espresso/70">
+                  Ainda nao ha dados suficientes para simular cenarios de orcamento.
                 </div>
               )}
             </section>
