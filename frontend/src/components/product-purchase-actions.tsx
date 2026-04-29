@@ -7,13 +7,29 @@ import { CartProductInput } from "@/lib/cart";
 import { subscribeBackInStock } from "@/lib/public-engagement";
 
 type ProductPurchaseActionsProps = {
-  product: CartProductInput;
+  product: CartProductInput & {
+    variants?: Array<{
+      id: string;
+      sku: string;
+      color?: string;
+      size?: string;
+      optionLabel: string;
+      price?: number;
+      compareAt?: number;
+      stock: number;
+      imageUrl?: string;
+      isDefault?: boolean;
+    }>;
+  };
 };
 
 export function ProductPurchaseActions({
   product
 }: ProductPurchaseActionsProps) {
   const { addItem } = useCart();
+  const initialVariant =
+    product.variants?.find((variant) => variant.isDefault) ?? product.variants?.[0];
+  const [selectedVariantId, setSelectedVariantId] = useState(initialVariant?.id ?? "");
   const [added, setAdded] = useState(false);
   const [quantity, setQuantity] = useState(1);
   const [notifyEmail, setNotifyEmail] = useState("");
@@ -21,15 +37,33 @@ export function ProductPurchaseActions({
     type: "idle" | "success" | "error";
     message?: string;
   }>({ type: "idle" });
-  const isUnavailable = product.stock < 1;
-  const maxQuantity = Math.max(product.stock, 1);
+  const selectedVariant = product.variants?.find(
+    (variant) => variant.id === selectedVariantId
+  );
+  const effectiveStock = selectedVariant?.stock ?? product.stock;
+  const effectivePrice = selectedVariant?.price ?? product.price;
+  const isUnavailable = effectiveStock < 1;
+  const maxQuantity = Math.max(effectiveStock, 1);
 
   function handleAdd() {
     if (isUnavailable) {
       return;
     }
 
-    addItem(product, quantity);
+    addItem(
+      {
+        ...product,
+        id: selectedVariant?.id ?? product.id,
+        productId: product.id,
+        variantId: selectedVariant?.id,
+        sku: selectedVariant?.sku,
+        variantLabel: selectedVariant?.optionLabel,
+        price: selectedVariant?.price ?? product.price,
+        imageUrl: selectedVariant?.imageUrl ?? product.imageUrl,
+        stock: selectedVariant?.stock ?? product.stock
+      },
+      quantity
+    );
     setAdded(true);
     window.setTimeout(() => setAdded(false), 1800);
   }
@@ -101,17 +135,38 @@ export function ProductPurchaseActions({
       ) : null}
 
       {!isUnavailable ? (
-        <label className="flex max-w-xs items-center justify-between gap-4 rounded-[1.5rem] border border-espresso/10 bg-sand/40 px-4 py-3 text-sm text-espresso/70">
-          Quantidade
-          <input
-            type="number"
-            min={1}
-            max={maxQuantity}
-            value={quantity}
-            onChange={(event) => handleQuantityChange(Number(event.target.value))}
-            className="w-24 rounded-full border border-espresso/15 bg-white/70 px-4 py-2 text-center outline-none"
-          />
-        </label>
+        <div className="space-y-4">
+          {product.variants?.length ? (
+            <label className="block max-w-md space-y-2 text-sm text-espresso/70">
+              <span>Variacao</span>
+              <select
+                value={selectedVariantId}
+                onChange={(event) => {
+                  setSelectedVariantId(event.target.value);
+                  setQuantity(1);
+                }}
+                className="w-full rounded-[1.5rem] border border-espresso/10 bg-sand/40 px-4 py-3"
+              >
+                {product.variants.map((variant) => (
+                  <option key={variant.id} value={variant.id}>
+                    {variant.optionLabel} - {variant.sku} - estoque {variant.stock}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+          <label className="flex max-w-xs items-center justify-between gap-4 rounded-[1.5rem] border border-espresso/10 bg-sand/40 px-4 py-3 text-sm text-espresso/70">
+            Quantidade
+            <input
+              type="number"
+              min={1}
+              max={maxQuantity}
+              value={quantity}
+              onChange={(event) => handleQuantityChange(Number(event.target.value))}
+              className="w-24 rounded-full border border-espresso/15 bg-white/70 px-4 py-2 text-center outline-none"
+            />
+          </label>
+        </div>
       ) : null}
 
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
@@ -130,7 +185,20 @@ export function ProductPurchaseActions({
               return;
             }
 
-            addItem(product, quantity);
+            addItem(
+              {
+                ...product,
+                id: selectedVariant?.id ?? product.id,
+                productId: product.id,
+                variantId: selectedVariant?.id,
+                sku: selectedVariant?.sku,
+                variantLabel: selectedVariant?.optionLabel,
+                price: selectedVariant?.price ?? product.price,
+                imageUrl: selectedVariant?.imageUrl ?? product.imageUrl,
+                stock: selectedVariant?.stock ?? product.stock
+              },
+              quantity
+            );
           }}
           className="rounded-full border border-espresso/15 px-6 py-3 text-center aria-disabled:cursor-not-allowed aria-disabled:opacity-50"
           aria-disabled={isUnavailable}
@@ -138,6 +206,12 @@ export function ProductPurchaseActions({
           Comprar agora
         </Link>
       </div>
+
+      {selectedVariant ? (
+        <p className="text-sm text-espresso/65">
+          SKU {selectedVariant.sku} selecionado - preco {effectivePrice.toFixed(2).replace(".", ",")}
+        </p>
+      ) : null}
 
       {!isUnavailable && quantity === maxQuantity ? (
         <p className="text-sm text-terracotta">

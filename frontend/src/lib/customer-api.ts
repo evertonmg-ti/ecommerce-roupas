@@ -18,6 +18,9 @@ type OrderResponse = {
     id: string;
     quantity: number;
     unitPrice: number | string;
+    variantId?: string | null;
+    variantSku?: string | null;
+    variantLabel?: string | null;
     product: {
       id: string;
       name: string;
@@ -95,6 +98,9 @@ export type CustomerOrderSummary = {
   items: Array<{
     id: string;
     productId: string;
+    variantId?: string;
+    sku?: string;
+    variantLabel?: string;
     name: string;
     slug: string;
     imageUrl?: string;
@@ -191,6 +197,9 @@ export async function getCurrentCustomerOrders(): Promise<CustomerOrderSummary[]
     items: order.items.map((item) => ({
       id: item.id,
       productId: item.product.id,
+      variantId: item.variantId ?? undefined,
+      sku: item.variantSku ?? undefined,
+      variantLabel: item.variantLabel ?? undefined,
       name: item.product.name,
       slug: item.product.slug,
       imageUrl: item.product.imageUrl ?? undefined,

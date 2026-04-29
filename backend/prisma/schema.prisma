@@ -201,11 +201,34 @@ model Product {
   imageUrl    String?
   categoryId  String
   category    Category      @relation(fields: [categoryId], references: [id])
+  variants    ProductVariant[]
   orderItems  OrderItem[]
   inventoryMovements InventoryMovement[]
   backInStockSubscriptions BackInStockSubscription[]
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
+}
+
+model ProductVariant {
+  id            String    @id @default(cuid())
+  productId     String
+  sku           String    @unique
+  color         String?
+  size          String?
+  optionLabel   String
+  priceOverride Decimal?  @db.Decimal(10, 2)
+  compareAtOverride Decimal? @db.Decimal(10, 2)
+  stock         Int
+  imageUrl      String?
+  isDefault     Boolean   @default(false)
+  product       Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  orderItems    OrderItem[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([productId, isDefault])
+  @@index([productId, color])
+  @@index([productId, size])
 }
 
 model Order {
@@ -269,10 +292,14 @@ model OrderItem {
   id        String  @id @default(cuid())
   orderId   String
   productId String
+  variantId String?
+  variantSku String?
+  variantLabel String?
   quantity  Int
   unitPrice Decimal @db.Decimal(10, 2)
   order     Order   @relation(fields: [orderId], references: [id])
   product   Product @relation(fields: [productId], references: [id])
+  variant   ProductVariant? @relation(fields: [variantId], references: [id])
 }
 
 model AbandonedCart {
@@ -294,6 +321,9 @@ model AbandonedCartItem {
   id           String        @id @default(cuid())
   cartId       String
   productId    String
+  variantId    String?
+  variantSku   String?
+  variantLabel String?
   productName  String
   productSlug  String
   imageUrl     String?

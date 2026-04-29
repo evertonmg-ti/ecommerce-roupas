@@ -13,8 +13,16 @@ type ApiAvailabilityProduct = {
   } | null;
 };
 
+type ApiAvailabilityVariant = {
+  id: string;
+  sku: string;
+  optionLabel: string;
+  imageUrl?: string | null;
+};
+
 type ApiAvailabilityItem = {
   productId: string;
+  variantId?: string;
   requestedQuantity: number;
   adjustedQuantity: number;
   availableStock: number;
@@ -22,6 +30,8 @@ type ApiAvailabilityItem = {
   status: "ok" | "adjusted" | "unavailable";
   message: string;
   product?: ApiAvailabilityProduct;
+  variant?: ApiAvailabilityVariant;
+  price?: number;
 };
 
 type ApiAvailabilityResponse = {
@@ -56,7 +66,8 @@ export async function validateCartAvailability(items: CartItem[]) {
     },
     body: JSON.stringify({
       items: items.map((item) => ({
-        productId: item.id,
+        productId: item.productId,
+        variantId: item.variantId,
         quantity: item.quantity
       }))
     })
@@ -95,7 +106,7 @@ export function reconcileCartWithAvailability(
     if (!item.available || item.adjustedQuantity <= 0 || !item.product) {
       issues.push({
         type: "removed",
-        productId: item.productId,
+        productId: item.variantId ?? item.productId,
         name,
         message: item.message
       });
@@ -110,7 +121,7 @@ export function reconcileCartWithAvailability(
     if (item.status === "adjusted" || nextQuantity !== current.quantity) {
       issues.push({
         type: "adjusted",
-        productId: item.productId,
+        productId: item.variantId ?? item.productId,
         name,
         message: item.message
       });
@@ -118,10 +129,14 @@ export function reconcileCartWithAvailability(
 
     nextItems.push({
       id: item.product.id,
+      productId: item.product.id,
+      variantId: item.variant?.id,
+      sku: item.variant?.sku ?? current.sku,
+      variantLabel: item.variant?.optionLabel ?? current.variantLabel,
       name: item.product.name,
       slug: item.product.slug,
-      price: toNumber(item.product.price),
-      imageUrl: item.product.imageUrl ?? current.imageUrl,
+      price: toNumber(item.price ?? item.product.price),
+      imageUrl: item.variant?.imageUrl ?? item.product.imageUrl ?? current.imageUrl,
       category: item.product.category?.name ?? current.category,
       stock: item.availableStock,
       quantity: nextQuantity

@@ -270,6 +270,18 @@ type ProductResponse = {
   category?: {
     name: string;
   } | null;
+  variants?: Array<{
+    id: string;
+    sku: string;
+    color?: string | null;
+    size?: string | null;
+    optionLabel: string;
+    priceOverride?: number | string | null;
+    compareAtOverride?: number | string | null;
+    stock: number;
+    imageUrl?: string | null;
+    isDefault: boolean;
+  }>;
 };
 
 type PaginatedProductsResponse = {
@@ -497,6 +509,8 @@ type OrderResponse = {
     id: string;
     quantity: number;
     unitPrice: number | string;
+    variantSku?: string | null;
+    variantLabel?: string | null;
     product: {
       id: string;
       name: string;
@@ -734,6 +748,18 @@ export type AdminProduct = {
   imageUrl?: string;
   categoryId: string;
   category: string;
+  variants: Array<{
+    id: string;
+    sku: string;
+    color?: string;
+    size?: string;
+    optionLabel: string;
+    priceOverride?: number;
+    compareAtOverride?: number;
+    stock: number;
+    imageUrl?: string;
+    isDefault: boolean;
+  }>;
 };
 
 export type AdminProductList = {
@@ -944,6 +970,10 @@ export type AdminOrder = {
   createdAt: string;
   items: Array<{
     id: string;
+    productId: string;
+    variantId?: string;
+    sku?: string;
+    variantLabel?: string;
     name: string;
     slug: string;
     category: string;
@@ -1445,7 +1475,27 @@ function normalizeAdminProduct(product: ProductResponse): AdminProduct {
     status: product.status,
     imageUrl: product.imageUrl ?? undefined,
     categoryId: product.categoryId,
-    category: product.category?.name ?? "Sem categoria"
+    category: product.category?.name ?? "Sem categoria",
+    variants:
+      product.variants?.map((variant) => ({
+        id: variant.id,
+        sku: variant.sku,
+        color: variant.color ?? undefined,
+        size: variant.size ?? undefined,
+        optionLabel: variant.optionLabel,
+        priceOverride:
+          variant.priceOverride === null || variant.priceOverride === undefined
+            ? undefined
+            : toNumber(variant.priceOverride),
+        compareAtOverride:
+          variant.compareAtOverride === null ||
+          variant.compareAtOverride === undefined
+            ? undefined
+            : toNumber(variant.compareAtOverride),
+        stock: variant.stock,
+        imageUrl: variant.imageUrl ?? undefined,
+        isDefault: variant.isDefault
+      })) ?? []
   };
 }
 
@@ -1790,6 +1840,10 @@ function normalizeAdminOrder(order: OrderResponse): AdminOrder {
     createdAt: formatDate(order.createdAt),
     items: order.items.map((item) => ({
       id: item.id,
+      productId: item.product.id,
+      variantId: item.variantId ?? undefined,
+      sku: item.variantSku ?? undefined,
+      variantLabel: item.variantLabel ?? undefined,
       name: item.product.name,
       slug: item.product.slug,
       category: item.product.category?.name ?? "Colecao",
@@ -1866,6 +1920,17 @@ export type SaveProductInput = {
   status: string;
   imageUrl?: string;
   categoryId: string;
+  variants?: Array<{
+    sku: string;
+    color?: string;
+    size?: string;
+    optionLabel: string;
+    priceOverride?: number;
+    compareAtOverride?: number;
+    stock: number;
+    imageUrl?: string;
+    isDefault?: boolean;
+  }>;
 };
 
 export async function createAdminProduct(payload: SaveProductInput) {
@@ -2007,6 +2072,9 @@ export type CustomerOrder = {
   items: Array<{
     id: string;
     productId: string;
+    variantId?: string;
+    sku?: string;
+    variantLabel?: string;
     name: string;
     slug: string;
     quantity: number;
@@ -2066,6 +2134,9 @@ export async function lookupCustomerOrders(email: string): Promise<CustomerOrder
     items: order.items.map((item) => ({
       id: item.id,
       productId: item.product.id,
+      variantId: item.variantId ?? undefined,
+      sku: item.variantSku ?? undefined,
+      variantLabel: item.variantLabel ?? undefined,
       name: item.product.name,
       slug: item.product.slug,
       quantity: item.quantity,

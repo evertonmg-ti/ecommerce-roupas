@@ -3,6 +3,7 @@ import {
   ArrayMinSize,
   IsArray,
   IsInt,
+  IsOptional,
   IsString,
   Min,
   ValidateNested
@@ -11,6 +12,10 @@ import {
 class ValidateCartItemDto {
   @IsString()
   productId!: string;
+
+  @IsString()
+  @IsOptional()
+  variantId?: string;
 
   @Type(() => Number)
   @IsInt()

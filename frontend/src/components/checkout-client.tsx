@@ -112,7 +112,11 @@ export function CheckoutClient() {
           cart.items
             .filter((item) => item.status === "ACTIVE" && item.availableStock > 0)
             .map((item) => ({
-              id: item.productId,
+              id: item.variantId ?? item.productId,
+              productId: item.productId,
+              variantId: item.variantId,
+              sku: item.variantSku,
+              variantLabel: item.variantLabel,
               name: item.productName,
               slug: item.productSlug,
               price: item.unitPrice,
@@ -192,7 +196,10 @@ export function CheckoutClient() {
         email: normalizedEmail,
         customerName: profile.customerName.trim() || undefined,
         items: items.map((item) => ({
-          productId: item.id,
+          productId: item.productId,
+          variantId: item.variantId,
+          variantSku: item.sku,
+          variantLabel: item.variantLabel,
           productName: item.name,
           productSlug: item.slug,
           imageUrl: item.imageUrl,
@@ -452,7 +459,8 @@ export function CheckoutClient() {
           notes: notes || undefined,
           couponCode: couponState.status === "applied" ? couponState.code : undefined,
           items: items.map((item) => ({
-            productId: item.id,
+            productId: item.productId,
+            variantId: item.variantId,
             quantity: item.quantity
           }))
         })

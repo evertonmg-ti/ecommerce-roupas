@@ -1,5 +1,7 @@
 import { ProductStatus } from "@prisma/client";
 import {
+  ArrayMinSize,
+  IsBoolean,
   IsEnum,
   IsInt,
   IsNumber,
@@ -8,6 +10,46 @@ import {
   IsUrl,
   Min
 } from "class-validator";
+import { Type } from "class-transformer";
+import { IsArray, ValidateNested } from "class-validator";
+
+class ProductVariantDto {
+  @IsString()
+  sku!: string;
+
+  @IsOptional()
+  @IsString()
+  color?: string;
+
+  @IsOptional()
+  @IsString()
+  size?: string;
+
+  @IsString()
+  optionLabel!: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  priceOverride?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  compareAtOverride?: number;
+
+  @IsInt()
+  @Min(0)
+  stock!: number;
+
+  @IsOptional()
+  @IsUrl()
+  imageUrl?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  isDefault?: boolean;
+}
 
 export class CreateProductDto {
   @IsString()
@@ -46,4 +88,11 @@ export class CreateProductDto {
   @IsOptional()
   @IsEnum(ProductStatus)
   status?: ProductStatus;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => ProductVariantDto)
+  variants?: ProductVariantDto[];
 }

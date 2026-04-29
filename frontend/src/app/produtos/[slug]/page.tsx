@@ -75,12 +75,14 @@ export default async function ProductDetailsPage({ params }: ProductPageProps) {
           <ProductPurchaseActions
             product={{
               id: product.id,
+              productId: product.id,
               name: product.name,
               slug: product.slug,
               price: product.price,
               imageUrl: product.imageUrl,
               category: product.category,
-              stock: product.stock
+              stock: product.stock,
+              variants: product.variants
             }}
           />
         </div>

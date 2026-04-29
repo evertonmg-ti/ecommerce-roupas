@@ -179,7 +179,11 @@ export default async function CustomerOrdersPage({
                   <div className="mb-4 flex flex-wrap gap-3">
                     <ReorderOrderButton
                       items={order.items.map((item) => ({
-                        id: item.productId,
+                        id: item.variantId ?? item.productId,
+                        productId: item.productId,
+                        variantId: item.variantId,
+                        sku: item.sku,
+                        variantLabel: item.variantLabel,
                         name: item.name,
                         slug: item.slug,
                         category: item.category,

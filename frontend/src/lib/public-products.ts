@@ -17,6 +17,18 @@ type ApiProduct = {
     name: string;
     slug?: string;
   } | null;
+  variants?: Array<{
+    id: string;
+    sku: string;
+    color?: string | null;
+    size?: string | null;
+    optionLabel: string;
+    priceOverride?: number | string | null;
+    compareAtOverride?: number | string | null;
+    stock: number;
+    imageUrl?: string | null;
+    isDefault: boolean;
+  }>;
 };
 
 type ApiCategory = {
@@ -56,7 +68,19 @@ function normalizeProduct(product: ApiProduct): Product {
     status: product.status,
     imageUrl: product.imageUrl ?? fallbackProducts[0]?.imageUrl,
     category: product.category?.name ?? "Colecao",
-    categorySlug: product.category?.slug
+    categorySlug: product.category?.slug,
+    variants: product.variants?.map((variant) => ({
+      id: variant.id,
+      sku: variant.sku,
+      color: variant.color ?? undefined,
+      size: variant.size ?? undefined,
+      optionLabel: variant.optionLabel,
+      price: toNumber(variant.priceOverride),
+      compareAt: toNumber(variant.compareAtOverride),
+      stock: variant.stock,
+      imageUrl: variant.imageUrl ?? undefined,
+      isDefault: variant.isDefault
+    }))
   };
 }
 

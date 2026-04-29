@@ -6,6 +6,10 @@ import { useCart } from "@/components/cart-provider";
 type ReorderOrderButtonProps = {
   items: Array<{
     id: string;
+    productId?: string;
+    variantId?: string;
+    sku?: string;
+    variantLabel?: string;
     name: string;
     slug: string;
     category: string;
@@ -24,6 +28,10 @@ export function ReorderOrderButton({ items }: ReorderOrderButtonProps) {
       addItem(
         {
           id: item.id,
+          productId: item.productId ?? item.id,
+          variantId: item.variantId,
+          sku: item.sku,
+          variantLabel: item.variantLabel,
           name: item.name,
           slug: item.slug,
           price: item.unitPrice,

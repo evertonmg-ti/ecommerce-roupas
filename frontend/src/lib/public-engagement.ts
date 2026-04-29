@@ -7,6 +7,9 @@ export type SavedAbandonedCart = {
   token: string;
   items: Array<{
     productId: string;
+    variantId?: string;
+    variantSku?: string;
+    variantLabel?: string;
     productName: string;
     productSlug: string;
     imageUrl?: string | null;
@@ -23,6 +26,9 @@ export async function saveAbandonedCart(payload: {
   customerName?: string;
   items: Array<{
     productId: string;
+    variantId?: string;
+    variantSku?: string;
+    variantLabel?: string;
     productName: string;
     productSlug: string;
     imageUrl?: string;

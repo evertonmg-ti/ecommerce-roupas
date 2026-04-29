@@ -23,6 +23,9 @@ type CustomerCenterOrder = {
   items: Array<{
     id: string;
     productId: string;
+    variantId?: string;
+    sku?: string;
+    variantLabel?: string;
     name: string;
     slug: string;
     category: string;

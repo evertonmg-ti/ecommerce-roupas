@@ -87,7 +87,15 @@ export function FavoritesPageClient() {
                   Ver produto
                 </Link>
                 <button
-                  onClick={() => addItem(item, 1)}
+                  onClick={() =>
+                    addItem(
+                      {
+                        ...item,
+                        productId: item.id
+                      },
+                      1
+                    )
+                  }
                   disabled={item.stock < 1}
                   className="inline-flex items-center gap-2 rounded-full border border-espresso/15 px-4 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50"
                 >

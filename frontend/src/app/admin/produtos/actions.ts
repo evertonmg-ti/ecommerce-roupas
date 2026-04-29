@@ -35,6 +35,47 @@ function parseOptionalNumber(value: FormDataEntryValue | null) {
   return Number(normalized.replace(",", "."));
 }
 
+function parseVariants(rawValue: string) {
+  const normalized = rawValue.trim();
+
+  if (!normalized) {
+    return undefined;
+  }
+
+  const variants = normalized
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line, index) => {
+      const [sku, color, size, optionLabel, price, compareAt, stock, imageUrl, isDefault] =
+        line.split("|").map((part) => part.trim());
+
+      if (!sku || !optionLabel || !stock) {
+        return null;
+      }
+
+      return {
+        sku,
+        color: color || undefined,
+        size: size || undefined,
+        optionLabel,
+        priceOverride: price ? Number(price.replace(",", ".")) : undefined,
+        compareAtOverride: compareAt
+          ? Number(compareAt.replace(",", "."))
+          : undefined,
+        stock: Number(stock),
+        imageUrl: imageUrl || undefined,
+        isDefault:
+          isDefault?.toLowerCase() === "default" ||
+          isDefault?.toLowerCase() === "sim" ||
+          index === 0
+      };
+    })
+    .filter((item): item is NonNullable<typeof item> => Boolean(item));
+
+  return variants.length > 0 ? variants : undefined;
+}
+
 function parsePayload(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
   const rawSlug = String(formData.get("slug") ?? "").trim();
@@ -48,6 +89,7 @@ function parsePayload(formData: FormData) {
   const categoryId = String(formData.get("categoryId") ?? "").trim();
   const imageUrl = String(formData.get("imageUrl") ?? "").trim();
   const compareAt = parseOptionalNumber(formData.get("compareAt"));
+  const variants = parseVariants(String(formData.get("variants") ?? ""));
 
   return {
     name,
@@ -59,7 +101,8 @@ function parsePayload(formData: FormData) {
     stock,
     status,
     categoryId,
-    imageUrl: imageUrl || undefined
+    imageUrl: imageUrl || undefined,
+    variants
   };
 }
 

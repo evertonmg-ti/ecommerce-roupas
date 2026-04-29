@@ -16,6 +16,18 @@ class AbandonedCartItemDto {
   @IsString()
   productId!: string;
 
+  @IsOptional()
+  @IsString()
+  variantId?: string;
+
+  @IsOptional()
+  @IsString()
+  variantSku?: string;
+
+  @IsOptional()
+  @IsString()
+  variantLabel?: string;
+
   @IsString()
   @MinLength(2)
   productName!: string;

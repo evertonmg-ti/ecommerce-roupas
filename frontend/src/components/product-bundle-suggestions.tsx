@@ -31,6 +31,7 @@ export function ProductBundleSuggestions({
     addItem(
       {
         id: mainProduct.id,
+        productId: mainProduct.id,
         name: mainProduct.name,
         slug: mainProduct.slug,
         price: mainProduct.price,
@@ -45,6 +46,7 @@ export function ProductBundleSuggestions({
       addItem(
         {
           id: product.id,
+          productId: product.id,
           name: product.name,
           slug: product.slug,
           price: product.price,

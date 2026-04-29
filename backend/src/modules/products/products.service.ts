@@ -55,7 +55,12 @@ export class ProductsService {
 
     return this.prisma.product.findMany({
       where,
-      include: { category: true },
+      include: {
+        category: true,
+        variants: {
+          orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }]
+        }
+      },
       orderBy: this.resolvePublicSort(filters?.sort)
     });
   }
@@ -74,7 +79,12 @@ export class ProductsService {
       this.prisma.product.count({ where }),
       this.prisma.product.findMany({
         where,
-        include: { category: true },
+        include: {
+          category: true,
+          variants: {
+            orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }]
+          }
+        },
         orderBy: { createdAt: "desc" },
         skip,
         take: pageSize
@@ -133,7 +143,12 @@ export class ProductsService {
   async findBySlug(slug: string) {
     const product = await this.prisma.product.findUnique({
       where: { slug },
-      include: { category: true }
+      include: {
+        category: true,
+        variants: {
+          orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }]
+        }
+      }
     });
 
     if (!product) {
@@ -150,7 +165,10 @@ export class ProductsService {
         id: { in: normalizedItems.map((item) => item.productId) },
         status: ProductStatus.ACTIVE
       },
-      include: { category: true }
+      include: {
+        category: true,
+        variants: true
+      }
     });
 
     const productMap = new Map(products.map((product) => [product.id, product]));
@@ -169,9 +187,29 @@ export class ProductsService {
         };
       }
 
-      if (product.stock <= 0) {
+      const matchedVariant = item.variantId
+        ? product?.variants.find((variant) => variant.id === item.variantId)
+        : undefined;
+      const availableStock = matchedVariant?.stock ?? product?.stock ?? 0;
+      const availablePrice = matchedVariant?.priceOverride ?? product?.price;
+
+      if (item.variantId && !matchedVariant) {
+        return {
+          productId: item.productId,
+          variantId: item.variantId,
+          requestedQuantity: item.quantity,
+          adjustedQuantity: 0,
+          availableStock: 0,
+          available: false,
+          status: "unavailable" as const,
+          message: "A variacao selecionada nao esta mais disponivel."
+        };
+      }
+
+      if (availableStock <= 0) {
         return {
           productId: product.id,
+          variantId: matchedVariant?.id,
           requestedQuantity: item.quantity,
           adjustedQuantity: 0,
           availableStock: 0,
@@ -182,28 +220,34 @@ export class ProductsService {
         };
       }
 
-      if (item.quantity > product.stock) {
+      if (item.quantity > availableStock) {
         return {
           productId: product.id,
+          variantId: matchedVariant?.id,
           requestedQuantity: item.quantity,
-          adjustedQuantity: product.stock,
-          availableStock: product.stock,
+          adjustedQuantity: availableStock,
+          availableStock,
           available: true,
           status: "adjusted" as const,
-          message: `A quantidade de ${product.name} foi ajustada para ${product.stock}.`,
-          product
+          message: `A quantidade de ${product.name} foi ajustada para ${availableStock}.`,
+          product,
+          variant: matchedVariant,
+          price: Number(availablePrice)
         };
       }
 
       return {
         productId: product.id,
+        variantId: matchedVariant?.id,
         requestedQuantity: item.quantity,
         adjustedQuantity: item.quantity,
-        availableStock: product.stock,
+        availableStock,
         available: true,
         status: "ok" as const,
         message: "Disponivel.",
-        product
+        product,
+        variant: matchedVariant,
+        price: Number(availablePrice)
       };
     });
 
@@ -212,7 +256,7 @@ export class ProductsService {
         return sum;
       }
 
-      return sum + Number(item.product.price) * item.adjustedQuantity;
+      return sum + Number(item.price ?? item.product.price) * item.adjustedQuantity;
     }, 0);
 
     return {
@@ -226,13 +270,45 @@ export class ProductsService {
     return this.prisma.$transaction(async (tx) => {
       const product = await tx.product.create({
         data: {
-          ...payload,
+          name: payload.name,
+          slug: payload.slug,
+          description: payload.description,
           price: new Prisma.Decimal(payload.price),
           costPrice: new Prisma.Decimal(payload.costPrice),
           compareAt:
             payload.compareAt === undefined
               ? undefined
-              : new Prisma.Decimal(payload.compareAt)
+              : new Prisma.Decimal(payload.compareAt),
+          stock: payload.variants?.length
+            ? payload.variants.reduce((sum, variant) => sum + variant.stock, 0)
+            : payload.stock,
+          categoryId: payload.categoryId,
+          imageUrl: payload.imageUrl,
+          status: payload.status,
+          variants: payload.variants?.length
+            ? {
+                create: payload.variants.map((variant, index) => ({
+                  sku: variant.sku.trim(),
+                  color: variant.color?.trim() || undefined,
+                  size: variant.size?.trim() || undefined,
+                  optionLabel: variant.optionLabel.trim(),
+                  priceOverride:
+                    variant.priceOverride === undefined
+                      ? undefined
+                      : new Prisma.Decimal(variant.priceOverride),
+                  compareAtOverride:
+                    variant.compareAtOverride === undefined
+                      ? undefined
+                      : new Prisma.Decimal(variant.compareAtOverride),
+                  stock: variant.stock,
+                  imageUrl: variant.imageUrl?.trim() || undefined,
+                  isDefault:
+                    variant.isDefault === true ||
+                    (index === 0 &&
+                      !payload.variants?.some((item) => item.isDefault === true))
+                }))
+              }
+            : undefined
         }
       });
 
@@ -257,10 +333,37 @@ export class ProductsService {
     const existing = await this.ensureExists(id);
 
     return this.prisma.$transaction(async (tx) => {
+      const normalizedVariants = payload.variants?.length
+        ? payload.variants.map((variant, index) => ({
+            sku: variant.sku.trim(),
+            color: variant.color?.trim() || undefined,
+            size: variant.size?.trim() || undefined,
+            optionLabel: variant.optionLabel.trim(),
+            priceOverride:
+              variant.priceOverride === undefined
+                ? undefined
+                : new Prisma.Decimal(variant.priceOverride),
+            compareAtOverride:
+              variant.compareAtOverride === undefined
+                ? undefined
+                : new Prisma.Decimal(variant.compareAtOverride),
+            stock: variant.stock,
+            imageUrl: variant.imageUrl?.trim() || undefined,
+            isDefault:
+              variant.isDefault === true ||
+              (index === 0 &&
+                !payload.variants?.some((item) => item.isDefault === true))
+          }))
+        : undefined;
+      const nextStock =
+        normalizedVariants?.reduce((sum, variant) => sum + variant.stock, 0) ??
+        payload.stock;
       const updated = await tx.product.update({
         where: { id },
         data: {
-          ...payload,
+          name: payload.name,
+          slug: payload.slug,
+          description: payload.description,
           price:
             payload.price === undefined
               ? undefined
@@ -272,21 +375,32 @@ export class ProductsService {
           compareAt:
             payload.compareAt === undefined
               ? undefined
-              : new Prisma.Decimal(payload.compareAt)
+              : new Prisma.Decimal(payload.compareAt),
+          stock: nextStock,
+          categoryId: payload.categoryId,
+          imageUrl: payload.imageUrl,
+          status: payload.status,
+          variants:
+            normalizedVariants !== undefined
+              ? {
+                  deleteMany: {},
+                  create: normalizedVariants
+                }
+              : undefined
         }
       });
 
       if (
-        payload.stock !== undefined &&
-        payload.stock !== existing.stock
+        nextStock !== undefined &&
+        nextStock !== existing.stock
       ) {
         await this.recordInventoryMovement(tx, {
           productId: updated.id,
           actorUserId: actor?.id,
           type: InventoryMovementType.MANUAL_ADJUSTMENT,
-          quantityDelta: payload.stock - existing.stock,
+          quantityDelta: nextStock - existing.stock,
           previousStock: existing.stock,
-          nextStock: payload.stock,
+          nextStock,
           reason: "Ajuste via edicao do produto."
         });
       }
@@ -376,7 +490,12 @@ export class ProductsService {
   }
 
   private async ensureExists(id: string) {
-    const product = await this.prisma.product.findUnique({ where: { id } });
+    const product = await this.prisma.product.findUnique({
+      where: { id },
+      include: {
+        variants: true
+      }
+    });
 
     if (!product) {
       throw new NotFoundException("Produto nao encontrado.");
@@ -386,23 +505,28 @@ export class ProductsService {
   }
 
   private normalizeCartItems(items: ValidateCartDto["items"]) {
-    const grouped = new Map<string, number>();
+    const grouped = new Map<string, { productId: string; variantId?: string; quantity: number }>();
 
     for (const item of items) {
       const productId = item.productId.trim();
+      const variantId = item.variantId?.trim() || undefined;
       const quantity = Math.trunc(Number(item.quantity));
 
       if (!productId || !Number.isFinite(quantity) || quantity < 1) {
         continue;
       }
 
-      grouped.set(productId, (grouped.get(productId) ?? 0) + quantity);
+      const key = `${productId}:${variantId ?? "base"}`;
+      const current = grouped.get(key);
+
+      grouped.set(key, {
+        productId,
+        variantId,
+        quantity: (current?.quantity ?? 0) + quantity
+      });
     }
 
-    return Array.from(grouped.entries()).map(([productId, quantity]) => ({
-      productId,
-      quantity
-    }));
+    return Array.from(grouped.values());
   }
 
   private buildAdminProductWhere(search?: string, status?: string) {

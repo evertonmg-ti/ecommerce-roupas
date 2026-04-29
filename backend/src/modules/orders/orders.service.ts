@@ -149,6 +149,9 @@ export class OrdersService {
       where: {
         id: { in: productIds },
         status: ProductStatus.ACTIVE
+      },
+      include: {
+        variants: true
       }
     });
 
@@ -160,12 +163,21 @@ export class OrdersService {
 
     const items = normalizedItems.map((item) => {
       const product = productMap.get(item.productId);
+      const variant = item.variantId
+        ? product?.variants.find((entry) => entry.id === item.variantId)
+        : undefined;
 
       if (!product) {
         throw new NotFoundException("Produto nao encontrado.");
       }
 
-      if (product.stock < item.quantity) {
+      if (item.variantId && !variant) {
+        throw new NotFoundException("Variacao do produto nao encontrada.");
+      }
+
+      const availableStock = variant?.stock ?? product.stock;
+
+      if (availableStock < item.quantity) {
         throw new BadRequestException(
           `Estoque insuficiente para ${product.name}.`
         );
@@ -173,8 +185,9 @@ export class OrdersService {
 
       return {
         product,
+        variant,
         quantity: item.quantity,
-        unitPrice: new Prisma.Decimal(product.price)
+        unitPrice: new Prisma.Decimal(variant?.priceOverride ?? product.price)
       };
     });
 
@@ -230,6 +243,9 @@ export class OrdersService {
           items: {
             create: items.map((item) => ({
               productId: item.product.id,
+              variantId: item.variant?.id,
+              variantSku: item.variant?.sku,
+              variantLabel: item.variant?.optionLabel,
               quantity: item.quantity,
               unitPrice: item.unitPrice
             }))
@@ -246,6 +262,21 @@ export class OrdersService {
           }
         }
       });
+
+      await Promise.all(
+        items.map((item) =>
+          item.variant
+            ? tx.productVariant.update({
+                where: { id: item.variant.id },
+                data: {
+                  stock: {
+                    decrement: item.quantity
+                  }
+                }
+              })
+            : Promise.resolve(null)
+        )
+      );
 
       await Promise.all(
         items.map((item) =>
@@ -365,23 +396,30 @@ export class OrdersService {
   }
 
   private normalizeItems(items: CreateOrderDto["items"]) {
-    const grouped = new Map<string, number>();
+    const grouped = new Map<
+      string,
+      { productId: string; variantId?: string; quantity: number }
+    >();
 
     for (const item of items) {
       const productId = item.productId.trim();
+      const variantId = item.variantId?.trim() || undefined;
       const quantity = Number(item.quantity);
 
       if (!productId || !Number.isInteger(quantity) || quantity < 1) {
         throw new BadRequestException("Itens do pedido sao invalidos.");
       }
 
-      grouped.set(productId, (grouped.get(productId) ?? 0) + quantity);
+      const key = `${productId}:${variantId ?? "base"}`;
+      const current = grouped.get(key);
+      grouped.set(key, {
+        productId,
+        variantId,
+        quantity: (current?.quantity ?? 0) + quantity
+      });
     }
 
-    return Array.from(grouped.entries()).map(([productId, quantity]) => ({
-      productId,
-      quantity
-    }));
+    return Array.from(grouped.values());
   }
 
   private resolveShippingQuote(
@@ -695,6 +733,21 @@ export class OrdersService {
       });
 
       if (nextStatus === OrderStatus.CANCELED) {
+        await Promise.all(
+          order.items.map((item) =>
+            item.variantId
+              ? tx.productVariant.update({
+                  where: { id: item.variantId },
+                  data: {
+                    stock: {
+                      increment: item.quantity
+                    }
+                  }
+                })
+              : Promise.resolve(null)
+          )
+        );
+
         const restockedProducts = await Promise.all(
           order.items.map((item) =>
             tx.product.update({

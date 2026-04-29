@@ -191,6 +191,21 @@ export default async function AdminProductsPage({
               />
             </label>
 
+            <label className="space-y-2 text-sm md:col-span-2">
+              <span>Variacoes</span>
+              <textarea
+                name="variants"
+                rows={5}
+                className="w-full rounded-2xl border border-espresso/15 bg-sand px-4 py-3 font-mono text-sm outline-none"
+                placeholder="SKU|Cor|Tamanho|Label|Preco|CompareAt|Estoque|Imagem|default"
+              />
+              <p className="text-xs text-espresso/60">
+                Uma variacao por linha. Exemplo:
+                <br />
+                CAMI-PRETA-M|Preto|M|Preto / M|89.90||8||default
+              </p>
+            </label>
+
             <label className="space-y-2 text-sm">
               <span>Status</span>
               <select
@@ -347,6 +362,36 @@ export default async function AdminProductsPage({
                     required
                     className="w-full rounded-2xl border border-espresso/15 bg-sand px-4 py-3 outline-none"
                   />
+                </label>
+
+                <label className="space-y-2 text-sm md:col-span-2">
+                  <span>Variacoes</span>
+                  <textarea
+                    name="variants"
+                    rows={5}
+                    defaultValue={product.variants
+                      .map(
+                        (variant) =>
+                          [
+                            variant.sku,
+                            variant.color ?? "",
+                            variant.size ?? "",
+                            variant.optionLabel,
+                            variant.priceOverride ?? "",
+                            variant.compareAtOverride ?? "",
+                            variant.stock,
+                            variant.imageUrl ?? "",
+                            variant.isDefault ? "default" : ""
+                          ].join("|")
+                      )
+                      .join("\n")}
+                    className="w-full rounded-2xl border border-espresso/15 bg-sand px-4 py-3 font-mono text-sm outline-none"
+                    placeholder="SKU|Cor|Tamanho|Label|Preco|CompareAt|Estoque|Imagem|default"
+                  />
+                  <p className="text-xs text-espresso/60">
+                    Se preencher, o estoque do produto passa a ser calculado pela soma das
+                    variacoes.
+                  </p>
                 </label>
 
                 <label className="space-y-2 text-sm">

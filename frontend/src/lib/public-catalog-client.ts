@@ -10,6 +10,7 @@ export type CatalogRecommendation = {
   imageUrl?: string;
   category: string;
   stock: number;
+  variantCount?: number;
 };
 
 type ApiProduct = {
@@ -24,6 +25,13 @@ type ApiProduct = {
     name: string;
     slug?: string;
   } | null;
+  variants?: Array<{
+    id: string;
+    sku: string;
+    optionLabel: string;
+    stock: number;
+    priceOverride?: number | string | null;
+  }>;
 };
 
 function toNumber(value: number | string) {
@@ -39,7 +47,8 @@ function normalizeProduct(product: ApiProduct): CatalogRecommendation {
     price: toNumber(product.price),
     imageUrl: product.imageUrl ?? undefined,
     category: product.category?.name ?? "Colecao",
-    stock: product.stock
+    stock: product.stock,
+    variantCount: product.variants?.length ?? 0
   };
 }
 

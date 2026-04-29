@@ -11,6 +11,18 @@ export type Product = {
   imageUrl?: string;
   status?: string;
   featured?: boolean;
+  variants?: Array<{
+    id: string;
+    sku: string;
+    color?: string;
+    size?: string;
+    optionLabel: string;
+    price?: number;
+    compareAt?: number;
+    stock: number;
+    imageUrl?: string;
+    isDefault?: boolean;
+  }>;
 };
 
 export const fallbackProducts: Product[] = [

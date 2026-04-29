@@ -39,6 +39,9 @@ export class EngagementService {
               deleteMany: {},
               create: payload.items.map((item) => ({
                 productId: item.productId,
+                variantId: item.variantId?.trim() || undefined,
+                variantSku: item.variantSku?.trim() || undefined,
+                variantLabel: item.variantLabel?.trim() || undefined,
                 productName: item.productName.trim(),
                 productSlug: item.productSlug.trim(),
                 imageUrl: item.imageUrl?.trim() || undefined,
@@ -60,6 +63,9 @@ export class EngagementService {
             items: {
               create: payload.items.map((item) => ({
                 productId: item.productId,
+                variantId: item.variantId?.trim() || undefined,
+                variantSku: item.variantSku?.trim() || undefined,
+                variantLabel: item.variantLabel?.trim() || undefined,
                 productName: item.productName.trim(),
                 productSlug: item.productSlug.trim(),
                 imageUrl: item.imageUrl?.trim() || undefined,
@@ -123,7 +129,8 @@ export class EngagementService {
         }
       },
       include: {
-        category: true
+        category: true,
+        variants: true
       }
     });
     const productMap = new Map(products.map((product) => [product.id, product]));
@@ -135,16 +142,22 @@ export class EngagementService {
       token: cart.token,
       items: cart.items.map((item) => {
         const product = productMap.get(item.productId);
+        const variant = item.variantId
+          ? product?.variants.find((entry) => entry.id === item.variantId)
+          : undefined;
 
         return {
           productId: item.productId,
+          variantId: item.variantId ?? undefined,
+          variantSku: item.variantSku ?? undefined,
+          variantLabel: item.variantLabel ?? undefined,
           productName: item.productName,
           productSlug: item.productSlug,
           imageUrl: item.imageUrl,
           categoryName: item.categoryName,
           quantity: item.quantity,
           unitPrice: Number(item.unitPrice),
-          availableStock: product?.stock ?? 0,
+          availableStock: variant?.stock ?? product?.stock ?? 0,
           status: product?.status ?? "ARCHIVED"
         };
       })
