@@ -2,6 +2,7 @@ import Link from "next/link";
 import {
   BadgePercent,
   Cog,
+  History,
   LayoutDashboard,
   ListTree,
   Package,
@@ -16,6 +17,7 @@ const items = [
   { href: "/admin/cupons", label: "Cupons", icon: BadgePercent },
   { href: "/admin/categorias", label: "Categorias", icon: ListTree },
   { href: "/admin/usuarios", label: "Usuarios", icon: Users },
+  { href: "/admin/eventos", label: "Eventos", icon: History },
   { href: "/admin/configuracoes", label: "Configuracoes", icon: Cog }
 ];
 

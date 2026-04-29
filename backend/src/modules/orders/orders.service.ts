@@ -4,6 +4,7 @@ import {
   NotFoundException
 } from "@nestjs/common";
 import {
+  EventLevel,
   OrderStatus,
   Order,
   PaymentMethod,
@@ -16,6 +17,7 @@ import * as bcrypt from "bcryptjs";
 import { randomUUID } from "crypto";
 import { CouponsService } from "../coupons/coupons.service";
 import { EmailService } from "../email/email.service";
+import { ObservabilityService } from "../observability/observability.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { CalculateShippingDto } from "./dto/calculate-shipping.dto";
 import { CancelOrderDto } from "./dto/cancel-order.dto";
@@ -29,7 +31,8 @@ export class OrdersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly couponsService: CouponsService,
-    private readonly emailService: EmailService
+    private readonly emailService: EmailService,
+    private readonly observabilityService: ObservabilityService
   ) {}
 
   async listAll(filters?: {
@@ -260,6 +263,17 @@ export class OrdersService {
     });
 
     await this.emailService.sendOrderCreated(this.toEmailPayload(order));
+    await this.observabilityService.logEvent({
+      type: "order.created",
+      source: "orders",
+      level: EventLevel.INFO,
+      message: `Pedido ${order.id} criado com sucesso.`,
+      metadata: {
+        orderId: order.id,
+        customerEmail: order.user.email,
+        total: Number(order.total)
+      }
+    });
 
     return order;
   }
@@ -305,6 +319,16 @@ export class OrdersService {
 
     const result = this.attachMockPayment(paidOrder);
     await this.emailService.sendOrderStatusUpdated(this.toEmailPayload(result));
+    await this.observabilityService.logEvent({
+      type: "order.payment_confirmed",
+      source: "orders",
+      level: EventLevel.INFO,
+      message: `Pagamento mock confirmado para o pedido ${result.id}.`,
+      metadata: {
+        orderId: result.id,
+        customerEmail: result.user.email
+      }
+    });
     return result;
   }
 
@@ -687,6 +711,19 @@ export class OrdersService {
     if (shouldNotify) {
       await this.emailService.sendOrderStatusUpdated(this.toEmailPayload(result));
     }
+
+    await this.observabilityService.logEvent({
+      type: "order.status_updated",
+      source: "orders",
+      level: nextStatus === OrderStatus.CANCELED ? EventLevel.WARN : EventLevel.INFO,
+      message: `Pedido ${result.id} atualizado para ${nextStatus}.`,
+      metadata: {
+        orderId: result.id,
+        previousStatus: order.status,
+        nextStatus,
+        trackingCode: result.trackingCode ?? undefined
+      }
+    });
 
     return result;
   }

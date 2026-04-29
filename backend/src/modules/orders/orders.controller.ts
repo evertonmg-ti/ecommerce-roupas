@@ -10,6 +10,7 @@ import {
 } from "@nestjs/common";
 import { OrderStatus, Role } from "@prisma/client";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
+import { RateLimit } from "../../common/decorators/rate-limit.decorator";
 import { Roles } from "../../common/decorators/roles.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { RolesGuard } from "../../common/guards/roles.guard";
@@ -26,21 +27,25 @@ export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
 
   @Post("checkout")
+  @RateLimit({ limit: 20, windowSec: 60, keyPrefix: "orders-checkout" })
   create(@Body() payload: CreateOrderDto) {
     return this.ordersService.create(payload);
   }
 
   @Post("lookup")
+  @RateLimit({ limit: 20, windowSec: 60, keyPrefix: "orders-lookup" })
   lookup(@Body() payload: LookupOrdersDto) {
     return this.ordersService.listByCustomerEmail(payload);
   }
 
   @Post("shipping-quote")
+  @RateLimit({ limit: 60, windowSec: 60, keyPrefix: "orders-shipping-quote" })
   calculateShipping(@Body() payload: CalculateShippingDto) {
     return this.ordersService.calculateShipping(payload);
   }
 
   @Post(":id/mock-payment/confirm")
+  @RateLimit({ limit: 10, windowSec: 60, keyPrefix: "orders-mock-payment-confirm" })
   confirmMockPayment(
     @Param("id") id: string,
     @Body() payload: ConfirmMockPaymentDto
@@ -49,6 +54,7 @@ export class OrdersController {
   }
 
   @Post(":id/cancel")
+  @RateLimit({ limit: 10, windowSec: 60, keyPrefix: "orders-cancel" })
   cancelOrder(@Param("id") id: string, @Body() payload: CancelOrderDto) {
     return this.ordersService.cancelByCustomer(id, payload);
   }

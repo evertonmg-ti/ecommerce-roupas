@@ -1,5 +1,6 @@
 import { Body, Controller, Get, Patch, UseGuards } from "@nestjs/common";
 import { Role } from "@prisma/client";
+import { RateLimit } from "../../common/decorators/rate-limit.decorator";
 import { Roles } from "../../common/decorators/roles.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { RolesGuard } from "../../common/guards/roles.guard";
@@ -23,11 +24,13 @@ export class SettingsController {
   }
 
   @Patch()
+  @RateLimit({ limit: 20, windowSec: 300, keyPrefix: "settings-update" })
   updateSettings(@Body() payload: UpdateSettingsDto) {
     return this.settingsService.updateSettings(payload);
   }
 
   @Patch("test-email")
+  @RateLimit({ limit: 5, windowSec: 300, keyPrefix: "settings-test-email" })
   async sendTestEmail(@Body() payload: TestEmailDto) {
     const settings = await this.settingsService.getSettings();
     await this.emailService.sendTestEmail(settings, payload.to.trim().toLowerCase());

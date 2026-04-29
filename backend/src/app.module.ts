@@ -7,6 +7,7 @@ import { CouponsModule } from "./modules/coupons/coupons.module";
 import { DashboardModule } from "./modules/dashboard/dashboard.module";
 import { EmailModule } from "./modules/email/email.module";
 import { OrdersModule } from "./modules/orders/orders.module";
+import { ObservabilityModule } from "./modules/observability/observability.module";
 import { PrismaModule } from "./modules/prisma/prisma.module";
 import { ProductsModule } from "./modules/products/products.module";
 import { SettingsModule } from "./modules/settings/settings.module";
@@ -20,6 +21,7 @@ import { UsersModule } from "./modules/users/users.module";
     CategoriesModule,
     CouponsModule,
     EmailModule,
+    ObservabilityModule,
     SettingsModule,
     UsersModule,
     ProductsModule,

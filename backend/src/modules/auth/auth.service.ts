@@ -5,10 +5,11 @@ import {
   UnauthorizedException
 } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
-import { Role } from "@prisma/client";
+import { EventLevel, Role } from "@prisma/client";
 import * as bcrypt from "bcryptjs";
 import { createHash, randomBytes } from "crypto";
 import { EmailService } from "../email/email.service";
+import { ObservabilityService } from "../observability/observability.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { SettingsService } from "../settings/settings.service";
 import { ForgotPasswordDto } from "./dto/forgot-password.dto";
@@ -22,7 +23,8 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly emailService: EmailService,
-    private readonly settingsService: SettingsService
+    private readonly settingsService: SettingsService,
+    private readonly observabilityService: ObservabilityService
   ) {}
 
   async register(payload: RegisterDto) {
@@ -31,6 +33,15 @@ export class AuthService {
     });
 
     if (existing) {
+      await this.observabilityService.logEvent({
+        type: "security.register_conflict",
+        source: "auth",
+        level: EventLevel.SECURITY,
+        message: `Tentativa de cadastro com email ja existente: ${payload.email}.`,
+        metadata: {
+          email: payload.email
+        }
+      });
       throw new ConflictException("Email ja cadastrado.");
     }
 
@@ -53,14 +64,47 @@ export class AuthService {
     });
 
     if (!user) {
+      await this.observabilityService.logEvent({
+        type: "security.login_failed",
+        source: "auth",
+        level: EventLevel.SECURITY,
+        message: `Falha de login para ${payload.email}.`,
+        metadata: {
+          email: payload.email,
+          reason: "user_not_found"
+        }
+      });
       throw new UnauthorizedException("Credenciais invalidas.");
     }
 
     const isValid = await bcrypt.compare(payload.password, user.passwordHash);
 
     if (!isValid) {
+      await this.observabilityService.logEvent({
+        type: "security.login_failed",
+        source: "auth",
+        level: EventLevel.SECURITY,
+        message: `Falha de login para ${payload.email}.`,
+        metadata: {
+          userId: user.id,
+          email: payload.email,
+          reason: "invalid_password"
+        }
+      });
       throw new UnauthorizedException("Credenciais invalidas.");
     }
+
+    await this.observabilityService.logEvent({
+      type: "auth.login_succeeded",
+      source: "auth",
+      level: EventLevel.INFO,
+      message: `Login concluido para ${user.email}.`,
+      metadata: {
+        userId: user.id,
+        email: user.email,
+        role: user.role
+      }
+    });
 
     return this.buildAuthResponse(user);
   }
@@ -96,6 +140,16 @@ export class AuthService {
       resetUrl,
       expiresAt
     });
+    await this.observabilityService.logEvent({
+      type: "auth.password_reset_requested",
+      source: "auth",
+      level: EventLevel.SECURITY,
+      message: `Solicitacao de recuperacao de senha para ${user.email}.`,
+      metadata: {
+        userId: user.id,
+        email: user.email
+      }
+    });
 
     return { success: true };
   }
@@ -108,6 +162,12 @@ export class AuthService {
     });
 
     if (!record || record.usedAt || record.expiresAt < new Date()) {
+      await this.observabilityService.logEvent({
+        type: "security.password_reset_invalid_token",
+        source: "auth",
+        level: EventLevel.SECURITY,
+        message: "Tentativa de redefinicao com token invalido ou expirado."
+      });
       throw new BadRequestException("Token invalido ou expirado.");
     }
 
@@ -123,6 +183,17 @@ export class AuthService {
         data: { usedAt: new Date() }
       })
     ]);
+
+    await this.observabilityService.logEvent({
+      type: "auth.password_reset_completed",
+      source: "auth",
+      level: EventLevel.SECURITY,
+      message: `Senha redefinida para ${record.user.email}.`,
+      metadata: {
+        userId: record.user.id,
+        email: record.user.email
+      }
+    });
 
     return { success: true };
   }

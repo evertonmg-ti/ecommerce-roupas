@@ -1,6 +1,8 @@
 import { Injectable, Logger } from "@nestjs/common";
 import nodemailer, { Transporter } from "nodemailer";
 import SMTPTransport from "nodemailer/lib/smtp-transport";
+import { EventLevel } from "@prisma/client";
+import { ObservabilityService } from "../observability/observability.service";
 import { SettingsService } from "../settings/settings.service";
 import {
   buildAdminOrderCreatedEmail,
@@ -13,7 +15,10 @@ import {
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
 
-  constructor(private readonly settingsService: SettingsService) {}
+  constructor(
+    private readonly settingsService: SettingsService,
+    private readonly observabilityService: ObservabilityService
+  ) {}
 
   async sendOrderCreated(payload: OrderEmailPayload) {
     const settings = await this.settingsService.getSettings();
@@ -106,7 +111,28 @@ export class EmailService {
   ) {
     try {
       await this.send(settings, to, message);
+      await this.observabilityService.logEvent({
+        type: "email.sent",
+        source: "email",
+        level: EventLevel.INFO,
+        message: `Email transacional preparado para ${to}.`,
+        metadata: {
+          to,
+          subject: message.subject
+        }
+      });
     } catch (error) {
+      await this.observabilityService.logEvent({
+        type: "email.error",
+        source: "email",
+        level: EventLevel.ERROR,
+        message: `Falha ao enviar email para ${to}.`,
+        metadata: {
+          to,
+          subject: message.subject,
+          error: error instanceof Error ? error.message : "erro desconhecido"
+        }
+      });
       this.logger.error(
         `Falha ao enviar email para ${to}: ${error instanceof Error ? error.message : "erro desconhecido"}`
       );
@@ -121,6 +147,16 @@ export class EmailService {
     const transporter = this.buildTransporter(settings);
 
     if (!settings.emailEnabled || !transporter) {
+      await this.observabilityService.logEvent({
+        type: "email.logged",
+        source: "email",
+        level: EventLevel.INFO,
+        message: `Email transacional em modo log para ${to}.`,
+        metadata: {
+          to,
+          subject: message.subject
+        }
+      });
       this.logger.log(
         `Email transacional (modo log) para ${to} | ${message.subject}\n${message.text}`
       );

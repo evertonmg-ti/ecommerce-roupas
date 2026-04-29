@@ -127,6 +127,49 @@ type SettingsResponse = {
   smtpPass?: string | null;
 };
 
+type ObservabilityEventResponse = {
+  id: string;
+  type: string;
+  level: string;
+  source: string;
+  message: string;
+  metadata?: unknown;
+  createdAt: string;
+};
+
+type AdminAuditLogResponse = {
+  id: string;
+  actorUserId?: string | null;
+  actorEmail?: string | null;
+  actorName?: string | null;
+  actorRole?: string | null;
+  method: string;
+  path: string;
+  action: string;
+  entityType?: string | null;
+  entityId?: string | null;
+  statusCode?: number | null;
+  ipAddress?: string | null;
+  payload?: unknown;
+  createdAt: string;
+};
+
+type PaginatedEventsResponse = {
+  items: ObservabilityEventResponse[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+};
+
+type PaginatedAuditResponse = {
+  items: AdminAuditLogResponse[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+};
+
 type OrderResponse = {
   id: string;
   couponCode?: string | null;
@@ -291,6 +334,49 @@ export type AdminSettings = {
   smtpSecure: boolean;
   smtpUser?: string;
   smtpPass?: string;
+};
+
+export type AdminEventLog = {
+  id: string;
+  type: string;
+  level: string;
+  source: string;
+  message: string;
+  metadata?: unknown;
+  createdAt: string;
+};
+
+export type AdminAuditLog = {
+  id: string;
+  actorUserId?: string;
+  actorEmail?: string;
+  actorName?: string;
+  actorRole?: string;
+  method: string;
+  path: string;
+  action: string;
+  entityType?: string;
+  entityId?: string;
+  statusCode?: number;
+  ipAddress?: string;
+  payload?: unknown;
+  createdAt: string;
+};
+
+export type AdminEventLogList = {
+  items: AdminEventLog[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+};
+
+export type AdminAuditLogList = {
+  items: AdminAuditLog[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
 };
 
 export type AdminOrder = {
@@ -497,6 +583,16 @@ function formatDate(value: string) {
   }).format(new Date(value));
 }
 
+function formatDateTime(value: string) {
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit"
+  }).format(new Date(value));
+}
+
 export async function getAdminDashboardMetrics(): Promise<AdminDashboardData> {
   const data = await fetchAdmin<DashboardResponse>("/dashboard/summary");
 
@@ -675,6 +771,91 @@ export async function getAdminSettings(): Promise<AdminSettings> {
     smtpSecure: settings.smtpSecure,
     smtpUser: settings.smtpUser ?? undefined,
     smtpPass: settings.smtpPass ?? undefined
+  };
+}
+
+export async function getAdminEventLogs(filters?: {
+  search?: string;
+  level?: string;
+  page?: number;
+  pageSize?: number;
+}): Promise<AdminEventLogList> {
+  const params = new URLSearchParams();
+
+  if (filters?.search) {
+    params.set("search", filters.search);
+  }
+
+  if (filters?.level) {
+    params.set("level", filters.level);
+  }
+
+  if (filters?.page) {
+    params.set("page", String(filters.page));
+  }
+
+  if (filters?.pageSize) {
+    params.set("pageSize", String(filters.pageSize));
+  }
+
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+  const response = await fetchAdmin<PaginatedEventsResponse>(
+    `/observability/events${suffix}`
+  );
+
+  return {
+    items: response.items.map((item) => ({
+      ...item,
+      createdAt: formatDateTime(item.createdAt)
+    })),
+    total: response.total,
+    page: response.page,
+    pageSize: response.pageSize,
+    totalPages: response.totalPages
+  };
+}
+
+export async function getAdminAuditLogs(filters?: {
+  search?: string;
+  page?: number;
+  pageSize?: number;
+}): Promise<AdminAuditLogList> {
+  const params = new URLSearchParams();
+
+  if (filters?.search) {
+    params.set("search", filters.search);
+  }
+
+  if (filters?.page) {
+    params.set("page", String(filters.page));
+  }
+
+  if (filters?.pageSize) {
+    params.set("pageSize", String(filters.pageSize));
+  }
+
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+  const response = await fetchAdmin<PaginatedAuditResponse>(
+    `/observability/audit${suffix}`
+  );
+
+  return {
+    items: response.items.map((item) => ({
+      ...item,
+      actorUserId: item.actorUserId ?? undefined,
+      actorEmail: item.actorEmail ?? undefined,
+      actorName: item.actorName ?? undefined,
+      actorRole: item.actorRole ?? undefined,
+      entityType: item.entityType ?? undefined,
+      entityId: item.entityId ?? undefined,
+      statusCode: item.statusCode ?? undefined,
+      ipAddress: item.ipAddress ?? undefined,
+      createdAt: formatDateTime(item.createdAt)
+    })),
+    total: response.total,
+    page: response.page,
+    pageSize: response.pageSize,
+    totalPages: response.totalPages
   };
 }
 
