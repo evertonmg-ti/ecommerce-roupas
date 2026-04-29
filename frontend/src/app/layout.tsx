@@ -20,7 +20,7 @@ export default async function RootLayout({
     <html lang="pt-BR">
       <body>
         <CartProvider isCustomerAuthenticated={Boolean(customerSession?.token)}>
-          <WishlistProvider>
+          <WishlistProvider isCustomerAuthenticated={Boolean(customerSession?.token)}>
             <Header />
             <main>{children}</main>
             <Footer />

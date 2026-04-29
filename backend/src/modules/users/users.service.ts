@@ -8,6 +8,7 @@ import * as bcrypt from "bcryptjs";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreateUserDto } from "./dto/create-user.dto";
 import { SaveCurrentUserCartDto } from "./dto/save-current-user-cart.dto";
+import { SaveCurrentUserWishlistDto } from "./dto/save-current-user-wishlist.dto";
 import { SaveCustomerAddressDto } from "./dto/save-customer-address.dto";
 import { UpdateCurrentUserDto } from "./dto/update-current-user.dto";
 import { UpdateUserDto } from "./dto/update-user.dto";
@@ -211,6 +212,107 @@ export class UsersService {
 
     await this.prisma.savedCartItem.deleteMany({
       where: { cartId: cart.id }
+    });
+
+    return { success: true };
+  }
+
+  async getCurrentUserWishlist(userId: string) {
+    await this.ensureExists(userId);
+
+    const wishlist = await this.prisma.savedWishlist.findUnique({
+      where: { userId },
+      include: {
+        items: {
+          orderBy: { createdAt: "desc" },
+          include: {
+            product: {
+              include: {
+                category: true
+              }
+            }
+          }
+        }
+      }
+    });
+
+    return {
+      items:
+        wishlist?.items
+          .filter((item) => item.product.status !== ProductStatus.ARCHIVED)
+          .map((item) => ({
+            id: item.product.id,
+            name: item.product.name,
+            slug: item.product.slug,
+            price: Number(item.product.price),
+            compareAt: item.product.compareAt ? Number(item.product.compareAt) : undefined,
+            imageUrl: item.product.imageUrl ?? undefined,
+            category: item.product.category.name,
+            stock: item.product.stock
+          })) ?? [],
+      updatedAt: wishlist?.updatedAt ?? null
+    };
+  }
+
+  async replaceCurrentUserWishlist(userId: string, payload: SaveCurrentUserWishlistDto) {
+    await this.ensureExists(userId);
+
+    const normalizedItems = Array.from(
+      new Set(
+        payload.items
+          .map((item) => item.productId.trim())
+          .filter((productId) => productId.length > 0)
+      )
+    );
+    const products = normalizedItems.length
+      ? await this.prisma.product.findMany({
+          where: {
+            id: { in: normalizedItems },
+            status: { not: ProductStatus.ARCHIVED }
+          }
+        })
+      : [];
+    const productIds = new Set(products.map((product) => product.id));
+    const validProductIds = normalizedItems.filter((productId) => productIds.has(productId));
+
+    await this.prisma.$transaction(async (tx) => {
+      const wishlist = await tx.savedWishlist.upsert({
+        where: { userId },
+        update: {},
+        create: { userId }
+      });
+
+      await tx.savedWishlistItem.deleteMany({
+        where: { wishlistId: wishlist.id }
+      });
+
+      if (validProductIds.length > 0) {
+        await tx.savedWishlistItem.createMany({
+          data: validProductIds.map((productId) => ({
+            wishlistId: wishlist.id,
+            productId
+          }))
+        });
+      }
+    });
+
+    return this.getCurrentUserWishlist(userId);
+  }
+
+  async clearCurrentUserWishlist(userId: string) {
+    await this.ensureExists(userId);
+
+    const wishlist = await this.prisma.savedWishlist.findUnique({
+      where: { userId },
+      select: { id: true }
+    });
+
+    if (!wishlist) {
+      return { success: true };
+    }
+
+    await this.prisma.savedWishlistItem.deleteMany({
+      where: { wishlistId: wishlist.id }
     });
 
     return { success: true };

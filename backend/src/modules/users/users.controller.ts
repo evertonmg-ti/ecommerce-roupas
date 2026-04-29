@@ -15,6 +15,7 @@ import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { RolesGuard } from "../../common/guards/roles.guard";
 import { CreateUserDto } from "./dto/create-user.dto";
 import { SaveCurrentUserCartDto } from "./dto/save-current-user-cart.dto";
+import { SaveCurrentUserWishlistDto } from "./dto/save-current-user-wishlist.dto";
 import { SaveCustomerAddressDto } from "./dto/save-customer-address.dto";
 import { UpdateCurrentUserDto } from "./dto/update-current-user.dto";
 import { UpdateUserDto } from "./dto/update-user.dto";
@@ -78,6 +79,27 @@ export class UsersController {
   @UseGuards(JwtAuthGuard)
   clearCurrentUserCart(@CurrentUser() user: { id: string }) {
     return this.usersService.clearCurrentUserCart(user.id);
+  }
+
+  @Get("me/wishlist")
+  @UseGuards(JwtAuthGuard)
+  getCurrentUserWishlist(@CurrentUser() user: { id: string }) {
+    return this.usersService.getCurrentUserWishlist(user.id);
+  }
+
+  @Patch("me/wishlist")
+  @UseGuards(JwtAuthGuard)
+  replaceCurrentUserWishlist(
+    @CurrentUser() user: { id: string },
+    @Body() payload: SaveCurrentUserWishlistDto
+  ) {
+    return this.usersService.replaceCurrentUserWishlist(user.id, payload);
+  }
+
+  @Delete("me/wishlist")
+  @UseGuards(JwtAuthGuard)
+  clearCurrentUserWishlist(@CurrentUser() user: { id: string }) {
+    return this.usersService.clearCurrentUserWishlist(user.id);
   }
 
   @Post("me/addresses")

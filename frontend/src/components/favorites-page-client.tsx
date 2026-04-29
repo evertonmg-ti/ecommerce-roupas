@@ -9,7 +9,7 @@ import { currency } from "@/lib/utils";
 
 export function FavoritesPageClient() {
   const { addItem } = useCart();
-  const { clearWishlist, items, removeFavorite } = useWishlist();
+  const { clearWishlist, isSyncing, items, removeFavorite } = useWishlist();
 
   if (items.length === 0) {
     return (
@@ -38,7 +38,8 @@ export function FavoritesPageClient() {
           <p className="text-xs uppercase tracking-[0.3em] text-terracotta">Favoritos</p>
           <h1 className="mt-3 font-display text-5xl">Produtos salvos</h1>
           <p className="mt-4 max-w-2xl text-espresso/70">
-            Sua selecao fica salva neste navegador para facilitar proximas compras.
+            Sua selecao fica salva para facilitar proximas compras
+            {isSyncing ? " e esta sincronizando com sua conta agora." : "."}
           </p>
         </div>
         <button

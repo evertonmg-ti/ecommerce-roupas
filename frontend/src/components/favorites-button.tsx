@@ -5,13 +5,14 @@ import { Heart } from "lucide-react";
 import { useWishlist } from "@/components/wishlist-provider";
 
 export function FavoritesButton() {
-  const { totalItems } = useWishlist();
+  const { isSyncing, totalItems } = useWishlist();
 
   return (
     <Link
       href="/favoritos"
       className="relative rounded-full border border-espresso/15 p-2 hover:border-terracotta"
       aria-label="Favoritos"
+      title={isSyncing ? "Sincronizando favoritos..." : "Favoritos"}
     >
       <Heart className="h-5 w-5" />
       {totalItems > 0 ? (

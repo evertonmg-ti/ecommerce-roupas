@@ -58,7 +58,54 @@ type CheckoutState =
     }
   | { type: "error"; message: string };
 
-export function CheckoutClient() {
+type CheckoutClientProps = {
+  initialCustomerData?: {
+    name: string;
+    email: string;
+    defaultAddress?: {
+      recipientName: string;
+      customerDocument?: string;
+      customerPhone?: string;
+      shippingAddress: string;
+      shippingNumber: string;
+      shippingAddress2?: string;
+      shippingNeighborhood: string;
+      shippingCity: string;
+      shippingState: string;
+      shippingPostalCode: string;
+    };
+  };
+};
+
+function mergeProfile(
+  base: CheckoutProfile,
+  initialCustomerData?: CheckoutClientProps["initialCustomerData"]
+) {
+  if (!initialCustomerData) {
+    return base;
+  }
+
+  const defaultAddress = initialCustomerData.defaultAddress;
+
+  return {
+    ...base,
+    customerName: base.customerName || initialCustomerData.name,
+    customerEmail: base.customerEmail || initialCustomerData.email,
+    recipientName: base.recipientName || defaultAddress?.recipientName || initialCustomerData.name,
+    customerDocument: base.customerDocument || defaultAddress?.customerDocument || "",
+    customerPhone: base.customerPhone || defaultAddress?.customerPhone || "",
+    shippingAddress: base.shippingAddress || defaultAddress?.shippingAddress || "",
+    shippingNumber: base.shippingNumber || defaultAddress?.shippingNumber || "",
+    shippingAddress2: base.shippingAddress2 || defaultAddress?.shippingAddress2 || "",
+    shippingNeighborhood:
+      base.shippingNeighborhood || defaultAddress?.shippingNeighborhood || "",
+    shippingCity: base.shippingCity || defaultAddress?.shippingCity || "",
+    shippingState: base.shippingState || defaultAddress?.shippingState || "",
+    shippingPostalCode: base.shippingPostalCode || defaultAddress?.shippingPostalCode || ""
+  };
+}
+
+export function CheckoutClient({ initialCustomerData }: CheckoutClientProps) {
   const searchParams = useSearchParams();
   const { items, clearCart, replaceItems, totalPrice } = useCart();
   const [state, setState] = useState<CheckoutState>({ type: "idle" });
@@ -154,22 +201,29 @@ export function CheckoutClient() {
     const stored = window.localStorage.getItem(CHECKOUT_PROFILE_STORAGE_KEY);
 
     if (!stored) {
+      setProfile(mergeProfile(emptyCheckoutProfile, initialCustomerData));
+      setShippingPostalCode(
+        mergeProfile(emptyCheckoutProfile, initialCustomerData).shippingPostalCode || ""
+      );
       return;
     }
 
     try {
       const parsed = JSON.parse(stored) as Partial<CheckoutProfile>;
-      const nextProfile = {
+      const nextProfile = mergeProfile({
         ...emptyCheckoutProfile,
         ...parsed
-      };
+      }, initialCustomerData);
       setProfile(nextProfile);
       setShippingMethod(nextProfile.shippingMethod || "STANDARD");
       setShippingPostalCode(nextProfile.shippingPostalCode || "");
     } catch {
       window.localStorage.removeItem(CHECKOUT_PROFILE_STORAGE_KEY);
+      const nextProfile = mergeProfile(emptyCheckoutProfile, initialCustomerData);
+      setProfile(nextProfile);
+      setShippingPostalCode(nextProfile.shippingPostalCode || "");
     }
-  }, []);
+  }, [initialCustomerData]);
 
   useEffect(() => {
     window.localStorage.setItem(

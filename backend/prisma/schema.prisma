@@ -121,6 +121,7 @@ model User {
   orders       Order[]
   addresses    CustomerAddress[]
   savedCart    SavedCart?
+  savedWishlist SavedWishlist?
   inventoryMovements InventoryMovement[]
   passwordResetTokens PasswordResetToken[]
   createdAt    DateTime @default(now())
@@ -150,6 +151,28 @@ model SavedCartItem {
   @@index([cartId])
   @@index([productId])
   @@index([variantId])
+}
+
+model SavedWishlist {
+  id        String              @id @default(cuid())
+  userId    String              @unique
+  user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items     SavedWishlistItem[]
+  createdAt DateTime            @default(now())
+  updatedAt DateTime            @updatedAt
+}
+
+model SavedWishlistItem {
+  id        String        @id @default(cuid())
+  wishlistId String
+  productId  String
+  wishlist   SavedWishlist @relation(fields: [wishlistId], references: [id], onDelete: Cascade)
+  product    Product      @relation(fields: [productId], references: [id])
+  createdAt  DateTime     @default(now())
+
+  @@unique([wishlistId, productId])
+  @@index([wishlistId])
+  @@index([productId])
 }
 
 model CustomerAddress {
@@ -230,6 +253,7 @@ model Product {
   variants    ProductVariant[]
   orderItems  OrderItem[]
   savedCartItems SavedCartItem[]
+  savedWishlistItems SavedWishlistItem[]
   inventoryMovements InventoryMovement[]
   backInStockSubscriptions BackInStockSubscription[]
   createdAt   DateTime      @default(now())

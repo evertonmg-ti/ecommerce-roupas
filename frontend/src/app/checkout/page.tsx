@@ -1,7 +1,20 @@
 import { Suspense } from "react";
 import { CheckoutClient } from "@/components/checkout-client";
+import { getCustomerSession } from "@/lib/auth";
+import { getCurrentCustomerAccount } from "@/lib/customer-api";
 
-export default function CheckoutPage() {
+export default async function CheckoutPage() {
+  const customerSession = await getCustomerSession();
+  const initialCustomerData = customerSession
+    ? await getCurrentCustomerAccount()
+        .then((account) => ({
+          name: account.name,
+          email: account.email,
+          defaultAddress: account.addresses.find((address) => address.isDefault)
+        }))
+        .catch(() => null)
+    : null;
+
   return (
     <Suspense
       fallback={
@@ -12,7 +25,7 @@ export default function CheckoutPage() {
         </section>
       }
     >
-      <CheckoutClient />
+      <CheckoutClient initialCustomerData={initialCustomerData ?? undefined} />
     </Suspense>
   );
 }
