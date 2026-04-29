@@ -11,6 +11,7 @@ export class DashboardService {
   ) {}
 
   async getSummary() {
+    type ReplenishmentPriority = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
     const now = new Date();
     const thirtyDaysAgo = new Date(now);
     thirtyDaysAgo.setDate(now.getDate() - 30);
@@ -398,7 +399,7 @@ export class DashboardService {
           coverageDays: item.coverageDays,
           targetCoverageDays,
           suggestedQuantity,
-          priority:
+          priority: (
             item.coverageDays !== null && item.coverageDays <= 7
               ? "CRITICAL"
               : item.coverageDays !== null && item.coverageDays <= 14
@@ -406,6 +407,7 @@ export class DashboardService {
                 : item.coverageDays !== null && item.coverageDays <= 30
                   ? "MEDIUM"
                   : "LOW"
+          ) as ReplenishmentPriority
         };
       })
       .filter((item) => item.suggestedQuantity > 0)
@@ -428,7 +430,7 @@ export class DashboardService {
         totalCurrentStock: number;
         totalCoverageDays: number;
         coveredProducts: number;
-        highestPriority: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+        highestPriority: ReplenishmentPriority;
       }
     >();
 
