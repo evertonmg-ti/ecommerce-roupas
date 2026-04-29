@@ -394,7 +394,7 @@ export default async function CustomerAccountPage({
                       </div>
                       {order.returnRequests.length > 0 ? (
                         <div className="mt-4 rounded-[1.25rem] border border-espresso/10 bg-white/50 p-4">
-                          <p className="text-sm font-medium">Solicitacoes em andamento</p>
+                          <p className="text-sm font-medium">Solicitacoes deste pedido</p>
                           <div className="mt-3 space-y-3 text-sm text-espresso/70">
                             {order.returnRequests.map((request) => (
                               <div
@@ -426,7 +426,10 @@ export default async function CustomerAccountPage({
                           </div>
                         </div>
                       ) : null}
-                      {order.status === "DELIVERED" && order.returnRequests.length === 0 ? (
+                      {order.status === "DELIVERED" &&
+                      !order.returnRequests.some((request) =>
+                        ["REQUESTED", "APPROVED", "RECEIVED"].includes(request.status)
+                      ) ? (
                         <form
                           action={createCustomerReturnRequestAction}
                           className="mt-4 rounded-[1.25rem] border border-espresso/10 bg-white/50 p-4"

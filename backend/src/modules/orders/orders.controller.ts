@@ -22,6 +22,7 @@ import { ConfirmMockPaymentDto } from "./dto/confirm-mock-payment.dto";
 import { LookupOrdersDto } from "./dto/lookup-orders.dto";
 import { OrdersService } from "./orders.service";
 import { UpdateOrderStatusDto } from "./dto/update-order-status.dto";
+import { UpdateReturnRequestStatusDto } from "./dto/update-return-request-status.dto";
 
 @Controller("orders")
 export class OrdersController {
@@ -99,5 +100,16 @@ export class OrdersController {
   @Roles(Role.ADMIN)
   updateStatus(@Param("id") id: string, @Body() payload: UpdateOrderStatusDto) {
     return this.ordersService.updateStatus(id, payload);
+  }
+
+  @Patch(":orderId/return-requests/:requestId")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  updateReturnRequestStatus(
+    @Param("orderId") orderId: string,
+    @Param("requestId") requestId: string,
+    @Body() payload: UpdateReturnRequestStatusDto
+  ) {
+    return this.ordersService.updateReturnRequestStatus(orderId, requestId, payload);
   }
 }

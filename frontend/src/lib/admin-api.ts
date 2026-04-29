@@ -500,6 +500,23 @@ type OrderResponse = {
     installments?: string | null;
   } | null;
   createdAt: string;
+  returnRequests?: Array<{
+    id: string;
+    type: string;
+    status: string;
+    reason: string;
+    details?: string | null;
+    resolutionNote?: string | null;
+    selectedItems?: Array<{
+      orderItemId: string;
+      productId: string;
+      variantId?: string | null;
+      variantLabel?: string | null;
+      quantity: number;
+    }> | null;
+    createdAt: string;
+    updatedAt: string;
+  }>;
   user: {
     id: string;
     name: string;
@@ -969,6 +986,23 @@ export type AdminOrder = {
     installments?: string;
   };
   createdAt: string;
+  returnRequests: Array<{
+    id: string;
+    type: string;
+    status: string;
+    reason: string;
+    details?: string;
+    resolutionNote?: string;
+    selectedItems: Array<{
+      orderItemId: string;
+      productId: string;
+      variantId?: string;
+      variantLabel?: string;
+      quantity: number;
+    }>;
+    createdAt: string;
+    updatedAt: string;
+  }>;
   items: Array<{
     id: string;
     productId: string;
@@ -1100,6 +1134,14 @@ function mapAdminErrorCode(message?: string) {
 
   if (message.includes("cancelar um pedido")) {
     return "order_cancellation_blocked";
+  }
+
+  if (message.includes("transicao informada nao e valida")) {
+    return "invalid_return_request_transition";
+  }
+
+  if (message.includes("motivo da rejeicao")) {
+    return "return_request_rejection_note_required";
   }
 
   if (message.includes("nao encontrada") || message.includes("nao encontrado")) {
@@ -1839,6 +1881,23 @@ function normalizeAdminOrder(order: OrderResponse): AdminOrder {
         }
       : undefined,
     createdAt: formatDate(order.createdAt),
+    returnRequests: (order.returnRequests ?? []).map((request) => ({
+      id: request.id,
+      type: request.type,
+      status: request.status,
+      reason: request.reason,
+      details: request.details ?? undefined,
+      resolutionNote: request.resolutionNote ?? undefined,
+      selectedItems: (request.selectedItems ?? []).map((item) => ({
+        orderItemId: item.orderItemId,
+        productId: item.productId,
+        variantId: item.variantId ?? undefined,
+        variantLabel: item.variantLabel ?? undefined,
+        quantity: item.quantity
+      })),
+      createdAt: formatDateTime(request.createdAt),
+      updatedAt: formatDateTime(request.updatedAt)
+    })),
     items: order.items.map((item) => ({
       id: item.id,
       productId: item.product.id,
@@ -2028,6 +2087,18 @@ export async function updateAdminOrderStatus(
   return mutateAdmin(`/orders/${id}/status`, "PATCH", {
     status,
     trackingCode: trackingCode?.trim() || undefined
+  });
+}
+
+export async function updateAdminReturnRequestStatus(
+  orderId: string,
+  requestId: string,
+  status: string,
+  resolutionNote?: string
+) {
+  return mutateAdmin(`/orders/${orderId}/return-requests/${requestId}`, "PATCH", {
+    status,
+    resolutionNote: resolutionNote?.trim() || undefined
   });
 }
 

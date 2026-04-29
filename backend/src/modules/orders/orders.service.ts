@@ -30,6 +30,7 @@ import { CreateOrderDto } from "./dto/create-order.dto";
 import { CreateReturnRequestDto } from "./dto/create-return-request.dto";
 import { LookupOrdersDto } from "./dto/lookup-orders.dto";
 import { UpdateOrderStatusDto } from "./dto/update-order-status.dto";
+import { UpdateReturnRequestStatusDto } from "./dto/update-return-request-status.dto";
 
 @Injectable()
 export class OrdersService {
@@ -497,6 +498,75 @@ export class OrdersService {
     });
 
     return request;
+  }
+
+  async updateReturnRequestStatus(
+    orderId: string,
+    requestId: string,
+    payload: UpdateReturnRequestStatusDto
+  ) {
+    const request = await this.prisma.returnRequest.findFirst({
+      where: {
+        id: requestId,
+        orderId
+      },
+      include: {
+        order: {
+          include: {
+            user: true
+          }
+        }
+      }
+    });
+
+    if (!request) {
+      throw new NotFoundException("Solicitacao nao encontrada para este pedido.");
+    }
+
+    if (request.status === payload.status) {
+      return request;
+    }
+
+    if (!this.isValidReturnRequestTransition(request.status, payload.status)) {
+      throw new BadRequestException(
+        "A transicao informada nao e valida para o status atual da solicitacao."
+      );
+    }
+
+    const resolutionNote = payload.resolutionNote?.trim() || undefined;
+
+    if (payload.status === ReturnRequestStatus.REJECTED && !resolutionNote) {
+      throw new BadRequestException(
+        "Informe uma observacao para registrar o motivo da rejeicao."
+      );
+    }
+
+    const updatedRequest = await this.prisma.returnRequest.update({
+      where: { id: request.id },
+      data: {
+        status: payload.status,
+        resolutionNote
+      }
+    });
+
+    await this.observabilityService.logEvent({
+      type: "order.return_request_status_updated",
+      source: "orders",
+      level:
+        payload.status === ReturnRequestStatus.REJECTED
+          ? EventLevel.WARN
+          : EventLevel.INFO,
+      message: `Solicitacao ${request.id} do pedido ${request.orderId} atualizada para ${payload.status}.`,
+      metadata: {
+        orderId: request.orderId,
+        returnRequestId: request.id,
+        previousStatus: request.status,
+        nextStatus: payload.status,
+        type: request.type
+      }
+    });
+
+    return updatedRequest;
   }
 
   private normalizeItems(items: CreateOrderDto["items"]) {
@@ -1028,5 +1098,26 @@ export class OrdersService {
     }
 
     return Math.trunc(parsed);
+  }
+
+  private isValidReturnRequestTransition(
+    currentStatus: ReturnRequestStatus,
+    nextStatus: ReturnRequestStatus
+  ) {
+    const transitions: Record<ReturnRequestStatus, ReturnRequestStatus[]> = {
+      [ReturnRequestStatus.REQUESTED]: [
+        ReturnRequestStatus.APPROVED,
+        ReturnRequestStatus.REJECTED
+      ],
+      [ReturnRequestStatus.APPROVED]: [
+        ReturnRequestStatus.RECEIVED,
+        ReturnRequestStatus.REJECTED
+      ],
+      [ReturnRequestStatus.REJECTED]: [],
+      [ReturnRequestStatus.RECEIVED]: [ReturnRequestStatus.COMPLETED],
+      [ReturnRequestStatus.COMPLETED]: []
+    };
+
+    return transitions[currentStatus].includes(nextStatus);
   }
 }

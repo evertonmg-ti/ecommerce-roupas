@@ -19,6 +19,7 @@ const messages: Record<string, string> = {
   settings_updated: "Configuracoes atualizadas com sucesso.",
   test_email_sent: "Email de teste enviado com sucesso.",
   order_updated: "Status do pedido atualizado com sucesso.",
+  return_request_updated: "Solicitacao de troca/devolucao atualizada com sucesso.",
   slug_conflict: "Ja existe um cadastro com este slug. Escolha outro identificador.",
   email_conflict: "Ja existe um usuario com este email.",
   category_has_products:
@@ -32,6 +33,10 @@ const messages: Record<string, string> = {
     "O subtotal minimo exigido para este cupom ainda nao foi atingido.",
   order_cancellation_blocked:
     "Este pedido nao pode mais ser cancelado porque ja avancou na operacao.",
+  invalid_return_request_transition:
+    "A transicao escolhida nao e valida para o status atual da solicitacao.",
+  return_request_rejection_note_required:
+    "Informe uma observacao para registrar o motivo da rejeicao.",
   resource_not_found: "O registro informado nao foi encontrado.",
   generic_error: "Nao foi possivel concluir a operacao. Revise os dados e tente novamente."
 };

@@ -1,7 +1,10 @@
 import { AdminFeedback } from "@/components/admin-feedback";
 import { getAdminOrders } from "@/lib/admin-api";
 import { currency } from "@/lib/utils";
-import { updateOrderStatusAction } from "./actions";
+import {
+  updateOrderStatusAction,
+  updateReturnRequestStatusAction
+} from "./actions";
 
 const statusOptions = [
   { value: "PENDING", label: "Pendente" },
@@ -10,6 +13,38 @@ const statusOptions = [
   { value: "DELIVERED", label: "Entregue" },
   { value: "CANCELED", label: "Cancelado" }
 ];
+
+const returnRequestStatusLabels: Record<string, string> = {
+  REQUESTED: "Solicitada",
+  APPROVED: "Aprovada",
+  REJECTED: "Rejeitada",
+  RECEIVED: "Recebida",
+  COMPLETED: "Concluida"
+};
+
+const returnRequestTypeLabels: Record<string, string> = {
+  EXCHANGE: "Troca",
+  REFUND: "Devolucao"
+};
+
+function getReturnRequestTransitionOptions(status: string) {
+  switch (status) {
+    case "REQUESTED":
+      return [
+        { value: "APPROVED", label: "Aprovar" },
+        { value: "REJECTED", label: "Rejeitar" }
+      ];
+    case "APPROVED":
+      return [
+        { value: "RECEIVED", label: "Marcar recebimento" },
+        { value: "REJECTED", label: "Rejeitar" }
+      ];
+    case "RECEIVED":
+      return [{ value: "COMPLETED", label: "Concluir" }];
+    default:
+      return [];
+  }
+}
 
 type AdminOrdersPageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -258,6 +293,134 @@ export default async function AdminOrdersPage({
                         </p>
                       ) : null}
                     </div>
+
+                    {order.returnRequests.length > 0 ? (
+                      <div className="mt-4 rounded-[1rem] border border-espresso/10 bg-sand/35 p-4">
+                        <p className="text-xs uppercase tracking-[0.3em] text-terracotta">
+                          Trocas e devolucoes
+                        </p>
+                        <div className="mt-4 space-y-4">
+                          {order.returnRequests.map((request) => {
+                            const transitionOptions = getReturnRequestTransitionOptions(
+                              request.status
+                            );
+
+                            return (
+                              <div
+                                key={request.id}
+                                className="rounded-[1rem] border border-espresso/10 bg-white/70 p-4"
+                              >
+                                <div className="flex flex-wrap items-start justify-between gap-3">
+                                  <div>
+                                    <p className="font-medium">
+                                      {returnRequestTypeLabels[request.type] ?? request.type}
+                                    </p>
+                                    <p className="mt-1 text-xs text-espresso/60">
+                                      Solicitada em {request.createdAt}
+                                    </p>
+                                  </div>
+                                  <span className="rounded-full bg-moss/10 px-3 py-1 text-xs text-moss">
+                                    {returnRequestStatusLabels[request.status] ?? request.status}
+                                  </span>
+                                </div>
+
+                                <div className="mt-3 space-y-2 text-sm text-espresso/70">
+                                  <p>
+                                    <strong>Motivo:</strong> {request.reason}
+                                  </p>
+                                  {request.details ? (
+                                    <p>
+                                      <strong>Detalhes:</strong> {request.details}
+                                    </p>
+                                  ) : null}
+                                  {request.resolutionNote ? (
+                                    <p>
+                                      <strong>Observacao interna:</strong>{" "}
+                                      {request.resolutionNote}
+                                    </p>
+                                  ) : null}
+                                  {request.selectedItems.length > 0 ? (
+                                    <div>
+                                      <strong>Itens selecionados:</strong>
+                                      <div className="mt-2 flex flex-wrap gap-2">
+                                        {request.selectedItems.map((selectedItem) => {
+                                          const matchedItem = order.items.find(
+                                            (item) => item.id === selectedItem.orderItemId
+                                          );
+
+                                          return (
+                                            <span
+                                              key={selectedItem.orderItemId}
+                                              className="rounded-full border border-espresso/10 bg-sand px-3 py-1 text-xs"
+                                            >
+                                              {matchedItem?.name ?? "Item"}{" "}
+                                              {selectedItem.variantLabel
+                                                ? `- ${selectedItem.variantLabel}`
+                                                : ""}{" "}
+                                              x {selectedItem.quantity}
+                                            </span>
+                                          );
+                                        })}
+                                      </div>
+                                    </div>
+                                  ) : null}
+                                  <p className="text-xs text-espresso/55">
+                                    Ultima atualizacao em {request.updatedAt}
+                                  </p>
+                                </div>
+
+                                {transitionOptions.length > 0 ? (
+                                  <form
+                                    action={updateReturnRequestStatusAction}
+                                    className="mt-4 space-y-3 border-t border-espresso/10 pt-4"
+                                  >
+                                    <input type="hidden" name="orderId" value={order.id} />
+                                    <input type="hidden" name="requestId" value={request.id} />
+                                    <input
+                                      type="hidden"
+                                      name="returnTo"
+                                      value={`${basePath}${basePath.includes("?") ? "&" : "?"}page=${orderList?.page ?? 1}`}
+                                    />
+                                    <label className="space-y-2 text-sm">
+                                      <span>Atualizar solicitacao</span>
+                                      <select
+                                        name="status"
+                                        defaultValue={transitionOptions[0]?.value}
+                                        className="w-full rounded-2xl border border-espresso/15 bg-white px-4 py-3 outline-none"
+                                      >
+                                        {transitionOptions.map((option) => (
+                                          <option key={option.value} value={option.value}>
+                                            {option.label}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </label>
+                                    <label className="space-y-2 text-sm">
+                                      <span>Observacao</span>
+                                      <textarea
+                                        name="resolutionNote"
+                                        rows={3}
+                                        defaultValue={request.resolutionNote ?? ""}
+                                        placeholder="Ex.: item recebido no CD e validado pela operacao."
+                                        className="w-full rounded-2xl border border-espresso/15 bg-white px-4 py-3 outline-none"
+                                      />
+                                    </label>
+                                    <button className="rounded-full bg-espresso px-5 py-3 text-sand">
+                                      Salvar solicitacao
+                                    </button>
+                                  </form>
+                                ) : (
+                                  <p className="mt-4 text-xs text-espresso/55">
+                                    Esta solicitacao ja chegou a um estado final no fluxo
+                                    administrativo.
+                                  </p>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
                 </div>
 
