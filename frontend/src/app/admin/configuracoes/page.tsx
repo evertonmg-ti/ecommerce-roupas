@@ -1,6 +1,7 @@
 import { AdminFeedback } from "@/components/admin-feedback";
 import { getAdminSettings } from "@/lib/admin-api";
 import { updateSettingsAction } from "./actions";
+import { sendTestEmailAction } from "./test-email.actions";
 
 type AdminSettingsPageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -165,6 +166,25 @@ export default async function AdminSettingsPage({
               />
               Usar conexao segura (SSL/TLS)
             </label>
+          </div>
+
+          <div className="mt-6 rounded-[1.5rem] border border-espresso/10 bg-sand/35 p-4">
+            <p className="text-sm font-medium">Teste de envio</p>
+            <form action={sendTestEmailAction} className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
+              <label className="flex-1 space-y-2 text-sm">
+                <span>Enviar teste para</span>
+                <input
+                  name="testEmailTo"
+                  type="email"
+                  required
+                  defaultValue={settings.supportEmail ?? settings.emailReplyTo ?? settings.emailOrdersTo ?? ""}
+                  className="w-full rounded-2xl border border-espresso/15 bg-white px-4 py-3 outline-none"
+                />
+              </label>
+              <button className="rounded-full border border-espresso/15 px-5 py-3 text-sm">
+                Enviar teste
+              </button>
+            </form>
           </div>
         </section>
 

@@ -49,6 +49,56 @@ export class EmailService {
     );
   }
 
+  async sendPasswordResetEmail(payload: {
+    to: string;
+    customerName: string;
+    resetUrl: string;
+    expiresAt: Date;
+  }) {
+    const settings = await this.settingsService.getSettings();
+    const subject = "Recuperacao de senha";
+    const text = [
+      `Ola, ${payload.customerName}.`,
+      "",
+      "Recebemos uma solicitacao para redefinir sua senha.",
+      `Use o link abaixo ate ${payload.expiresAt.toLocaleString("pt-BR")}:`,
+      payload.resetUrl
+    ].join("\n");
+    const html = `
+      <div style="font-family:Arial,sans-serif;color:#2d241d;line-height:1.6;">
+        <h2>Recuperacao de senha</h2>
+        <p>Ola, <strong>${payload.customerName}</strong>.</p>
+        <p>Recebemos uma solicitacao para redefinir sua senha.</p>
+        <p>Use o link abaixo ate ${payload.expiresAt.toLocaleString("pt-BR")}:</p>
+        <p><a href="${payload.resetUrl}">Redefinir senha</a></p>
+      </div>
+    `;
+
+    await this.safeSend(settings, payload.to, { subject, text, html });
+  }
+
+  async sendTestEmail(
+    settings: Awaited<ReturnType<SettingsService["getSettings"]>>,
+    to: string
+  ) {
+    const subject = "Teste de email transacional";
+    const text = [
+      `Teste de configuracao SMTP da loja ${settings.storeName}.`,
+      `URL da loja: ${settings.storeUrl}`,
+      "Se voce recebeu esta mensagem, o envio transacional esta funcionando."
+    ].join("\n");
+    const html = `
+      <div style="font-family:Arial,sans-serif;color:#2d241d;line-height:1.6;">
+        <h2>Teste de email transacional</h2>
+        <p>Loja: <strong>${settings.storeName}</strong></p>
+        <p>URL: ${settings.storeUrl}</p>
+        <p>Se voce recebeu esta mensagem, o envio transacional esta funcionando.</p>
+      </div>
+    `;
+
+    await this.send(settings, to, { subject, text, html });
+  }
+
   private async safeSend(
     settings: Awaited<ReturnType<SettingsService["getSettings"]>>,
     to: string,

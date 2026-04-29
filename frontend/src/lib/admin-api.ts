@@ -870,6 +870,10 @@ export async function updateAdminSettings(payload: SaveSettingsInput) {
   return mutateAdmin("/settings", "PATCH", payload);
 }
 
+export async function sendAdminTestEmail(to: string) {
+  return mutateAdmin("/settings/test-email", "PATCH", { to });
+}
+
 export async function deleteAdminCoupon(id: string) {
   return mutateAdmin(`/coupons/${id}`, "DELETE");
 }

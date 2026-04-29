@@ -1,4 +1,5 @@
 import { getAdminSession } from "@/lib/auth";
+import { ForgotPasswordForm } from "./forgot-password-form";
 import { LoginForm } from "./login-form";
 
 type LoginPageProps = {
@@ -20,6 +21,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
             : "Use uma conta administrativa para acessar o painel."}
         </p>
         <LoginForm redirectTo={params?.redirectTo} />
+        <ForgotPasswordForm />
       </div>
     </section>
   );
