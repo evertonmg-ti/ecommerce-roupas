@@ -17,6 +17,7 @@ import { randomUUID } from "crypto";
 import { CouponsService } from "../coupons/coupons.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { CalculateShippingDto } from "./dto/calculate-shipping.dto";
+import { CancelOrderDto } from "./dto/cancel-order.dto";
 import { ConfirmMockPaymentDto } from "./dto/confirm-mock-payment.dto";
 import { CreateOrderDto } from "./dto/create-order.dto";
 import { LookupOrdersDto } from "./dto/lookup-orders.dto";
@@ -230,46 +231,11 @@ export class OrdersService {
   }
 
   async updateStatus(id: string, payload: UpdateOrderStatusDto) {
-    await this.ensureExists(id);
-
-    return this.prisma.order
-      .update({
-        where: { id },
-        data: {
-          status: payload.status as OrderStatus
-        },
-        include: {
-          user: true,
-          items: {
-            include: {
-              product: {
-                include: { category: true }
-              }
-            }
-          }
-        }
-      })
-      .then((order) => this.attachMockPayment(order));
+    return this.updateStatusWithSideEffects(id, payload.status as OrderStatus);
   }
 
   async confirmMockPayment(id: string, payload: ConfirmMockPaymentDto) {
-    const order = await this.prisma.order.findUnique({
-      where: { id },
-      include: {
-        user: true,
-        items: {
-          include: {
-            product: {
-              include: { category: true }
-            }
-          }
-        }
-      }
-    });
-
-    if (!order) {
-      throw new NotFoundException("Pedido nao encontrado.");
-    }
+    const order = await this.getOrderDetailsOrThrow(id);
 
     if (order.user.email !== payload.email.trim().toLowerCase()) {
       throw new BadRequestException("O email informado nao pertence a este pedido.");
@@ -301,6 +267,16 @@ export class OrdersService {
     });
 
     return this.attachMockPayment(paidOrder);
+  }
+
+  async cancelByCustomer(id: string, payload: CancelOrderDto) {
+    const order = await this.getOrderDetailsOrThrow(id);
+
+    if (order.user.email !== payload.email.trim().toLowerCase()) {
+      throw new BadRequestException("O email informado nao pertence a este pedido.");
+    }
+
+    return this.updateStatusWithSideEffects(id, OrderStatus.CANCELED);
   }
 
   private normalizeItems(items: CreateOrderDto["items"]) {
@@ -435,14 +411,6 @@ export class OrdersService {
     });
   }
 
-  private async ensureExists(id: string) {
-    const order = await this.prisma.order.findUnique({ where: { id } });
-
-    if (!order) {
-      throw new NotFoundException("Pedido nao encontrado.");
-    }
-  }
-
   private attachMockPayment<T extends Order & { createdAt: Date; status: OrderStatus }>(
     order: T
   ) {
@@ -531,5 +499,97 @@ export class OrdersService {
       cardBrand: "VISA",
       installments: "1x sem juros"
     };
+  }
+
+  private async getOrderDetailsOrThrow(id: string) {
+    const order = await this.prisma.order.findUnique({
+      where: { id },
+      include: {
+        user: true,
+        items: {
+          include: {
+            product: {
+              include: { category: true }
+            }
+          }
+        }
+      }
+    });
+
+    if (!order) {
+      throw new NotFoundException("Pedido nao encontrado.");
+    }
+
+    return order;
+  }
+
+  private async updateStatusWithSideEffects(id: string, nextStatus: OrderStatus) {
+    const order = await this.getOrderDetailsOrThrow(id);
+
+    if (order.status === nextStatus) {
+      return this.attachMockPayment(order);
+    }
+
+    if (order.status === OrderStatus.CANCELED && nextStatus !== OrderStatus.CANCELED) {
+      throw new BadRequestException(
+        "Nao e possivel reabrir um pedido cancelado automaticamente."
+      );
+    }
+
+    if (
+      nextStatus === OrderStatus.CANCELED &&
+      ![OrderStatus.PENDING, OrderStatus.PAID].includes(order.status)
+    ) {
+      throw new BadRequestException(
+        "Nao e possivel cancelar um pedido que ja foi enviado ou entregue."
+      );
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const updatedOrder = await tx.order.update({
+        where: { id },
+        data: {
+          status: nextStatus
+        },
+        include: {
+          user: true,
+          items: {
+            include: {
+              product: {
+                include: { category: true }
+              }
+            }
+          }
+        }
+      });
+
+      if (nextStatus === OrderStatus.CANCELED) {
+        await Promise.all(
+          order.items.map((item) =>
+            tx.product.update({
+              where: { id: item.productId },
+              data: {
+                stock: {
+                  increment: item.quantity
+                }
+              }
+            })
+          )
+        );
+
+        if (order.couponId) {
+          await tx.coupon.update({
+            where: { id: order.couponId },
+            data: {
+              usedCount: {
+                decrement: 1
+              }
+            }
+          });
+        }
+      }
+
+      return this.attachMockPayment(updatedOrder);
+    });
   }
 }

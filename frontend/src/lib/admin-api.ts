@@ -376,6 +376,10 @@ function mapAdminErrorCode(message?: string) {
     return "coupon_min_subtotal";
   }
 
+  if (message.includes("cancelar um pedido")) {
+    return "order_cancellation_blocked";
+  }
+
   if (message.includes("nao encontrada") || message.includes("nao encontrado")) {
     return "resource_not_found";
   }
@@ -763,6 +767,13 @@ export async function lookupCustomerOrders(email: string): Promise<CustomerOrder
 
 export async function confirmCustomerMockPayment(orderId: string, email: string) {
   return apiFetch<OrderResponse>(`/orders/${orderId}/mock-payment/confirm`, {
+    method: "POST",
+    body: JSON.stringify({ email })
+  });
+}
+
+export async function cancelCustomerOrder(orderId: string, email: string) {
+  return apiFetch<OrderResponse>(`/orders/${orderId}/cancel`, {
     method: "POST",
     body: JSON.stringify({ email })
   });

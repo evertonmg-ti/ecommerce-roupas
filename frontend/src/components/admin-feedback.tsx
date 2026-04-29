@@ -27,6 +27,8 @@ const messages: Record<string, string> = {
   coupon_inactive: "Este cupom nao esta disponivel para uso.",
   coupon_min_subtotal:
     "O subtotal minimo exigido para este cupom ainda nao foi atingido.",
+  order_cancellation_blocked:
+    "Este pedido nao pode mais ser cancelado porque ja avancou na operacao.",
   resource_not_found: "O registro informado nao foi encontrado.",
   generic_error: "Nao foi possivel concluir a operacao. Revise os dados e tente novamente."
 };

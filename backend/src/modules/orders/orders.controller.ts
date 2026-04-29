@@ -15,6 +15,7 @@ import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { RolesGuard } from "../../common/guards/roles.guard";
 import { CreateOrderDto } from "./dto/create-order.dto";
 import { CalculateShippingDto } from "./dto/calculate-shipping.dto";
+import { CancelOrderDto } from "./dto/cancel-order.dto";
 import { ConfirmMockPaymentDto } from "./dto/confirm-mock-payment.dto";
 import { LookupOrdersDto } from "./dto/lookup-orders.dto";
 import { OrdersService } from "./orders.service";
@@ -45,6 +46,11 @@ export class OrdersController {
     @Body() payload: ConfirmMockPaymentDto
   ) {
     return this.ordersService.confirmMockPayment(id, payload);
+  }
+
+  @Post(":id/cancel")
+  cancelOrder(@Param("id") id: string, @Body() payload: CancelOrderDto) {
+    return this.ordersService.cancelByCustomer(id, payload);
   }
 
   @Get("me")

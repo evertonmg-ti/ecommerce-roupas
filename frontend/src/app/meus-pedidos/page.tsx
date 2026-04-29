@@ -1,6 +1,6 @@
 import { lookupCustomerOrders } from "@/lib/admin-api";
 import { currency } from "@/lib/utils";
-import { confirmMockPaymentAction } from "./actions";
+import { cancelOrderAction, confirmMockPaymentAction } from "./actions";
 
 type CustomerOrdersPageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -57,9 +57,21 @@ export default async function CustomerOrdersPage({
           </div>
         ) : null}
 
+        {success === "order_canceled" ? (
+          <div className="mt-8 rounded-[1.5rem] border border-moss/20 bg-moss/10 p-4 text-sm text-moss">
+            Pedido cancelado com sucesso e estoque devolvido automaticamente.
+          </div>
+        ) : null}
+
         {error === "payment_failed" ? (
           <div className="mt-8 rounded-[1.5rem] border border-terracotta/20 bg-terracotta/10 p-4 text-sm text-terracotta">
             Nao foi possivel confirmar o pagamento mock. Revise o pedido e tente novamente.
+          </div>
+        ) : null}
+
+        {error === "cancel_failed" ? (
+          <div className="mt-8 rounded-[1.5rem] border border-terracotta/20 bg-terracotta/10 p-4 text-sm text-terracotta">
+            Nao foi possivel cancelar o pedido. Ele pode ja ter avancado para envio.
           </div>
         ) : null}
 
@@ -158,11 +170,29 @@ export default async function CustomerOrdersPage({
                         </p>
                       ) : null}
                       {order.status === "PENDING" && email ? (
-                        <form action={confirmMockPaymentAction} className="mt-4">
+                        <div className="mt-4 flex flex-wrap gap-3">
+                          <form action={confirmMockPaymentAction}>
+                            <input type="hidden" name="orderId" value={order.id} />
+                            <input type="hidden" name="email" value={email} />
+                            <button className="rounded-full bg-espresso px-5 py-3 text-sm text-sand">
+                              Simular pagamento
+                            </button>
+                          </form>
+                          <form action={cancelOrderAction}>
+                            <input type="hidden" name="orderId" value={order.id} />
+                            <input type="hidden" name="email" value={email} />
+                            <button className="rounded-full border border-terracotta/25 px-5 py-3 text-sm text-terracotta">
+                              Cancelar pedido
+                            </button>
+                          </form>
+                        </div>
+                      ) : null}
+                      {order.status === "PAID" && email ? (
+                        <form action={cancelOrderAction} className="mt-4">
                           <input type="hidden" name="orderId" value={order.id} />
                           <input type="hidden" name="email" value={email} />
-                          <button className="rounded-full bg-espresso px-5 py-3 text-sm text-sand">
-                            Simular pagamento
+                          <button className="rounded-full border border-terracotta/25 px-5 py-3 text-sm text-terracotta">
+                            Cancelar pedido
                           </button>
                         </form>
                       ) : null}
