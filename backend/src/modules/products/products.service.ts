@@ -1,9 +1,17 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
-import { Prisma, ProductStatus } from "@prisma/client";
+import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { InventoryMovementType, Prisma, ProductStatus } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
+import { AdjustStockDto } from "./dto/adjust-stock.dto";
 import { CreateProductDto } from "./dto/create-product.dto";
 import { UpdateProductDto } from "./dto/update-product.dto";
 import { ValidateCartDto } from "./dto/validate-cart.dto";
+
+type AdminActor = {
+  id?: string;
+  email?: string;
+  name?: string;
+  role?: string;
+};
 
 @Injectable()
 export class ProductsService {
@@ -63,6 +71,46 @@ export class ProductsService {
       this.prisma.product.findMany({
         where,
         include: { category: true },
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: pageSize
+      })
+    ]);
+
+    return {
+      items,
+      total,
+      page,
+      pageSize,
+      totalPages: Math.max(1, Math.ceil(total / pageSize))
+    };
+  }
+
+  async listInventoryMovements(filters?: {
+    search?: string;
+    type?: string;
+    page?: string;
+    pageSize?: string;
+  }) {
+    const page = this.parsePositiveInteger(filters?.page, 1);
+    const pageSize = Math.min(this.parsePositiveInteger(filters?.pageSize, 20), 100);
+    const skip = (page - 1) * pageSize;
+    const where = this.buildInventoryMovementWhere(filters?.search, filters?.type);
+    const [total, items] = await this.prisma.$transaction([
+      this.prisma.inventoryMovement.count({ where }),
+      this.prisma.inventoryMovement.findMany({
+        where,
+        include: {
+          product: {
+            include: { category: true }
+          },
+          actorUser: true,
+          order: {
+            include: {
+              user: true
+            }
+          }
+        },
         orderBy: { createdAt: "desc" },
         skip,
         take: pageSize
@@ -170,35 +218,105 @@ export class ProductsService {
     };
   }
 
-  create(payload: CreateProductDto) {
-    return this.prisma.product.create({
-      data: {
-        ...payload,
-        price: new Prisma.Decimal(payload.price),
-        compareAt:
-          payload.compareAt === undefined
-            ? undefined
-            : new Prisma.Decimal(payload.compareAt)
+  async create(payload: CreateProductDto) {
+    return this.prisma.$transaction(async (tx) => {
+      const product = await tx.product.create({
+        data: {
+          ...payload,
+          price: new Prisma.Decimal(payload.price),
+          compareAt:
+            payload.compareAt === undefined
+              ? undefined
+              : new Prisma.Decimal(payload.compareAt)
+        }
+      });
+
+      if (product.stock > 0) {
+        await this.recordInventoryMovement(tx, {
+          productId: product.id,
+          type: InventoryMovementType.INITIAL,
+          quantityDelta: product.stock,
+          previousStock: 0,
+          nextStock: product.stock,
+          reason: "Cadastro inicial do produto."
+        });
       }
+
+      return product;
     });
   }
 
-  async update(id: string, payload: UpdateProductDto) {
-    await this.ensureExists(id);
+  async update(id: string, payload: UpdateProductDto, actor?: AdminActor) {
+    const existing = await this.ensureExists(id);
 
-    return this.prisma.product.update({
-      where: { id },
-      data: {
-        ...payload,
-        price:
-          payload.price === undefined
-            ? undefined
-            : new Prisma.Decimal(payload.price),
-        compareAt:
-          payload.compareAt === undefined
-            ? undefined
-            : new Prisma.Decimal(payload.compareAt)
+    return this.prisma.$transaction(async (tx) => {
+      const updated = await tx.product.update({
+        where: { id },
+        data: {
+          ...payload,
+          price:
+            payload.price === undefined
+              ? undefined
+              : new Prisma.Decimal(payload.price),
+          compareAt:
+            payload.compareAt === undefined
+              ? undefined
+              : new Prisma.Decimal(payload.compareAt)
+        }
+      });
+
+      if (
+        payload.stock !== undefined &&
+        payload.stock !== existing.stock
+      ) {
+        await this.recordInventoryMovement(tx, {
+          productId: updated.id,
+          actorUserId: actor?.id,
+          type: InventoryMovementType.MANUAL_ADJUSTMENT,
+          quantityDelta: payload.stock - existing.stock,
+          previousStock: existing.stock,
+          nextStock: payload.stock,
+          reason: "Ajuste via edicao do produto."
+        });
       }
+
+      return updated;
+    });
+  }
+
+  async adjustStock(id: string, payload: AdjustStockDto, actor?: AdminActor) {
+    const existing = await this.ensureExists(id);
+    const quantityDelta = Math.trunc(payload.quantityDelta);
+
+    if (quantityDelta === 0) {
+      throw new BadRequestException("Informe um ajuste diferente de zero.");
+    }
+
+    const nextStock = existing.stock + quantityDelta;
+
+    if (nextStock < 0) {
+      throw new BadRequestException("O ajuste solicitado deixaria o estoque negativo.");
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const updated = await tx.product.update({
+        where: { id },
+        data: {
+          stock: nextStock
+        }
+      });
+
+      await this.recordInventoryMovement(tx, {
+        productId: updated.id,
+        actorUserId: actor?.id,
+        type: InventoryMovementType.MANUAL_ADJUSTMENT,
+        quantityDelta,
+        previousStock: existing.stock,
+        nextStock,
+        reason: payload.reason?.trim() || "Ajuste manual realizado no painel."
+      });
+
+      return updated;
     });
   }
 
@@ -207,12 +325,45 @@ export class ProductsService {
     return this.prisma.product.delete({ where: { id } });
   }
 
+  async recordInventoryMovement(
+    tx: Prisma.TransactionClient,
+    input: {
+      productId: string;
+      orderId?: string;
+      actorUserId?: string;
+      type: InventoryMovementType;
+      quantityDelta: number;
+      previousStock: number;
+      nextStock: number;
+      reason?: string;
+    }
+  ) {
+    if (input.quantityDelta === 0) {
+      return null;
+    }
+
+    return tx.inventoryMovement.create({
+      data: {
+        productId: input.productId,
+        orderId: input.orderId,
+        actorUserId: input.actorUserId,
+        type: input.type,
+        quantityDelta: input.quantityDelta,
+        previousStock: input.previousStock,
+        nextStock: input.nextStock,
+        reason: input.reason
+      }
+    });
+  }
+
   private async ensureExists(id: string) {
     const product = await this.prisma.product.findUnique({ where: { id } });
 
     if (!product) {
       throw new NotFoundException("Produto nao encontrado.");
     }
+
+    return product;
   }
 
   private normalizeCartItems(items: ValidateCartDto["items"]) {
@@ -275,6 +426,74 @@ export class ProductsService {
           }
         : {})
     } satisfies Prisma.ProductWhereInput;
+  }
+
+  private buildInventoryMovementWhere(search?: string, type?: string) {
+    const normalizedSearch = search?.trim();
+    const normalizedType =
+      type && Object.values(InventoryMovementType).includes(type as InventoryMovementType)
+        ? (type as InventoryMovementType)
+        : undefined;
+
+    if (!normalizedSearch && !normalizedType) {
+      return undefined;
+    }
+
+    return {
+      ...(normalizedType ? { type: normalizedType } : {}),
+      ...(normalizedSearch
+        ? {
+            OR: [
+              {
+                product: {
+                  is: {
+                    name: {
+                      contains: normalizedSearch,
+                      mode: "insensitive" as const
+                    }
+                  }
+                }
+              },
+              {
+                product: {
+                  is: {
+                    slug: {
+                      contains: normalizedSearch,
+                      mode: "insensitive" as const
+                    }
+                  }
+                }
+              },
+              {
+                order: {
+                  is: {
+                    id: {
+                      contains: normalizedSearch,
+                      mode: "insensitive" as const
+                    }
+                  }
+                }
+              },
+              {
+                actorUser: {
+                  is: {
+                    email: {
+                      contains: normalizedSearch,
+                      mode: "insensitive" as const
+                    }
+                  }
+                }
+              },
+              {
+                reason: {
+                  contains: normalizedSearch,
+                  mode: "insensitive" as const
+                }
+              }
+            ]
+          }
+        : {})
+    } satisfies Prisma.InventoryMovementWhereInput;
   }
 
   private parsePositiveInteger(value: string | undefined, fallback: number) {

@@ -29,6 +29,8 @@ type DashboardResponse = {
   revenue: number | string | null;
   averageTicket: number | string | null;
   recentRevenue: number | string | null;
+  inventoryUnits: number;
+  inventoryEstimatedValue: number | string | null;
   lowStockProducts: number;
   paidOrders: number;
   couponOrders: number;
@@ -56,6 +58,34 @@ type DashboardResponse = {
       email: string;
     };
   }>;
+  recentInventoryMovements: Array<{
+    id: string;
+    type: string;
+    quantityDelta: number;
+    previousStock: number;
+    nextStock: number;
+    reason?: string | null;
+    createdAt: string;
+    product: {
+      id: string;
+      name: string;
+      category?: {
+        name: string;
+      } | null;
+    };
+    actorUser?: {
+      id: string;
+      name: string;
+      email: string;
+    } | null;
+    order?: {
+      id: string;
+      user?: {
+        name: string;
+        email: string;
+      } | null;
+    } | null;
+  }>;
 };
 
 type ProductResponse = {
@@ -76,6 +106,44 @@ type ProductResponse = {
 
 type PaginatedProductsResponse = {
   items: ProductResponse[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+};
+
+type InventoryMovementResponse = {
+  id: string;
+  type: string;
+  quantityDelta: number;
+  previousStock: number;
+  nextStock: number;
+  reason?: string | null;
+  createdAt: string;
+  product: {
+    id: string;
+    name: string;
+    slug: string;
+    category?: {
+      name: string;
+    } | null;
+  };
+  actorUser?: {
+    id: string;
+    name: string;
+    email: string;
+  } | null;
+  order?: {
+    id: string;
+    user?: {
+      name: string;
+      email: string;
+    } | null;
+  } | null;
+};
+
+type PaginatedInventoryMovementsResponse = {
+  items: InventoryMovementResponse[];
   total: number;
   page: number;
   pageSize: number;
@@ -267,6 +335,19 @@ export type AdminDashboardData = {
     stock: number;
     category: string;
   }>;
+  inventoryHighlights: Array<{
+    id: string;
+    productName: string;
+    category: string;
+    type: string;
+    quantityDelta: number;
+    previousStock: number;
+    nextStock: number;
+    reason?: string;
+    createdAt: string;
+    actorName?: string;
+    orderId?: string;
+  }>;
 };
 
 export type AdminProduct = {
@@ -285,6 +366,32 @@ export type AdminProduct = {
 
 export type AdminProductList = {
   items: AdminProduct[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+};
+
+export type AdminInventoryMovement = {
+  id: string;
+  productId: string;
+  productName: string;
+  productSlug: string;
+  category: string;
+  type: string;
+  quantityDelta: number;
+  previousStock: number;
+  nextStock: number;
+  reason?: string;
+  createdAt: string;
+  actorName?: string;
+  actorEmail?: string;
+  orderId?: string;
+  orderCustomerName?: string;
+};
+
+export type AdminInventoryMovementList = {
+  items: AdminInventoryMovement[];
   total: number;
   page: number;
   pageSize: number;
@@ -639,6 +746,16 @@ export async function getAdminDashboardMetrics(): Promise<AdminDashboardData> {
         label: "Uso de cupons",
         value: `${data.orders > 0 ? Math.round((data.couponOrders / data.orders) * 100) : 0}%`,
         detail: `${data.couponOrders} pedidos com desconto`
+      },
+      {
+        label: "Unidades em estoque",
+        value: String(data.inventoryUnits),
+        detail: "Saldo somado de todos os SKUs"
+      },
+      {
+        label: "Estoque estimado",
+        value: formatCurrency(toNumber(data.inventoryEstimatedValue)),
+        detail: "Valor estimado pelo preco atual"
       }
     ],
     recentOrders: data.recentOrders.map((order) => ({
@@ -654,6 +771,19 @@ export async function getAdminDashboardMetrics(): Promise<AdminDashboardData> {
       name: product.name,
       stock: product.stock,
       category: product.category?.name ?? "Sem categoria"
+    })),
+    inventoryHighlights: data.recentInventoryMovements.map((movement) => ({
+      id: movement.id,
+      productName: movement.product.name,
+      category: movement.product.category?.name ?? "Sem categoria",
+      type: movement.type,
+      quantityDelta: movement.quantityDelta,
+      previousStock: movement.previousStock,
+      nextStock: movement.nextStock,
+      reason: movement.reason ?? undefined,
+      createdAt: formatDateTime(movement.createdAt),
+      actorName: movement.actorUser?.name ?? undefined,
+      orderId: movement.order?.id ?? undefined
     }))
   };
 }
@@ -706,6 +836,60 @@ export async function getAdminProducts(filters?: {
 
   return {
     items: response.items.map(normalizeAdminProduct),
+    total: response.total,
+    page: response.page,
+    pageSize: response.pageSize,
+    totalPages: response.totalPages
+  };
+}
+
+export async function getAdminInventoryMovements(filters?: {
+  search?: string;
+  type?: string;
+  page?: number;
+  pageSize?: number;
+}): Promise<AdminInventoryMovementList> {
+  const params = new URLSearchParams();
+
+  if (filters?.search) {
+    params.set("search", filters.search);
+  }
+
+  if (filters?.type) {
+    params.set("type", filters.type);
+  }
+
+  if (filters?.page) {
+    params.set("page", String(filters.page));
+  }
+
+  if (filters?.pageSize) {
+    params.set("pageSize", String(filters.pageSize));
+  }
+
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+  const response = await fetchAdmin<PaginatedInventoryMovementsResponse>(
+    `/products/admin/inventory-movements${suffix}`
+  );
+
+  return {
+    items: response.items.map((movement) => ({
+      id: movement.id,
+      productId: movement.product.id,
+      productName: movement.product.name,
+      productSlug: movement.product.slug,
+      category: movement.product.category?.name ?? "Sem categoria",
+      type: movement.type,
+      quantityDelta: movement.quantityDelta,
+      previousStock: movement.previousStock,
+      nextStock: movement.nextStock,
+      reason: movement.reason ?? undefined,
+      createdAt: formatDateTime(movement.createdAt),
+      actorName: movement.actorUser?.name ?? undefined,
+      actorEmail: movement.actorUser?.email ?? undefined,
+      orderId: movement.order?.id ?? undefined,
+      orderCustomerName: movement.order?.user?.name ?? undefined
+    })),
     total: response.total,
     page: response.page,
     pageSize: response.pageSize,
@@ -992,6 +1176,13 @@ export async function updateAdminProduct(id: string, payload: SaveProductInput) 
 
 export async function deleteAdminProduct(id: string) {
   return mutateAdmin(`/products/${id}`, "DELETE");
+}
+
+export async function adjustAdminProductStock(
+  id: string,
+  payload: { quantityDelta: number; reason?: string }
+) {
+  return mutateAdmin(`/products/${id}/stock-adjustments`, "POST", payload);
 }
 
 export type SaveCategoryInput = {

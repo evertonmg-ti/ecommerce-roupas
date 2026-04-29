@@ -18,6 +18,13 @@ enum ProductStatus {
   ARCHIVED
 }
 
+enum InventoryMovementType {
+  INITIAL
+  MANUAL_ADJUSTMENT
+  ORDER_RESERVATION
+  ORDER_CANCELLATION
+}
+
 enum OrderStatus {
   PENDING
   PAID
@@ -110,6 +117,7 @@ model User {
   passwordHash String
   role         Role     @default(CUSTOMER)
   orders       Order[]
+  inventoryMovements InventoryMovement[]
   passwordResetTokens PasswordResetToken[]
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -168,6 +176,7 @@ model Product {
   categoryId  String
   category    Category      @relation(fields: [categoryId], references: [id])
   orderItems  OrderItem[]
+  inventoryMovements InventoryMovement[]
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 }
@@ -203,8 +212,30 @@ model Order {
   canceledAt         DateTime?
   notes              String?
   items              OrderItem[]
+  inventoryMovements InventoryMovement[]
   createdAt          DateTime       @default(now())
   updatedAt          DateTime       @updatedAt
+}
+
+model InventoryMovement {
+  id            String                @id @default(cuid())
+  productId     String
+  orderId       String?
+  actorUserId   String?
+  type          InventoryMovementType
+  quantityDelta Int
+  previousStock Int
+  nextStock     Int
+  reason        String?
+  product       Product               @relation(fields: [productId], references: [id])
+  order         Order?                @relation(fields: [orderId], references: [id])
+  actorUser     User?                 @relation(fields: [actorUserId], references: [id])
+  createdAt     DateTime              @default(now())
+
+  @@index([productId, createdAt])
+  @@index([type, createdAt])
+  @@index([orderId])
+  @@index([actorUserId])
 }
 
 model OrderItem {

@@ -5,6 +5,7 @@ import {
 } from "@nestjs/common";
 import {
   EventLevel,
+  InventoryMovementType,
   OrderStatus,
   Order,
   PaymentMethod,
@@ -19,6 +20,7 @@ import { CouponsService } from "../coupons/coupons.service";
 import { EmailService } from "../email/email.service";
 import { ObservabilityService } from "../observability/observability.service";
 import { PrismaService } from "../prisma/prisma.service";
+import { ProductsService } from "../products/products.service";
 import { CalculateShippingDto } from "./dto/calculate-shipping.dto";
 import { CancelOrderDto } from "./dto/cancel-order.dto";
 import { ConfirmMockPaymentDto } from "./dto/confirm-mock-payment.dto";
@@ -32,7 +34,8 @@ export class OrdersService {
     private readonly prisma: PrismaService,
     private readonly couponsService: CouponsService,
     private readonly emailService: EmailService,
-    private readonly observabilityService: ObservabilityService
+    private readonly observabilityService: ObservabilityService,
+    private readonly productsService: ProductsService
   ) {}
 
   async listAll(filters?: {
@@ -251,6 +254,20 @@ export class OrdersService {
                 decrement: item.quantity
               }
             }
+          })
+        )
+      );
+
+      await Promise.all(
+        items.map((item) =>
+          this.productsService.recordInventoryMovement(tx, {
+            productId: item.product.id,
+            orderId: order.id,
+            type: InventoryMovementType.ORDER_RESERVATION,
+            quantityDelta: -item.quantity,
+            previousStock: item.product.stock,
+            nextStock: item.product.stock - item.quantity,
+            reason: `Reserva de estoque pelo pedido ${order.id}.`
           })
         )
       );
@@ -675,7 +692,7 @@ export class OrdersService {
       });
 
       if (nextStatus === OrderStatus.CANCELED) {
-        await Promise.all(
+        const restockedProducts = await Promise.all(
           order.items.map((item) =>
             tx.product.update({
               where: { id: item.productId },
@@ -684,6 +701,20 @@ export class OrdersService {
                   increment: item.quantity
                 }
               }
+            })
+          )
+        );
+
+        await Promise.all(
+          restockedProducts.map((product, index) =>
+            this.productsService.recordInventoryMovement(tx, {
+              productId: product.id,
+              orderId: order.id,
+              type: InventoryMovementType.ORDER_CANCELLATION,
+              quantityDelta: order.items[index]?.quantity ?? 0,
+              previousStock: product.stock - (order.items[index]?.quantity ?? 0),
+              nextStock: product.stock,
+              reason: `Devolucao de estoque pelo cancelamento do pedido ${order.id}.`
             })
           )
         );

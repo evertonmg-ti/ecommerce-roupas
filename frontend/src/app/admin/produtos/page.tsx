@@ -2,6 +2,7 @@ import { AdminFeedback } from "@/components/admin-feedback";
 import { getAdminCategories, getAdminProducts } from "@/lib/admin-api";
 import { currency } from "@/lib/utils";
 import {
+  adjustProductStockAction,
   createProductAction,
   deleteProductAction,
   updateProductAction
@@ -377,6 +378,40 @@ export default async function AdminProductsPage({
                 <button className="rounded-full border border-red-300 px-5 py-3 text-sm text-red-700">
                   Excluir produto
                 </button>
+              </form>
+
+              <form
+                action={adjustProductStockAction}
+                className="mt-4 grid gap-3 rounded-[1.5rem] border border-espresso/10 bg-sand/30 p-4 md:grid-cols-[1fr_160px_1fr_auto]"
+              >
+                <input type="hidden" name="id" value={product.id} />
+                <label className="space-y-2 text-sm">
+                  <span>Motivo do ajuste</span>
+                  <input
+                    name="reason"
+                    minLength={3}
+                    className="w-full rounded-2xl border border-espresso/15 bg-white px-4 py-3 outline-none"
+                    placeholder="Reposicao, inventario, avaria..."
+                  />
+                </label>
+                <label className="space-y-2 text-sm">
+                  <span>Delta</span>
+                  <input
+                    name="quantityDelta"
+                    type="number"
+                    required
+                    className="w-full rounded-2xl border border-espresso/15 bg-white px-4 py-3 outline-none"
+                    placeholder="Ex.: 5 ou -2"
+                  />
+                </label>
+                <div className="self-end text-sm text-espresso/65">
+                  Estoque atual: <strong>{product.stock}</strong>
+                </div>
+                <div className="self-end">
+                  <button className="rounded-full border border-espresso/15 px-5 py-3 text-sm">
+                    Ajustar estoque
+                  </button>
+                </div>
               </form>
             </article>
           ))}

@@ -6,6 +6,7 @@ export default async function AdminDashboardPage() {
   const recentOrders = dashboard?.recentOrders ?? [];
   const commerceHighlights = dashboard?.commerceHighlights ?? [];
   const lowStockItems = dashboard?.lowStockItems ?? [];
+  const inventoryHighlights = dashboard?.inventoryHighlights ?? [];
 
   return (
     <div className="space-y-6">
@@ -119,6 +120,57 @@ export default async function AdminDashboardPage() {
             ) : (
               <div className="mt-6 rounded-[1.5rem] border border-espresso/10 bg-sand/35 p-4 text-sm text-espresso/70">
                 Ainda nao ha pedidos recentes para exibir.
+              </div>
+            )}
+          </section>
+
+          <section className="rounded-[2rem] border border-espresso/10 bg-white/80 p-6 shadow-soft">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-xs uppercase tracking-[0.3em] text-terracotta">
+                  Estoque
+                </p>
+                <h2 className="mt-2 font-display text-3xl">Ultimos movimentos</h2>
+              </div>
+            </div>
+
+            {inventoryHighlights.length > 0 ? (
+              <div className="mt-6 space-y-3">
+                {inventoryHighlights.map((movement) => (
+                  <div
+                    key={movement.id}
+                    className="rounded-[1.5rem] border border-espresso/10 bg-sand/35 p-4"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <p className="font-medium">{movement.productName}</p>
+                        <p className="mt-1 text-sm text-espresso/60">
+                          {movement.category} - {movement.type}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p
+                          className={`font-display text-2xl ${
+                            movement.quantityDelta > 0 ? "text-moss" : "text-terracotta"
+                          }`}
+                        >
+                          {movement.quantityDelta > 0 ? "+" : ""}
+                          {movement.quantityDelta}
+                        </p>
+                        <p className="text-sm text-espresso/60">{movement.createdAt}</p>
+                      </div>
+                    </div>
+                    <p className="mt-3 text-sm text-espresso/65">
+                      {movement.previousStock} para {movement.nextStock}
+                      {movement.actorName ? ` - por ${movement.actorName}` : ""}
+                      {movement.orderId ? ` - pedido ${movement.orderId}` : ""}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="mt-6 rounded-[1.5rem] border border-espresso/10 bg-sand/35 p-4 text-sm text-espresso/70">
+                Ainda nao ha movimentacoes de estoque registradas.
               </div>
             )}
           </section>

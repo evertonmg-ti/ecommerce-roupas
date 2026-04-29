@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
+  adjustAdminProductStock,
   AdminAuthError,
   AdminRequestError,
   createAdminProduct,
@@ -124,4 +125,33 @@ export async function deleteProductAction(formData: FormData) {
   }
 
   redirect("/admin/produtos?success=product_deleted");
+}
+
+export async function adjustProductStockAction(formData: FormData) {
+  try {
+    const id = String(formData.get("id") ?? "").trim();
+    const quantityDelta = Number(String(formData.get("quantityDelta") ?? "0"));
+    const reason = String(formData.get("reason") ?? "").trim();
+    await adjustAdminProductStock(id, {
+      quantityDelta,
+      reason: reason || undefined
+    });
+    revalidatePath("/admin/produtos");
+    revalidatePath("/admin/estoque");
+    revalidatePath("/admin");
+    revalidatePath("/produtos");
+    revalidatePath("/");
+  } catch (error) {
+    if (error instanceof AdminAuthError) {
+      redirect("/login");
+    }
+
+    if (error instanceof AdminRequestError) {
+      redirect(`/admin/produtos?error=${error.code}`);
+    }
+
+    redirect("/admin/produtos?error=generic_error");
+  }
+
+  redirect("/admin/produtos?success=stock_adjusted");
 }

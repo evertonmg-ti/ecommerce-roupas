@@ -10,9 +10,11 @@ import {
   UseGuards
 } from "@nestjs/common";
 import { Role } from "@prisma/client";
+import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { Roles } from "../../common/decorators/roles.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { RolesGuard } from "../../common/guards/roles.guard";
+import { AdjustStockDto } from "./dto/adjust-stock.dto";
 import { CreateProductDto } from "./dto/create-product.dto";
 import { UpdateProductDto } from "./dto/update-product.dto";
 import { ValidateCartDto } from "./dto/validate-cart.dto";
@@ -43,6 +45,23 @@ export class ProductsController {
     return this.productsService.listAll({ search, status, page, pageSize });
   }
 
+  @Get("admin/inventory-movements")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  listInventoryMovements(
+    @Query("search") search?: string,
+    @Query("type") type?: string,
+    @Query("page") page?: string,
+    @Query("pageSize") pageSize?: string
+  ) {
+    return this.productsService.listInventoryMovements({
+      search,
+      type,
+      page,
+      pageSize
+    });
+  }
+
   @Get(":slug")
   findBySlug(@Param("slug") slug: string) {
     return this.productsService.findBySlug(slug);
@@ -63,8 +82,23 @@ export class ProductsController {
   @Patch(":id")
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN)
-  update(@Param("id") id: string, @Body() payload: UpdateProductDto) {
-    return this.productsService.update(id, payload);
+  update(
+    @Param("id") id: string,
+    @Body() payload: UpdateProductDto,
+    @CurrentUser() user?: { id?: string; email?: string; name?: string; role?: string }
+  ) {
+    return this.productsService.update(id, payload, user);
+  }
+
+  @Post(":id/stock-adjustments")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  adjustStock(
+    @Param("id") id: string,
+    @Body() payload: AdjustStockDto,
+    @CurrentUser() user?: { id?: string; email?: string; name?: string; role?: string }
+  ) {
+    return this.productsService.adjustStock(id, payload, user);
   }
 
   @Delete(":id")

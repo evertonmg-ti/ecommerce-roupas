@@ -25,7 +25,10 @@ export class DashboardService {
       pendingOrders,
       shippedOrders,
       deliveredOrders,
-      canceledOrders
+      canceledOrders,
+      inventoryAggregate,
+      inventoryProducts,
+      recentInventoryMovements
     ] = await Promise.all([
       this.prisma.user.count(),
       this.prisma.product.count(),
@@ -104,11 +107,44 @@ export class DashboardService {
         where: {
           status: OrderStatus.CANCELED
         }
+      }),
+      this.prisma.product.aggregate({
+        _sum: {
+          stock: true
+        }
+      }),
+      this.prisma.product.findMany({
+        select: {
+          stock: true,
+          price: true
+        }
+      }),
+      this.prisma.inventoryMovement.findMany({
+        take: 6,
+        orderBy: { createdAt: "desc" },
+        include: {
+          product: {
+            include: {
+              category: true
+            }
+          },
+          actorUser: true,
+          order: {
+            include: {
+              user: true
+            }
+          }
+        }
       })
     ]);
 
     const revenue = revenueAggregate._sum.total ?? 0;
     const recentRevenue = recentRevenueAggregate._sum.total ?? 0;
+    const inventoryUnits = inventoryAggregate._sum.stock ?? 0;
+    const inventoryEstimatedValue = inventoryProducts.reduce(
+      (sum, product) => sum + Number(product.price) * product.stock,
+      0
+    );
 
     return {
       users,
@@ -117,6 +153,8 @@ export class DashboardService {
       revenue,
       averageTicket: orders > 0 ? Number(revenue) / orders : 0,
       recentRevenue,
+      inventoryUnits,
+      inventoryEstimatedValue,
       lowStockProducts,
       paidOrders,
       couponOrders,
@@ -127,7 +165,8 @@ export class DashboardService {
         canceled: canceledOrders
       },
       recentOrders,
-      lowStockItems
+      lowStockItems,
+      recentInventoryMovements
     };
   }
 }

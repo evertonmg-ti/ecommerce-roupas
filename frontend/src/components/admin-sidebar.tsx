@@ -7,12 +7,14 @@ import {
   ListTree,
   Package,
   ShoppingBag,
+  Boxes,
   Users
 } from "lucide-react";
 
 const items = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/produtos", label: "Produtos", icon: Package },
+  { href: "/admin/estoque", label: "Estoque", icon: Boxes },
   { href: "/admin/pedidos", label: "Pedidos", icon: ShoppingBag },
   { href: "/admin/cupons", label: "Cupons", icon: BadgePercent },
   { href: "/admin/categorias", label: "Categorias", icon: ListTree },
