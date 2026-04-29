@@ -15,6 +15,7 @@ import {
 import * as bcrypt from "bcryptjs";
 import { randomUUID } from "crypto";
 import { CouponsService } from "../coupons/coupons.service";
+import { EmailService } from "../email/email.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { CalculateShippingDto } from "./dto/calculate-shipping.dto";
 import { CancelOrderDto } from "./dto/cancel-order.dto";
@@ -27,7 +28,8 @@ import { UpdateOrderStatusDto } from "./dto/update-order-status.dto";
 export class OrdersService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly couponsService: CouponsService
+    private readonly couponsService: CouponsService,
+    private readonly emailService: EmailService
   ) {}
 
   async listAll(filters?: {
@@ -188,7 +190,7 @@ export class OrdersService {
       subtotal.minus(discountAmount).plus(shippingCost)
     );
 
-    return this.prisma.$transaction(async (tx) => {
+    const order = await this.prisma.$transaction(async (tx) => {
       const customer = await this.findOrCreateCustomer(
         tx,
         payload.customerEmail,
@@ -256,6 +258,10 @@ export class OrdersService {
 
       return this.attachMockPayment(order);
     });
+
+    await this.emailService.sendOrderCreated(this.toEmailPayload(order));
+
+    return order;
   }
 
   async updateStatus(id: string, payload: UpdateOrderStatusDto) {
@@ -297,7 +303,9 @@ export class OrdersService {
       }
     });
 
-    return this.attachMockPayment(paidOrder);
+    const result = this.attachMockPayment(paidOrder);
+    await this.emailService.sendOrderStatusUpdated(this.toEmailPayload(result));
+    return result;
   }
 
   async cancelByCustomer(id: string, payload: CancelOrderDto) {
@@ -590,7 +598,11 @@ export class OrdersService {
       );
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const shouldNotify =
+      order.status !== nextStatus ||
+      (nextStatus === OrderStatus.SHIPPED && trackingCode !== order.trackingCode);
+
+    const result = await this.prisma.$transaction(async (tx) => {
       const updatedOrder = await tx.order.update({
         where: { id },
         data: {
@@ -671,6 +683,58 @@ export class OrdersService {
 
       return this.attachMockPayment(updatedOrder);
     });
+
+    if (shouldNotify) {
+      await this.emailService.sendOrderStatusUpdated(this.toEmailPayload(result));
+    }
+
+    return result;
+  }
+
+  private toEmailPayload(
+    order: Order & {
+      user: { name: string; email: string };
+      items: Array<{
+        quantity: number;
+        unitPrice: Prisma.Decimal;
+        product: { name: string };
+      }>;
+      recipientName?: string | null;
+      customerDocument?: string | null;
+      customerPhone?: string | null;
+      shippingNumber?: string | null;
+      shippingNeighborhood?: string | null;
+      trackingCode?: string | null;
+      notes?: string | null;
+    }
+  ) {
+    return {
+      orderId: order.id,
+      customerName: order.user.name,
+      customerEmail: order.user.email,
+      status: order.status,
+      createdAt: order.createdAt,
+      total: Number(order.total),
+      subtotal: Number(order.subtotal),
+      shippingCost: Number(order.shippingCost),
+      paymentMethod: order.paymentMethod,
+      shippingMethod: order.shippingMethod,
+      trackingCode: order.trackingCode ?? undefined,
+      notes: order.notes ?? undefined,
+      shippingAddress: order.shippingAddress,
+      shippingNumber: order.shippingNumber ?? undefined,
+      shippingAddress2: order.shippingAddress2 ?? undefined,
+      shippingNeighborhood: order.shippingNeighborhood ?? undefined,
+      shippingCity: order.shippingCity,
+      shippingState: order.shippingState,
+      shippingPostalCode: order.shippingPostalCode,
+      storeUrl: process.env.STORE_URL,
+      items: order.items.map((item) => ({
+        name: item.product.name,
+        quantity: item.quantity,
+        unitPrice: Number(item.unitPrice)
+      }))
+    };
   }
 
   private buildAdminOrderWhere(status?: OrderStatus, rawSearch?: string) {
