@@ -10,6 +10,7 @@ import {
 import { currency } from "@/lib/utils";
 import {
   createCustomerAddressAction,
+  createCustomerReturnRequestAction,
   deleteCustomerAddressAction,
   updateCustomerAddressAction,
   updateCustomerProfileAction
@@ -58,13 +59,17 @@ export default async function CustomerAccountPage({
 
         {success ? (
           <div className="rounded-[1.5rem] border border-moss/20 bg-moss/10 p-4 text-sm text-moss">
-            Operacao concluida com sucesso.
+            {success === "return_request_created"
+              ? "Solicitacao de devolucao/troca enviada com sucesso."
+              : "Operacao concluida com sucesso."}
           </div>
         ) : null}
 
         {error ? (
           <div className="rounded-[1.5rem] border border-terracotta/20 bg-terracotta/10 p-4 text-sm text-terracotta">
-            Nao foi possivel concluir a operacao solicitada.
+            {error === "return_request_failed"
+              ? "Nao foi possivel criar a solicitacao de devolucao/troca."
+              : "Nao foi possivel concluir a operacao solicitada."}
           </div>
         ) : null}
 
@@ -387,6 +392,94 @@ export default async function CustomerAccountPage({
                           Ver timeline completa
                         </Link>
                       </div>
+                      {order.returnRequests.length > 0 ? (
+                        <div className="mt-4 rounded-[1.25rem] border border-espresso/10 bg-white/50 p-4">
+                          <p className="text-sm font-medium">Solicitacoes em andamento</p>
+                          <div className="mt-3 space-y-3 text-sm text-espresso/70">
+                            {order.returnRequests.map((request) => (
+                              <div
+                                key={request.id}
+                                className="rounded-[1rem] border border-espresso/10 bg-sand/35 p-3"
+                              >
+                                <p>
+                                  <strong>{request.type === "EXCHANGE" ? "Troca" : "Devolucao"}</strong>{" "}
+                                  - {request.status}
+                                </p>
+                                <p className="mt-1">
+                                  <strong>Motivo:</strong> {request.reason}
+                                </p>
+                                {request.details ? (
+                                  <p className="mt-1">
+                                    <strong>Detalhes:</strong> {request.details}
+                                  </p>
+                                ) : null}
+                                {request.resolutionNote ? (
+                                  <p className="mt-1">
+                                    <strong>Resposta:</strong> {request.resolutionNote}
+                                  </p>
+                                ) : null}
+                                <p className="mt-1 text-xs text-espresso/60">
+                                  Atualizado em {request.updatedAt}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
+                      {order.status === "DELIVERED" && order.returnRequests.length === 0 ? (
+                        <form
+                          action={createCustomerReturnRequestAction}
+                          className="mt-4 rounded-[1.25rem] border border-espresso/10 bg-white/50 p-4"
+                        >
+                          <input type="hidden" name="orderId" value={order.id} />
+                          <p className="text-sm font-medium">Solicitar devolucao ou troca</p>
+                          <div className="mt-4 grid gap-3 md:grid-cols-2">
+                            <label className="space-y-2 text-sm">
+                              <span>Tipo</span>
+                              <select
+                                name="type"
+                                defaultValue="EXCHANGE"
+                                className="w-full rounded-2xl border border-espresso/15 bg-sand px-4 py-3"
+                              >
+                                <option value="EXCHANGE">Troca</option>
+                                <option value="REFUND">Devolucao</option>
+                              </select>
+                            </label>
+                            <label className="space-y-2 text-sm">
+                              <span>Motivo</span>
+                              <input
+                                name="reason"
+                                required
+                                minLength={5}
+                                className="w-full rounded-2xl border border-espresso/15 bg-sand px-4 py-3"
+                                placeholder="Ex.: tamanho incorreto"
+                              />
+                            </label>
+                          </div>
+                          <label className="mt-4 block space-y-2 text-sm">
+                            <span>Detalhes</span>
+                            <textarea
+                              name="details"
+                              rows={3}
+                              className="w-full rounded-2xl border border-espresso/15 bg-sand px-4 py-3"
+                              placeholder="Conte o que aconteceu e como prefere resolver."
+                            />
+                          </label>
+                          <div className="mt-4 space-y-2 text-sm">
+                            <p className="text-espresso/70">Itens da solicitacao</p>
+                            {order.items.map((item) => (
+                              <label key={item.id} className="flex items-center gap-2">
+                                <input type="checkbox" name="selectedItemIds" value={item.id} />
+                                {item.name}
+                                {item.variantLabel ? ` - ${item.variantLabel}` : ""}
+                              </label>
+                            ))}
+                          </div>
+                          <button className="mt-4 rounded-full bg-espresso px-5 py-3 text-sm text-sand">
+                            Enviar solicitacao
+                          </button>
+                        </form>
+                      ) : null}
                     </article>
                   ))
                 )}

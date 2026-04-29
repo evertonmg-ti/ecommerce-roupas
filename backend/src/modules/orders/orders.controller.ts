@@ -15,6 +15,7 @@ import { Roles } from "../../common/decorators/roles.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { RolesGuard } from "../../common/guards/roles.guard";
 import { CreateOrderDto } from "./dto/create-order.dto";
+import { CreateReturnRequestDto } from "./dto/create-return-request.dto";
 import { CalculateShippingDto } from "./dto/calculate-shipping.dto";
 import { CancelOrderDto } from "./dto/cancel-order.dto";
 import { ConfirmMockPaymentDto } from "./dto/confirm-mock-payment.dto";
@@ -57,6 +58,17 @@ export class OrdersController {
   @RateLimit({ limit: 10, windowSec: 60, keyPrefix: "orders-cancel" })
   cancelOrder(@Param("id") id: string, @Body() payload: CancelOrderDto) {
     return this.ordersService.cancelByCustomer(id, payload);
+  }
+
+  @Post(":id/return-requests")
+  @UseGuards(JwtAuthGuard)
+  @RateLimit({ limit: 10, windowSec: 300, keyPrefix: "orders-return-request" })
+  createReturnRequest(
+    @Param("id") id: string,
+    @CurrentUser() user: { id: string },
+    @Body() payload: CreateReturnRequestDto
+  ) {
+    return this.ordersService.createReturnRequest(id, user.id, payload);
   }
 
   @Get("me")

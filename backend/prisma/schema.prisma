@@ -45,6 +45,19 @@ enum ShippingMethod {
   PICKUP
 }
 
+enum ReturnRequestType {
+  EXCHANGE
+  REFUND
+}
+
+enum ReturnRequestStatus {
+  REQUESTED
+  APPROVED
+  REJECTED
+  RECEIVED
+  COMPLETED
+}
+
 enum CouponType {
   PERCENTAGE
   FIXED
@@ -121,6 +134,7 @@ model User {
   preferredPaymentMethod PaymentMethod?
   preferredShippingMethod ShippingMethod?
   orders       Order[]
+  returnRequests ReturnRequest[]
   addresses    CustomerAddress[]
   savedCart    SavedCart?
   savedWishlist SavedWishlist?
@@ -319,9 +333,30 @@ model Order {
   canceledAt         DateTime?
   notes              String?
   items              OrderItem[]
+  returnRequests     ReturnRequest[]
   inventoryMovements InventoryMovement[]
   createdAt          DateTime       @default(now())
   updatedAt          DateTime       @updatedAt
+}
+
+model ReturnRequest {
+  id             String              @id @default(cuid())
+  orderId        String
+  userId         String
+  type           ReturnRequestType
+  status         ReturnRequestStatus @default(REQUESTED)
+  reason         String
+  details        String?
+  selectedItems  Json?
+  resolutionNote String?
+  order          Order               @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  user           User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  @@index([orderId, createdAt])
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
 }
 
 model InventoryMovement {

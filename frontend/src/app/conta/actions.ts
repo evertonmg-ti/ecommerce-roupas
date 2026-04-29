@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
   createCurrentCustomerAddress,
+  createCurrentCustomerReturnRequest,
   deleteCurrentCustomerAddress,
   updateCurrentCustomerAddress,
   updateCurrentCustomerProfile
@@ -92,4 +93,37 @@ export async function deleteCustomerAddressAction(formData: FormData) {
   }
 
   redirect("/conta?success=address_deleted");
+}
+
+export async function createCustomerReturnRequestAction(formData: FormData) {
+  const orderId = String(formData.get("orderId") ?? "").trim();
+  const type = String(formData.get("type") ?? "").trim();
+  const reason = String(formData.get("reason") ?? "").trim();
+  const details = normalizeOptional(formData.get("details"));
+  const items = formData
+    .getAll("selectedItemIds")
+    .map((value) => String(value).trim())
+    .filter(Boolean)
+    .map((orderItemId) => ({
+      orderItemId,
+      quantity: 1
+    }));
+
+  if (!orderId || !type || !reason || items.length === 0) {
+    redirect("/conta?error=return_request_failed");
+  }
+
+  try {
+    await createCurrentCustomerReturnRequest(orderId, {
+      type,
+      reason,
+      details,
+      items
+    });
+    revalidatePath("/conta");
+  } catch {
+    redirect("/conta?error=return_request_failed");
+  }
+
+  redirect("/conta?success=return_request_created");
 }

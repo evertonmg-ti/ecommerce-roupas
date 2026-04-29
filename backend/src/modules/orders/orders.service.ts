@@ -11,6 +11,7 @@ import {
   PaymentMethod,
   Prisma,
   ProductStatus,
+  ReturnRequestStatus,
   Role,
   ShippingMethod
 } from "@prisma/client";
@@ -26,6 +27,7 @@ import { CalculateShippingDto } from "./dto/calculate-shipping.dto";
 import { CancelOrderDto } from "./dto/cancel-order.dto";
 import { ConfirmMockPaymentDto } from "./dto/confirm-mock-payment.dto";
 import { CreateOrderDto } from "./dto/create-order.dto";
+import { CreateReturnRequestDto } from "./dto/create-return-request.dto";
 import { LookupOrdersDto } from "./dto/lookup-orders.dto";
 import { UpdateOrderStatusDto } from "./dto/update-order-status.dto";
 
@@ -56,6 +58,9 @@ export class OrdersService {
         where,
         include: {
           user: true,
+          returnRequests: {
+            orderBy: { createdAt: "desc" }
+          },
           items: {
             include: {
               product: {
@@ -84,6 +89,9 @@ export class OrdersService {
       .findMany({
         where: { userId },
         include: {
+          returnRequests: {
+            orderBy: { createdAt: "desc" }
+          },
           items: {
             include: {
               product: {
@@ -107,6 +115,9 @@ export class OrdersService {
         },
         include: {
           user: true,
+          returnRequests: {
+            orderBy: { createdAt: "desc" }
+          },
           items: {
             include: {
               product: {
@@ -393,6 +404,99 @@ export class OrdersService {
     return this.updateStatusWithSideEffects(id, {
       status: OrderStatus.CANCELED
     });
+  }
+
+  async createReturnRequest(
+    orderId: string,
+    userId: string,
+    payload: CreateReturnRequestDto
+  ) {
+    const order = await this.prisma.order.findFirst({
+      where: {
+        id: orderId,
+        userId
+      },
+      include: {
+        items: true,
+        returnRequests: {
+          where: {
+            status: {
+              in: [
+                ReturnRequestStatus.REQUESTED,
+                ReturnRequestStatus.APPROVED,
+                ReturnRequestStatus.RECEIVED
+              ]
+            }
+          }
+        },
+        user: true
+      }
+    });
+
+    if (!order) {
+      throw new NotFoundException("Pedido nao encontrado para esta conta.");
+    }
+
+    if (order.status !== OrderStatus.DELIVERED) {
+      throw new BadRequestException(
+        "Solicitacoes de devolucao ou troca ficam disponiveis apenas para pedidos entregues."
+      );
+    }
+
+    if (order.returnRequests.length > 0) {
+      throw new BadRequestException(
+        "Ja existe uma solicitacao em andamento para este pedido."
+      );
+    }
+
+    const orderItemsMap = new Map(order.items.map((item) => [item.id, item]));
+    const selectedItems = payload.items.map((item) => {
+      const orderItem = orderItemsMap.get(item.orderItemId);
+
+      if (!orderItem) {
+        throw new BadRequestException("Um dos itens selecionados nao pertence a este pedido.");
+      }
+
+      if (item.quantity > orderItem.quantity) {
+        throw new BadRequestException(
+          "A quantidade solicitada excede a quantidade comprada para um dos itens."
+        );
+      }
+
+      return {
+        orderItemId: orderItem.id,
+        productId: orderItem.productId,
+        variantId: orderItem.variantId ?? undefined,
+        variantLabel: orderItem.variantLabel ?? undefined,
+        quantity: item.quantity
+      };
+    });
+
+    const request = await this.prisma.returnRequest.create({
+      data: {
+        orderId: order.id,
+        userId,
+        type: payload.type,
+        reason: payload.reason.trim(),
+        details: payload.details?.trim() || undefined,
+        selectedItems
+      }
+    });
+
+    await this.observabilityService.logEvent({
+      type: "order.return_request_created",
+      source: "orders",
+      level: EventLevel.INFO,
+      message: `Solicitacao de ${payload.type} criada para o pedido ${order.id}.`,
+      metadata: {
+        orderId: order.id,
+        userId,
+        returnRequestId: request.id,
+        type: payload.type
+      }
+    });
+
+    return request;
   }
 
   private normalizeItems(items: CreateOrderDto["items"]) {

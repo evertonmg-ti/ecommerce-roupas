@@ -14,6 +14,23 @@ type OrderResponse = {
   shippingMethod: string;
   trackingCode?: string | null;
   createdAt: string;
+  returnRequests?: Array<{
+    id: string;
+    type: string;
+    status: string;
+    reason: string;
+    details?: string | null;
+    resolutionNote?: string | null;
+    selectedItems?: Array<{
+      orderItemId: string;
+      productId: string;
+      variantId?: string | null;
+      variantLabel?: string | null;
+      quantity: number;
+    }> | null;
+    createdAt: string;
+    updatedAt: string;
+  }>;
   items: Array<{
     id: string;
     quantity: number;
@@ -105,6 +122,23 @@ export type CustomerOrderSummary = {
   shippingMethod: string;
   trackingCode?: string;
   createdAt: string;
+  returnRequests: Array<{
+    id: string;
+    type: string;
+    status: string;
+    reason: string;
+    details?: string;
+    resolutionNote?: string;
+    selectedItems: Array<{
+      orderItemId: string;
+      productId: string;
+      variantId?: string;
+      variantLabel?: string;
+      quantity: number;
+    }>;
+    createdAt: string;
+    updatedAt: string;
+  }>;
   items: Array<{
     id: string;
     productId: string;
@@ -209,6 +243,24 @@ export async function getCurrentCustomerOrders(): Promise<CustomerOrderSummary[]
     shippingMethod: order.shippingMethod,
     trackingCode: order.trackingCode ?? undefined,
     createdAt: formatDateTime(order.createdAt),
+    returnRequests: (order.returnRequests ?? []).map((request) => ({
+      id: request.id,
+      type: request.type,
+      status: request.status,
+      reason: request.reason,
+      details: request.details ?? undefined,
+      resolutionNote: request.resolutionNote ?? undefined,
+      selectedItems:
+        request.selectedItems?.map((item) => ({
+          orderItemId: item.orderItemId,
+          productId: item.productId,
+          variantId: item.variantId ?? undefined,
+          variantLabel: item.variantLabel ?? undefined,
+          quantity: item.quantity
+        })) ?? [],
+      createdAt: formatDateTime(request.createdAt),
+      updatedAt: formatDateTime(request.updatedAt)
+    })),
     items: order.items.map((item) => ({
       id: item.id,
       productId: item.product.id,
@@ -290,5 +342,23 @@ export async function updateCurrentCustomerAddress(
 export async function deleteCurrentCustomerAddress(addressId: string) {
   return fetchCustomer(`/users/me/addresses/${addressId}`, {
     method: "DELETE"
+  });
+}
+
+export async function createCurrentCustomerReturnRequest(
+  orderId: string,
+  payload: {
+    type: string;
+    reason: string;
+    details?: string;
+    items: Array<{
+      orderItemId: string;
+      quantity: number;
+    }>;
+  }
+) {
+  return fetchCustomer(`/orders/${orderId}/return-requests`, {
+    method: "POST",
+    body: JSON.stringify(payload)
   });
 }
