@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import { Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { UpdateSettingsDto } from "./dto/update-settings.dto";
 
@@ -28,6 +29,11 @@ export class SettingsService {
         storeName: payload.storeName?.trim(),
         storeUrl: payload.storeUrl?.trim(),
         supportEmail: payload.supportEmail?.trim(),
+        monthlyRevenueTarget:
+          payload.monthlyRevenueTarget === undefined
+            ? undefined
+            : new Prisma.Decimal(payload.monthlyRevenueTarget),
+        minimumMarginTarget: payload.minimumMarginTarget,
         emailFrom: payload.emailFrom?.trim(),
         emailReplyTo: payload.emailReplyTo?.trim(),
         emailOrdersTo: payload.emailOrdersTo?.trim(),
@@ -43,6 +49,12 @@ export class SettingsService {
       storeName: this.configService.get<string>("STORE_NAME", "Maison Aurea"),
       storeUrl: this.configService.get<string>("STORE_URL", "http://localhost:3000"),
       supportEmail: this.configService.get<string>("SUPPORT_EMAIL") || undefined,
+      monthlyRevenueTarget: Number(
+        this.configService.get<string>("MONTHLY_REVENUE_TARGET", "0")
+      ),
+      minimumMarginTarget: Number(
+        this.configService.get<string>("MINIMUM_MARGIN_TARGET", "25")
+      ),
       emailEnabled:
         this.configService.get<string>("EMAIL_ENABLED", "false") === "true",
       emailFrom: this.configService.get<string>(

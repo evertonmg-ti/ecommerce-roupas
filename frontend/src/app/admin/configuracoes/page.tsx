@@ -67,6 +67,29 @@ export default async function AdminSettingsPage({
                 className="w-full rounded-2xl border border-espresso/15 bg-sand px-4 py-3 outline-none"
               />
             </label>
+            <label className="space-y-2 text-sm">
+              <span>Meta mensal de receita</span>
+              <input
+                name="monthlyRevenueTarget"
+                type="number"
+                min="0"
+                step="0.01"
+                defaultValue={settings.monthlyRevenueTarget}
+                className="w-full rounded-2xl border border-espresso/15 bg-sand px-4 py-3 outline-none"
+              />
+            </label>
+            <label className="space-y-2 text-sm">
+              <span>Piso minimo de margem (%)</span>
+              <input
+                name="minimumMarginTarget"
+                type="number"
+                min="0"
+                max="100"
+                step="0.1"
+                defaultValue={settings.minimumMarginTarget}
+                className="w-full rounded-2xl border border-espresso/15 bg-sand px-4 py-3 outline-none"
+              />
+            </label>
           </div>
         </section>
 

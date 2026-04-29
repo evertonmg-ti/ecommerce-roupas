@@ -33,6 +33,9 @@ type DashboardResponse = {
   inventoryEstimatedValue: number | string | null;
   grossProfit: number | string | null;
   profitMargin: number;
+  monthlyRevenueTarget: number | string | null;
+  minimumMarginTarget: number;
+  targetAchievementRate: number;
   lowStockProducts: number;
   paidOrders: number;
   couponOrders: number;
@@ -99,6 +102,16 @@ type DashboardResponse = {
     deliveryRate: number;
     cancellationRate: number;
   };
+  revenueCurve: Array<{
+    date: string;
+    revenue: number;
+  }>;
+  executiveAlerts: Array<{
+    type: string;
+    level: string;
+    message: string;
+    detail: string;
+  }>;
   topProductsByProfit: Array<{
     productId: string;
     productName: string;
@@ -110,6 +123,15 @@ type DashboardResponse = {
   }>;
   topCategoriesByProfit: Array<{
     categoryId: string;
+    categoryName: string;
+    quantitySold: number;
+    revenue: number;
+    grossProfit: number;
+    marginRate: number;
+  }>;
+  lowMarginProducts: Array<{
+    productId: string;
+    productName: string;
     categoryName: string;
     quantitySold: number;
     revenue: number;
@@ -215,6 +237,8 @@ type SettingsResponse = {
   storeName: string;
   storeUrl: string;
   supportEmail?: string | null;
+  monthlyRevenueTarget: number | string;
+  minimumMarginTarget: number;
   emailEnabled: boolean;
   emailFrom: string;
   emailReplyTo?: string | null;
@@ -365,6 +389,22 @@ export type AdminDashboardData = {
     value: string;
     detail: string;
   }>;
+  targetHighlights: Array<{
+    label: string;
+    value: string;
+    detail: string;
+  }>;
+  revenueCurve: Array<{
+    date: string;
+    label: string;
+    revenue: number;
+  }>;
+  executiveAlerts: Array<{
+    type: string;
+    level: string;
+    message: string;
+    detail: string;
+  }>;
   lowStockItems: Array<{
     id: string;
     name: string;
@@ -396,6 +436,15 @@ export type AdminDashboardData = {
   profitabilityByCategory: Array<{
     id: string;
     name: string;
+    quantitySold: number;
+    revenue: number;
+    grossProfit: number;
+    marginRate: number;
+  }>;
+  lowMarginProducts: Array<{
+    id: string;
+    name: string;
+    category: string;
     quantitySold: number;
     revenue: number;
     grossProfit: number;
@@ -486,6 +535,8 @@ export type AdminSettings = {
   storeName: string;
   storeUrl: string;
   supportEmail?: string;
+  monthlyRevenueTarget: number;
+  minimumMarginTarget: number;
   emailEnabled: boolean;
   emailFrom: string;
   emailReplyTo?: string;
@@ -839,6 +890,29 @@ export async function getAdminDashboardMetrics(): Promise<AdminDashboardData> {
         detail: "Pedidos pendentes no inicio do funil"
       }
     ],
+    targetHighlights: [
+      {
+        label: "Meta 30 dias",
+        value: formatCurrency(toNumber(data.monthlyRevenueTarget)),
+        detail: "Objetivo configurado no painel"
+      },
+      {
+        label: "Realizado",
+        value: formatCurrency(toNumber(data.recentRevenue)),
+        detail: `${Math.round(data.targetAchievementRate)}% da meta atingida`
+      },
+      {
+        label: "Piso de margem",
+        value: `${Math.round(data.minimumMarginTarget)}%`,
+        detail: "Parametro minimo esperado para rentabilidade"
+      }
+    ],
+    revenueCurve: data.revenueCurve.map((point) => ({
+      date: point.date,
+      label: formatDate(point.date),
+      revenue: point.revenue
+    })),
+    executiveAlerts: data.executiveAlerts,
     recentOrders: data.recentOrders.map((order) => ({
       id: order.id,
       customerName: order.user.name,
@@ -878,6 +952,15 @@ export async function getAdminDashboardMetrics(): Promise<AdminDashboardData> {
     profitabilityByCategory: data.topCategoriesByProfit.map((item) => ({
       id: item.categoryId,
       name: item.categoryName,
+      quantitySold: item.quantitySold,
+      revenue: item.revenue,
+      grossProfit: item.grossProfit,
+      marginRate: item.marginRate
+    })),
+    lowMarginProducts: data.lowMarginProducts.map((item) => ({
+      id: item.productId,
+      name: item.productName,
+      category: item.categoryName,
       quantitySold: item.quantitySold,
       revenue: item.revenue,
       grossProfit: item.grossProfit,
@@ -1045,6 +1128,8 @@ export async function getAdminSettings(): Promise<AdminSettings> {
     storeName: settings.storeName,
     storeUrl: settings.storeUrl,
     supportEmail: settings.supportEmail ?? undefined,
+    monthlyRevenueTarget: toNumber(settings.monthlyRevenueTarget),
+    minimumMarginTarget: settings.minimumMarginTarget,
     emailEnabled: settings.emailEnabled,
     emailFrom: settings.emailFrom,
     emailReplyTo: settings.emailReplyTo ?? undefined,
@@ -1319,6 +1404,8 @@ export type SaveSettingsInput = {
   storeName: string;
   storeUrl: string;
   supportEmail?: string;
+  monthlyRevenueTarget: number;
+  minimumMarginTarget: number;
   emailEnabled: boolean;
   emailFrom: string;
   emailReplyTo?: string;

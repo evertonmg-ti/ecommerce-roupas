@@ -3,6 +3,7 @@ import {
   IsBoolean,
   IsEmail,
   IsInt,
+  IsNumber,
   IsOptional,
   IsString,
   IsUrl,
@@ -36,6 +37,17 @@ export class UpdateSettingsDto {
   @IsEmail()
   @Transform(({ value }) => toOptionalString(value))
   supportEmail?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  monthlyRevenueTarget?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  minimumMarginTarget?: number;
 
   @IsOptional()
   @IsBoolean()

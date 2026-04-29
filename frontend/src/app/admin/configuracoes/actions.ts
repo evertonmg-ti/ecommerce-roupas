@@ -12,6 +12,12 @@ function parsePayload(formData: FormData) {
   const storeName = String(formData.get("storeName") ?? "").trim();
   const storeUrl = String(formData.get("storeUrl") ?? "").trim();
   const supportEmail = String(formData.get("supportEmail") ?? "").trim();
+  const monthlyRevenueTarget = Number(
+    String(formData.get("monthlyRevenueTarget") ?? "0").replace(",", ".")
+  );
+  const minimumMarginTarget = Number(
+    String(formData.get("minimumMarginTarget") ?? "25").replace(",", ".")
+  );
   const emailFrom = String(formData.get("emailFrom") ?? "").trim();
   const emailReplyTo = String(formData.get("emailReplyTo") ?? "").trim();
   const emailOrdersTo = String(formData.get("emailOrdersTo") ?? "").trim();
@@ -24,6 +30,8 @@ function parsePayload(formData: FormData) {
     storeName,
     storeUrl,
     supportEmail: supportEmail || undefined,
+    monthlyRevenueTarget,
+    minimumMarginTarget,
     emailEnabled: formData.get("emailEnabled") === "on",
     emailFrom,
     emailReplyTo: emailReplyTo || undefined,

@@ -6,10 +6,14 @@ export default async function AdminDashboardPage() {
   const recentOrders = dashboard?.recentOrders ?? [];
   const commerceHighlights = dashboard?.commerceHighlights ?? [];
   const funnelHighlights = dashboard?.funnelHighlights ?? [];
+  const targetHighlights = dashboard?.targetHighlights ?? [];
+  const revenueCurve = dashboard?.revenueCurve ?? [];
+  const executiveAlerts = dashboard?.executiveAlerts ?? [];
   const lowStockItems = dashboard?.lowStockItems ?? [];
   const inventoryHighlights = dashboard?.inventoryHighlights ?? [];
   const profitabilityByProduct = dashboard?.profitabilityByProduct ?? [];
   const profitabilityByCategory = dashboard?.profitabilityByCategory ?? [];
+  const lowMarginProducts = dashboard?.lowMarginProducts ?? [];
 
   return (
     <div className="space-y-6">
@@ -106,6 +110,96 @@ export default async function AdminDashboardPage() {
                 </article>
               ))}
             </div>
+          </section>
+
+          <div className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
+            <section className="rounded-[2rem] border border-espresso/10 bg-white/80 p-6 shadow-soft">
+              <p className="text-xs uppercase tracking-[0.3em] text-terracotta">
+                Meta vs realizado
+              </p>
+              <h2 className="mt-2 font-display text-3xl">Ritmo comercial</h2>
+
+              <div className="mt-6 grid gap-4">
+                {targetHighlights.map((item) => (
+                  <article
+                    key={item.label}
+                    className="rounded-[1.5rem] border border-espresso/10 bg-sand/35 p-4"
+                  >
+                    <p className="text-sm text-espresso/55">{item.label}</p>
+                    <p className="mt-2 font-display text-3xl">{item.value}</p>
+                    <p className="mt-2 text-sm text-moss">{item.detail}</p>
+                  </article>
+                ))}
+              </div>
+            </section>
+
+            <section className="rounded-[2rem] border border-espresso/10 bg-white/80 p-6 shadow-soft">
+              <p className="text-xs uppercase tracking-[0.3em] text-terracotta">
+                Curva de receita
+              </p>
+              <h2 className="mt-2 font-display text-3xl">Ultimos 14 dias</h2>
+
+              {revenueCurve.length > 0 ? (
+                <div className="mt-6 space-y-3">
+                  {revenueCurve.map((point) => {
+                    const maxRevenue = Math.max(...revenueCurve.map((item) => item.revenue), 1);
+                    const width = `${Math.max(6, Math.round((point.revenue / maxRevenue) * 100))}%`;
+
+                    return (
+                      <div key={point.date} className="space-y-2">
+                        <div className="flex items-center justify-between gap-4 text-sm">
+                          <span className="text-espresso/65">{point.label}</span>
+                          <span className="font-medium">
+                            {point.revenue.toLocaleString("pt-BR", {
+                              style: "currency",
+                              currency: "BRL"
+                            })}
+                          </span>
+                        </div>
+                        <div className="h-3 rounded-full bg-sand">
+                          <div
+                            className="h-3 rounded-full bg-terracotta"
+                            style={{ width }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="mt-6 rounded-[1.5rem] border border-espresso/10 bg-sand/35 p-4 text-sm text-espresso/70">
+                  Ainda nao ha receita suficiente para montar a curva recente.
+                </div>
+              )}
+            </section>
+          </div>
+
+          <section className="rounded-[2rem] border border-espresso/10 bg-white/80 p-6 shadow-soft">
+            <p className="text-xs uppercase tracking-[0.3em] text-terracotta">
+              Alertas executivos
+            </p>
+            <h2 className="mt-2 font-display text-3xl">Pontos de atencao</h2>
+
+            {executiveAlerts.length > 0 ? (
+              <div className="mt-6 grid gap-4 lg:grid-cols-3">
+                {executiveAlerts.map((alert, index) => (
+                  <article
+                    key={`${alert.type}-${index}`}
+                    className="rounded-[1.5rem] border border-espresso/10 bg-sand/35 p-4"
+                  >
+                    <p className="text-xs uppercase tracking-[0.25em] text-terracotta">
+                      {alert.level}
+                    </p>
+                    <p className="mt-3 font-medium">{alert.message}</p>
+                    <p className="mt-2 text-sm text-espresso/65">{alert.detail}</p>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <div className="mt-6 rounded-[1.5rem] border border-espresso/10 bg-sand/35 p-4 text-sm text-espresso/70">
+                Nenhum alerta executivo ativo neste momento.
+              </div>
+            )}
           </section>
 
           <section className="rounded-[2rem] border border-espresso/10 bg-white/80 p-6 shadow-soft">
@@ -245,6 +339,55 @@ export default async function AdminDashboardPage() {
               )}
             </section>
           </div>
+
+          <section className="rounded-[2rem] border border-espresso/10 bg-white/80 p-6 shadow-soft">
+            <p className="text-xs uppercase tracking-[0.3em] text-terracotta">
+              Margem baixa
+            </p>
+            <h2 className="mt-2 font-display text-3xl">Produtos abaixo do piso</h2>
+
+            {lowMarginProducts.length > 0 ? (
+              <div className="mt-6 space-y-3">
+                {lowMarginProducts.map((item) => (
+                  <div
+                    key={item.id}
+                    className="rounded-[1.5rem] border border-espresso/10 bg-sand/35 p-4"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="font-medium">{item.name}</p>
+                        <p className="mt-1 text-sm text-espresso/60">{item.category}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-medium text-terracotta">
+                          {Math.round(item.marginRate)}% de margem
+                        </p>
+                        <p className="mt-1 text-sm text-espresso/60">
+                          {item.quantitySold} unidades
+                        </p>
+                      </div>
+                    </div>
+                    <p className="mt-3 text-sm text-espresso/65">
+                      Receita de{" "}
+                      {item.revenue.toLocaleString("pt-BR", {
+                        style: "currency",
+                        currency: "BRL"
+                      })}{" "}
+                      com lucro bruto de{" "}
+                      {item.grossProfit.toLocaleString("pt-BR", {
+                        style: "currency",
+                        currency: "BRL"
+                      })}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="mt-6 rounded-[1.5rem] border border-espresso/10 bg-sand/35 p-4 text-sm text-espresso/70">
+                Nenhum produto abaixo da margem minima configurada.
+              </div>
+            )}
+          </section>
 
           <section className="rounded-[2rem] border border-espresso/10 bg-white/80 p-6 shadow-soft">
             <div className="flex items-center justify-between gap-4">
