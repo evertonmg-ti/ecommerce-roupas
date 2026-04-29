@@ -36,6 +36,9 @@ type DashboardResponse = {
   monthlyRevenueTarget: number | string | null;
   minimumMarginTarget: number;
   targetAchievementRate: number;
+  projectedRevenue30d: number | string | null;
+  projectedTargetAchievementRate: number;
+  projectedRevenueGap: number | string | null;
   lowStockProducts: number;
   paidOrders: number;
   couponOrders: number;
@@ -111,6 +114,22 @@ type DashboardResponse = {
     level: string;
     message: string;
     detail: string;
+  }>;
+  predictiveAlerts: Array<{
+    type: string;
+    level: string;
+    message: string;
+    detail: string;
+  }>;
+  stockCoverage: Array<{
+    productId: string;
+    productName: string;
+    categoryName: string;
+    currentStock: number;
+    quantitySold30d: number;
+    averageDailySales: number;
+    revenue30d: number;
+    coverageDays: number | null;
   }>;
   customerInsights: {
     totalCustomers: number;
@@ -418,6 +437,11 @@ export type AdminDashboardData = {
     value: string;
     detail: string;
   }>;
+  forecastHighlights: Array<{
+    label: string;
+    value: string;
+    detail: string;
+  }>;
   revenueCurve: Array<{
     date: string;
     label: string;
@@ -428,6 +452,22 @@ export type AdminDashboardData = {
     level: string;
     message: string;
     detail: string;
+  }>;
+  predictiveAlerts: Array<{
+    type: string;
+    level: string;
+    message: string;
+    detail: string;
+  }>;
+  stockCoverage: Array<{
+    id: string;
+    name: string;
+    category: string;
+    currentStock: number;
+    quantitySold30d: number;
+    averageDailySales: number;
+    revenue30d: number;
+    coverageDays?: number;
   }>;
   customerHighlights: Array<{
     label: string;
@@ -952,12 +992,43 @@ export async function getAdminDashboardMetrics(): Promise<AdminDashboardData> {
         detail: "Parametro minimo esperado para rentabilidade"
       }
     ],
+    forecastHighlights: [
+      {
+        label: "Receita projetada",
+        value: formatCurrency(toNumber(data.projectedRevenue30d)),
+        detail: "Projecao simples baseada no ritmo recente"
+      },
+      {
+        label: "Meta projetada",
+        value: `${Math.round(data.projectedTargetAchievementRate)}%`,
+        detail: "Percentual estimado de atingimento da meta"
+      },
+      {
+        label: "Gap previsto",
+        value: formatCurrency(Math.abs(toNumber(data.projectedRevenueGap))),
+        detail:
+          toNumber(data.projectedRevenueGap) >= 0
+            ? "Ritmo atual acima da meta mensal"
+            : "Ritmo atual abaixo da meta mensal"
+      }
+    ],
     revenueCurve: data.revenueCurve.map((point) => ({
       date: point.date,
       label: formatDate(point.date),
       revenue: point.revenue
     })),
     executiveAlerts: data.executiveAlerts,
+    predictiveAlerts: data.predictiveAlerts,
+    stockCoverage: data.stockCoverage.map((item) => ({
+      id: item.productId,
+      name: item.productName,
+      category: item.categoryName,
+      currentStock: item.currentStock,
+      quantitySold30d: item.quantitySold30d,
+      averageDailySales: item.averageDailySales,
+      revenue30d: item.revenue30d,
+      coverageDays: item.coverageDays ?? undefined
+    })),
     customerHighlights: [
       {
         label: "Clientes recorrentes",

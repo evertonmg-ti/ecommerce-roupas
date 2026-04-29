@@ -7,8 +7,11 @@ export default async function AdminDashboardPage() {
   const commerceHighlights = dashboard?.commerceHighlights ?? [];
   const funnelHighlights = dashboard?.funnelHighlights ?? [];
   const targetHighlights = dashboard?.targetHighlights ?? [];
+  const forecastHighlights = dashboard?.forecastHighlights ?? [];
   const revenueCurve = dashboard?.revenueCurve ?? [];
   const executiveAlerts = dashboard?.executiveAlerts ?? [];
+  const predictiveAlerts = dashboard?.predictiveAlerts ?? [];
+  const stockCoverage = dashboard?.stockCoverage ?? [];
   const customerHighlights = dashboard?.customerHighlights ?? [];
   const customerCohorts = dashboard?.customerCohorts ?? [];
   const topRecurringCustomers = dashboard?.topRecurringCustomers ?? [];
@@ -177,6 +180,75 @@ export default async function AdminDashboardPage() {
             </section>
           </div>
 
+          <div className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
+            <section className="rounded-[2rem] border border-espresso/10 bg-white/80 p-6 shadow-soft">
+              <p className="text-xs uppercase tracking-[0.3em] text-terracotta">
+                Previsao
+              </p>
+              <h2 className="mt-2 font-display text-3xl">Receita projetada</h2>
+
+              <div className="mt-6 grid gap-4">
+                {forecastHighlights.map((item) => (
+                  <article
+                    key={item.label}
+                    className="rounded-[1.5rem] border border-espresso/10 bg-sand/35 p-4"
+                  >
+                    <p className="text-sm text-espresso/55">{item.label}</p>
+                    <p className="mt-2 font-display text-3xl">{item.value}</p>
+                    <p className="mt-2 text-sm text-moss">{item.detail}</p>
+                  </article>
+                ))}
+              </div>
+            </section>
+
+            <section className="rounded-[2rem] border border-espresso/10 bg-white/80 p-6 shadow-soft">
+              <p className="text-xs uppercase tracking-[0.3em] text-terracotta">
+                Cobertura de estoque
+              </p>
+              <h2 className="mt-2 font-display text-3xl">Risco de ruptura</h2>
+
+              {stockCoverage.length > 0 ? (
+                <div className="mt-6 space-y-3">
+                  {stockCoverage.map((item) => (
+                    <div
+                      key={item.id}
+                      className="rounded-[1.5rem] border border-espresso/10 bg-sand/35 p-4"
+                    >
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <p className="font-medium">{item.name}</p>
+                          <p className="mt-1 text-sm text-espresso/60">{item.category}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-medium">
+                            {item.coverageDays !== undefined
+                              ? `${Math.round(item.coverageDays)} dias`
+                              : "Sem previsao"}
+                          </p>
+                          <p className="mt-1 text-sm text-espresso/60">
+                            {item.currentStock} em estoque
+                          </p>
+                        </div>
+                      </div>
+                      <p className="mt-3 text-sm text-espresso/65">
+                        {item.quantitySold30d} un. vendidas em 30d ·{" "}
+                        {item.averageDailySales.toFixed(1)} un./dia ·{" "}
+                        {item.revenue30d.toLocaleString("pt-BR", {
+                          style: "currency",
+                          currency: "BRL"
+                        })}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="mt-6 rounded-[1.5rem] border border-espresso/10 bg-sand/35 p-4 text-sm text-espresso/70">
+                  Ainda nao ha giro suficiente para prever cobertura de estoque.
+                </div>
+              )}
+            </section>
+          </div>
+
           <section className="rounded-[2rem] border border-espresso/10 bg-white/80 p-6 shadow-soft">
             <p className="text-xs uppercase tracking-[0.3em] text-terracotta">
               Alertas executivos
@@ -201,6 +273,34 @@ export default async function AdminDashboardPage() {
             ) : (
               <div className="mt-6 rounded-[1.5rem] border border-espresso/10 bg-sand/35 p-4 text-sm text-espresso/70">
                 Nenhum alerta executivo ativo neste momento.
+              </div>
+            )}
+          </section>
+
+          <section className="rounded-[2rem] border border-espresso/10 bg-white/80 p-6 shadow-soft">
+            <p className="text-xs uppercase tracking-[0.3em] text-terracotta">
+              Alertas preditivos
+            </p>
+            <h2 className="mt-2 font-display text-3xl">Riscos antecipados</h2>
+
+            {predictiveAlerts.length > 0 ? (
+              <div className="mt-6 grid gap-4 lg:grid-cols-3">
+                {predictiveAlerts.map((alert, index) => (
+                  <article
+                    key={`${alert.type}-${index}`}
+                    className="rounded-[1.5rem] border border-espresso/10 bg-sand/35 p-4"
+                  >
+                    <p className="text-xs uppercase tracking-[0.25em] text-terracotta">
+                      {alert.level}
+                    </p>
+                    <p className="mt-3 font-medium">{alert.message}</p>
+                    <p className="mt-2 text-sm text-espresso/65">{alert.detail}</p>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <div className="mt-6 rounded-[1.5rem] border border-espresso/10 bg-sand/35 p-4 text-sm text-espresso/70">
+                Nenhum risco preditivo relevante identificado no momento.
               </div>
             )}
           </section>

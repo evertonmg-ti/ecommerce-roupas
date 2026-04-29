@@ -38,7 +38,8 @@ export class DashboardService {
       recentInventoryMovements,
       profitabilityItems,
       recentRevenueOrders,
-      customerOrders
+      customerOrders,
+      stockForecastItems
     ] = await Promise.all([
       this.prisma.user.count(),
       this.prisma.product.count(),
@@ -198,6 +199,30 @@ export class DashboardService {
           }
         },
         orderBy: { createdAt: "asc" }
+      }),
+      this.prisma.orderItem.findMany({
+        where: {
+          order: {
+            createdAt: {
+              gte: thirtyDaysAgo
+            },
+            status: {
+              in: [OrderStatus.PAID, OrderStatus.SHIPPED, OrderStatus.DELIVERED]
+            }
+          }
+        },
+        include: {
+          product: {
+            include: {
+              category: true
+            }
+          },
+          order: {
+            select: {
+              createdAt: true
+            }
+          }
+        }
       })
     ]);
 
@@ -286,6 +311,12 @@ export class DashboardService {
     const targetAchievementRate =
       monthlyRevenueTarget > 0 ? (Number(recentRevenue) / monthlyRevenueTarget) * 100 : 0;
     const revenueCurve = this.buildRevenueCurve(fourteenDaysAgo, recentRevenueOrders);
+    const recentDailyAverage =
+      revenueCurve.reduce((sum, point) => sum + point.revenue, 0) / Math.max(revenueCurve.length, 1);
+    const projectedRevenue30d = recentDailyAverage * 30;
+    const projectedTargetAchievementRate =
+      monthlyRevenueTarget > 0 ? (projectedRevenue30d / monthlyRevenueTarget) * 100 : 0;
+    const projectedRevenueGap = projectedRevenue30d - monthlyRevenueTarget;
     const lowMarginProducts = Array.from(productProfitMap.values())
       .map((item) => ({
         productId: item.productId,
@@ -299,6 +330,61 @@ export class DashboardService {
       .filter((item) => item.marginRate < minimumMarginTarget)
       .sort((left, right) => left.marginRate - right.marginRate)
       .slice(0, 5);
+    const salesVelocityMap = new Map<
+      string,
+      {
+        productId: string;
+        productName: string;
+        categoryName: string;
+        currentStock: number;
+        quantitySold30d: number;
+        revenue30d: number;
+      }
+    >();
+
+    for (const item of stockForecastItems) {
+      const existing = salesVelocityMap.get(item.productId);
+      const revenue30d = Number(item.unitPrice) * item.quantity;
+
+      salesVelocityMap.set(item.productId, {
+        productId: item.productId,
+        productName: item.product.name,
+        categoryName: item.product.category.name,
+        currentStock: item.product.stock,
+        quantitySold30d: (existing?.quantitySold30d ?? 0) + item.quantity,
+        revenue30d: (existing?.revenue30d ?? 0) + revenue30d
+      });
+    }
+
+    const stockCoverage = Array.from(salesVelocityMap.values())
+      .map((item) => {
+        const averageDailySales = item.quantitySold30d / 30;
+        const coverageDays =
+          averageDailySales > 0 ? item.currentStock / averageDailySales : null;
+
+        return {
+          productId: item.productId,
+          productName: item.productName,
+          categoryName: item.categoryName,
+          currentStock: item.currentStock,
+          quantitySold30d: item.quantitySold30d,
+          averageDailySales,
+          revenue30d: item.revenue30d,
+          coverageDays
+        };
+      })
+      .sort((left, right) => {
+        const leftCoverage = left.coverageDays ?? Number.POSITIVE_INFINITY;
+        const rightCoverage = right.coverageDays ?? Number.POSITIVE_INFINITY;
+
+        return leftCoverage - rightCoverage;
+      });
+    const stockoutRiskItems = stockCoverage.filter(
+      (item) => item.coverageDays !== null && item.coverageDays <= 14
+    );
+    const slowMovingStockItems = stockCoverage.filter(
+      (item) => item.quantitySold30d === 0 && item.currentStock >= 10
+    );
     const executiveAlerts = [
       ...(Number(recentRevenue) < monthlyRevenueTarget && monthlyRevenueTarget > 0
         ? [
@@ -325,6 +411,30 @@ export class DashboardService {
         level: "INFO",
         message: `${item.productName} esta abaixo da margem minima.`,
         detail: `${Math.round(item.marginRate)}% de margem em ${item.categoryName}.`
+      }))
+    ];
+    const predictiveAlerts = [
+      ...(monthlyRevenueTarget > 0 && projectedRevenue30d < monthlyRevenueTarget
+        ? [
+            {
+              type: "REVENUE_FORECAST_RISK",
+              level: "WARN",
+              message: "A projeção de receita mensal indica risco de fechar abaixo da meta.",
+              detail: `Ritmo projetado de ${this.formatCurrency(projectedRevenue30d)} contra meta de ${this.formatCurrency(monthlyRevenueTarget)}.`
+            }
+          ]
+        : []),
+      ...stockoutRiskItems.slice(0, 3).map((item) => ({
+        type: "STOCKOUT_RISK",
+        level: item.coverageDays !== null && item.coverageDays <= 7 ? "WARN" : "INFO",
+        message: `${item.productName} pode romper em breve.`,
+        detail: `Cobertura estimada de ${Math.max(0, Math.round(item.coverageDays ?? 0))} dias com ${item.currentStock} unidades restantes.`
+      })),
+      ...slowMovingStockItems.slice(0, 2).map((item) => ({
+        type: "SLOW_MOVING_STOCK",
+        level: "INFO",
+        message: `${item.productName} tem estoque parado.`,
+        detail: `${item.currentStock} unidades sem giro relevante nos ultimos 30 dias.`
       }))
     ];
     const customerMap = new Map<
@@ -423,6 +533,9 @@ export class DashboardService {
       monthlyRevenueTarget,
       minimumMarginTarget,
       targetAchievementRate,
+      projectedRevenue30d,
+      projectedTargetAchievementRate,
+      projectedRevenueGap,
       lowStockProducts,
       paidOrders,
       couponOrders,
@@ -448,6 +561,8 @@ export class DashboardService {
       },
       revenueCurve,
       executiveAlerts,
+      predictiveAlerts,
+      stockCoverage: stockCoverage.slice(0, 8),
       customerInsights: {
         totalCustomers: customers.length,
         repeatCustomers: repeatCustomers.length,
@@ -463,6 +578,13 @@ export class DashboardService {
       topCategoriesByProfit,
       lowMarginProducts
     };
+  }
+
+  private formatCurrency(value: number) {
+    return new Intl.NumberFormat("pt-BR", {
+      style: "currency",
+      currency: "BRL"
+    }).format(value);
   }
 
   private buildRevenueCurve(
