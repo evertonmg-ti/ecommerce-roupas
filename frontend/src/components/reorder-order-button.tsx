@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useCart } from "@/components/cart-provider";
 
@@ -17,10 +18,17 @@ type ReorderOrderButtonProps = {
     quantity: number;
     imageUrl?: string;
   }>;
+  redirectToCheckout?: boolean;
+  label?: string;
 };
 
-export function ReorderOrderButton({ items }: ReorderOrderButtonProps) {
+export function ReorderOrderButton({
+  items,
+  redirectToCheckout = false,
+  label
+}: ReorderOrderButtonProps) {
   const { addItem } = useCart();
+  const router = useRouter();
   const [added, setAdded] = useState(false);
 
   function handleReorder() {
@@ -43,6 +51,11 @@ export function ReorderOrderButton({ items }: ReorderOrderButtonProps) {
       );
     });
 
+    if (redirectToCheckout) {
+      router.push("/checkout");
+      return;
+    }
+
     setAdded(true);
     window.setTimeout(() => setAdded(false), 1800);
   }
@@ -53,7 +66,7 @@ export function ReorderOrderButton({ items }: ReorderOrderButtonProps) {
       onClick={handleReorder}
       className="rounded-full border border-espresso/15 px-5 py-3 text-sm"
     >
-      {added ? "Itens adicionados" : "Comprar novamente"}
+      {added ? "Itens adicionados" : label ?? "Comprar novamente"}
     </button>
   );
 }

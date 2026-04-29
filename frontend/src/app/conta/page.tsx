@@ -266,6 +266,10 @@ export default async function CustomerAccountPage({
                     Historico
                   </p>
                   <h2 className="mt-2 font-display text-3xl">Pedidos autenticados</h2>
+                  <p className="mt-2 text-sm text-espresso/65">
+                    A recompra daqui leva seus itens direto ao checkout com o endereco
+                    principal da conta como ponto de partida.
+                  </p>
                 </div>
                 <Link
                   href={`/meus-pedidos?email=${encodeURIComponent(account.email)}`}
@@ -303,7 +307,11 @@ export default async function CustomerAccountPage({
                         </div>
                       </div>
                       <div className="mt-4 flex flex-wrap gap-3">
-                        <ReorderOrderButton items={order.items} />
+                        <ReorderOrderButton
+                          items={order.items}
+                          redirectToCheckout
+                          label="Comprar novamente agora"
+                        />
                         <Link
                           href={`/meus-pedidos?email=${encodeURIComponent(account.email)}`}
                           className="rounded-full border border-espresso/15 px-5 py-3 text-sm"

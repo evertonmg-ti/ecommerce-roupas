@@ -10,6 +10,7 @@ export default async function CheckoutPage() {
         .then((account) => ({
           name: account.name,
           email: account.email,
+          addresses: account.addresses,
           defaultAddress: account.addresses.find((address) => address.isDefault)
         }))
         .catch(() => null)

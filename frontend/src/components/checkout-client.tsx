@@ -62,6 +62,21 @@ type CheckoutClientProps = {
   initialCustomerData?: {
     name: string;
     email: string;
+    addresses?: Array<{
+      id: string;
+      label: string;
+      recipientName: string;
+      customerDocument?: string;
+      customerPhone?: string;
+      shippingAddress: string;
+      shippingNumber: string;
+      shippingAddress2?: string;
+      shippingNeighborhood: string;
+      shippingCity: string;
+      shippingState: string;
+      shippingPostalCode: string;
+      isDefault: boolean;
+    }>;
     defaultAddress?: {
       recipientName: string;
       customerDocument?: string;
@@ -111,6 +126,7 @@ export function CheckoutClient({ initialCustomerData }: CheckoutClientProps) {
   const [state, setState] = useState<CheckoutState>({ type: "idle" });
   const [shippingMethod, setShippingMethod] = useState("STANDARD");
   const [shippingPostalCode, setShippingPostalCode] = useState("");
+  const [selectedAddressId, setSelectedAddressId] = useState("");
   const [profile, setProfile] = useState<CheckoutProfile>(emptyCheckoutProfile);
   const [couponCode, setCouponCode] = useState("");
   const [couponState, setCouponState] = useState<{
@@ -136,6 +152,7 @@ export function CheckoutClient({ initialCustomerData }: CheckoutClientProps) {
   const snapshotKey = getCartSnapshotKey(items);
   const restoredToken = searchParams.get("cart");
   const lastAbandonedSyncRef = useRef<string | null>(null);
+  const savedAddresses = initialCustomerData?.addresses ?? [];
 
   const canSubmit = useMemo(
     () => items.length > 0 && state.type !== "submitting",
@@ -224,6 +241,11 @@ export function CheckoutClient({ initialCustomerData }: CheckoutClientProps) {
       setShippingPostalCode(nextProfile.shippingPostalCode || "");
     }
   }, [initialCustomerData]);
+
+  useEffect(() => {
+    const defaultAddress = savedAddresses.find((address) => address.isDefault) ?? savedAddresses[0];
+    setSelectedAddressId(defaultAddress?.id ?? "");
+  }, [savedAddresses]);
 
   useEffect(() => {
     window.localStorage.setItem(
@@ -631,10 +653,42 @@ export function CheckoutClient({ initialCustomerData }: CheckoutClientProps) {
     }));
   }
 
+  function applySavedAddress(addressId: string) {
+    setSelectedAddressId(addressId);
+
+    if (!addressId) {
+      return;
+    }
+
+    const address = savedAddresses.find((item) => item.id === addressId);
+
+    if (!address) {
+      return;
+    }
+
+    setProfile((current) => ({
+      ...current,
+      recipientName: address.recipientName,
+      customerDocument: address.customerDocument ?? current.customerDocument,
+      customerPhone: address.customerPhone ?? current.customerPhone,
+      shippingAddress: address.shippingAddress,
+      shippingNumber: address.shippingNumber,
+      shippingAddress2: address.shippingAddress2 ?? "",
+      shippingNeighborhood: address.shippingNeighborhood,
+      shippingCity: address.shippingCity,
+      shippingState: address.shippingState,
+      shippingPostalCode: address.shippingPostalCode
+    }));
+    setShippingPostalCode(address.shippingPostalCode);
+  }
+
   function clearSavedProfile() {
-    setProfile(emptyCheckoutProfile);
+    setProfile(mergeProfile(emptyCheckoutProfile, initialCustomerData));
     setShippingMethod("STANDARD");
-    setShippingPostalCode("");
+    setShippingPostalCode(
+      mergeProfile(emptyCheckoutProfile, initialCustomerData).shippingPostalCode || ""
+    );
+    setSelectedAddressId(savedAddresses.find((address) => address.isDefault)?.id ?? "");
     window.localStorage.removeItem(CHECKOUT_PROFILE_STORAGE_KEY);
   }
 
@@ -654,6 +708,27 @@ export function CheckoutClient({ initialCustomerData }: CheckoutClientProps) {
         >
           Limpar dados salvos
         </button>
+        {savedAddresses.length > 0 ? (
+          <div className="mt-5 rounded-[1.5rem] border border-espresso/10 bg-sand/35 p-4">
+            <label className="space-y-2 text-sm">
+              <span className="text-espresso/70">Usar endereco salvo</span>
+              <select
+                value={selectedAddressId}
+                onChange={(event) => applySavedAddress(event.target.value)}
+                className="w-full rounded-[1.5rem] border border-espresso/15 bg-white/70 px-4 py-3"
+              >
+                <option value="">Preencher manualmente</option>
+                {savedAddresses.map((address) => (
+                  <option key={address.id} value={address.id}>
+                    {address.label} - {address.shippingAddress}, {address.shippingNumber} -{" "}
+                    {address.shippingCity}/{address.shippingState}
+                    {address.isDefault ? " (Principal)" : ""}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+        ) : null}
 
         {state.type === "success" ? (
           <div className="mt-8 rounded-[1.5rem] border border-moss/20 bg-moss/10 p-5 text-sm text-moss">
