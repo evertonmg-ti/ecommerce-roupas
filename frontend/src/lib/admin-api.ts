@@ -112,6 +112,30 @@ type DashboardResponse = {
     message: string;
     detail: string;
   }>;
+  customerInsights: {
+    totalCustomers: number;
+    repeatCustomers: number;
+    repeatCustomerRate: number;
+    averageOrdersPerCustomer: number;
+    newCustomers30d: number;
+    repeatCustomers30d: number;
+    recurringRevenue30d: number;
+  };
+  customerCohorts: Array<{
+    month: string;
+    acquiredCustomers: number;
+    repeatCustomers: number;
+    retentionRate: number;
+  }>;
+  topRecurringCustomers: Array<{
+    userId: string;
+    name: string;
+    email: string;
+    ordersCount: number;
+    revenue: number;
+    firstOrderAt: string;
+    lastOrderAt: string;
+  }>;
   topProductsByProfit: Array<{
     productId: string;
     productName: string;
@@ -404,6 +428,27 @@ export type AdminDashboardData = {
     level: string;
     message: string;
     detail: string;
+  }>;
+  customerHighlights: Array<{
+    label: string;
+    value: string;
+    detail: string;
+  }>;
+  customerCohorts: Array<{
+    month: string;
+    label: string;
+    acquiredCustomers: number;
+    repeatCustomers: number;
+    retentionRate: number;
+  }>;
+  topRecurringCustomers: Array<{
+    id: string;
+    name: string;
+    email: string;
+    ordersCount: number;
+    revenue: number;
+    firstOrderAt: string;
+    lastOrderAt: string;
   }>;
   lowStockItems: Array<{
     id: string;
@@ -913,6 +958,47 @@ export async function getAdminDashboardMetrics(): Promise<AdminDashboardData> {
       revenue: point.revenue
     })),
     executiveAlerts: data.executiveAlerts,
+    customerHighlights: [
+      {
+        label: "Clientes recorrentes",
+        value: `${Math.round(data.customerInsights.repeatCustomerRate)}%`,
+        detail: `${data.customerInsights.repeatCustomers} de ${data.customerInsights.totalCustomers} clientes ja recompraram`
+      },
+      {
+        label: "Pedidos por cliente",
+        value: data.customerInsights.averageOrdersPerCustomer.toFixed(1),
+        detail: "Media historica de pedidos por cliente ativo"
+      },
+      {
+        label: "Novos clientes 30d",
+        value: String(data.customerInsights.newCustomers30d),
+        detail: `${data.customerInsights.repeatCustomers30d} recorrentes ativos no mesmo periodo`
+      },
+      {
+        label: "Receita recorrente 30d",
+        value: formatCurrency(toNumber(data.customerInsights.recurringRevenue30d)),
+        detail: "Volume vindo de clientes com 2+ pedidos"
+      }
+    ],
+    customerCohorts: data.customerCohorts.map((item) => ({
+      month: item.month,
+      label: new Intl.DateTimeFormat("pt-BR", {
+        month: "short",
+        year: "2-digit"
+      }).format(new Date(`${item.month}-01T00:00:00`)),
+      acquiredCustomers: item.acquiredCustomers,
+      repeatCustomers: item.repeatCustomers,
+      retentionRate: item.retentionRate
+    })),
+    topRecurringCustomers: data.topRecurringCustomers.map((customer) => ({
+      id: customer.userId,
+      name: customer.name,
+      email: customer.email,
+      ordersCount: customer.ordersCount,
+      revenue: customer.revenue,
+      firstOrderAt: formatDate(customer.firstOrderAt),
+      lastOrderAt: formatDate(customer.lastOrderAt)
+    })),
     recentOrders: data.recentOrders.map((order) => ({
       id: order.id,
       customerName: order.user.name,

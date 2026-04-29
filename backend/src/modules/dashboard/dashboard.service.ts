@@ -37,7 +37,8 @@ export class DashboardService {
       inventoryProducts,
       recentInventoryMovements,
       profitabilityItems,
-      recentRevenueOrders
+      recentRevenueOrders,
+      customerOrders
     ] = await Promise.all([
       this.prisma.user.count(),
       this.prisma.product.count(),
@@ -176,6 +177,27 @@ export class DashboardService {
           total: true
         },
         orderBy: { createdAt: "asc" }
+      }),
+      this.prisma.order.findMany({
+        where: {
+          status: {
+            in: [OrderStatus.PAID, OrderStatus.SHIPPED, OrderStatus.DELIVERED]
+          }
+        },
+        select: {
+          id: true,
+          userId: true,
+          createdAt: true,
+          total: true,
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true
+            }
+          }
+        },
+        orderBy: { createdAt: "asc" }
       })
     ]);
 
@@ -305,6 +327,87 @@ export class DashboardService {
         detail: `${Math.round(item.marginRate)}% de margem em ${item.categoryName}.`
       }))
     ];
+    const customerMap = new Map<
+      string,
+      {
+        userId: string;
+        name: string;
+        email: string;
+        firstOrderAt: Date;
+        lastOrderAt: Date;
+        ordersCount: number;
+        revenue: number;
+        recentOrders30d: number;
+        recentRevenue30d: number;
+      }
+    >();
+
+    for (const order of customerOrders) {
+      const existing = customerMap.get(order.userId);
+      const orderTotal = Number(order.total);
+      const isRecent = order.createdAt >= thirtyDaysAgo;
+
+      if (!existing) {
+        customerMap.set(order.userId, {
+          userId: order.userId,
+          name: order.user.name,
+          email: order.user.email,
+          firstOrderAt: order.createdAt,
+          lastOrderAt: order.createdAt,
+          ordersCount: 1,
+          revenue: orderTotal,
+          recentOrders30d: isRecent ? 1 : 0,
+          recentRevenue30d: isRecent ? orderTotal : 0
+        });
+        continue;
+      }
+
+      existing.lastOrderAt = order.createdAt;
+      existing.ordersCount += 1;
+      existing.revenue += orderTotal;
+      if (isRecent) {
+        existing.recentOrders30d += 1;
+        existing.recentRevenue30d += orderTotal;
+      }
+      customerMap.set(order.userId, existing);
+    }
+
+    const customers = Array.from(customerMap.values());
+    const repeatCustomers = customers.filter((customer) => customer.ordersCount >= 2);
+    const repeatCustomerRate =
+      customers.length > 0 ? (repeatCustomers.length / customers.length) * 100 : 0;
+    const averageOrdersPerCustomer =
+      customers.length > 0
+        ? customers.reduce((sum, customer) => sum + customer.ordersCount, 0) / customers.length
+        : 0;
+    const newCustomers30d = customers.filter(
+      (customer) => customer.firstOrderAt >= thirtyDaysAgo
+    ).length;
+    const repeatCustomers30d = customers.filter(
+      (customer) => customer.ordersCount >= 2 && customer.recentOrders30d > 0
+    ).length;
+    const recurringRevenue30d = customers
+      .filter((customer) => customer.ordersCount >= 2)
+      .reduce((sum, customer) => sum + customer.recentRevenue30d, 0);
+    const topRecurringCustomers = [...customers]
+      .sort((left, right) => {
+        if (right.ordersCount !== left.ordersCount) {
+          return right.ordersCount - left.ordersCount;
+        }
+
+        return right.revenue - left.revenue;
+      })
+      .slice(0, 5)
+      .map((customer) => ({
+        userId: customer.userId,
+        name: customer.name,
+        email: customer.email,
+        ordersCount: customer.ordersCount,
+        revenue: customer.revenue,
+        firstOrderAt: customer.firstOrderAt,
+        lastOrderAt: customer.lastOrderAt
+      }));
+    const cohortMonths = this.buildMonthlyCohorts(customers, now, 6);
 
     return {
       users,
@@ -345,6 +448,17 @@ export class DashboardService {
       },
       revenueCurve,
       executiveAlerts,
+      customerInsights: {
+        totalCustomers: customers.length,
+        repeatCustomers: repeatCustomers.length,
+        repeatCustomerRate,
+        averageOrdersPerCustomer,
+        newCustomers30d,
+        repeatCustomers30d,
+        recurringRevenue30d
+      },
+      customerCohorts: cohortMonths,
+      topRecurringCustomers,
       topProductsByProfit,
       topCategoriesByProfit,
       lowMarginProducts
@@ -377,5 +491,36 @@ export class DashboardService {
       date,
       revenue
     }));
+  }
+
+  private buildMonthlyCohorts(
+    customers: Array<{
+      firstOrderAt: Date;
+      ordersCount: number;
+    }>,
+    now: Date,
+    monthsBack: number
+  ) {
+    return Array.from({ length: monthsBack }).map((_, index) => {
+      const monthDate = new Date(now.getFullYear(), now.getMonth() - (monthsBack - index - 1), 1);
+      const nextMonth = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 1);
+      const cohortCustomers = customers.filter(
+        (customer) =>
+          customer.firstOrderAt >= monthDate && customer.firstOrderAt < nextMonth
+      );
+      const repeatCustomers = cohortCustomers.filter(
+        (customer) => customer.ordersCount >= 2
+      );
+
+      return {
+        month: monthDate.toISOString().slice(0, 7),
+        acquiredCustomers: cohortCustomers.length,
+        repeatCustomers: repeatCustomers.length,
+        retentionRate:
+          cohortCustomers.length > 0
+            ? (repeatCustomers.length / cohortCustomers.length) * 100
+            : 0
+      };
+    });
   }
 }

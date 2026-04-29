@@ -9,6 +9,9 @@ export default async function AdminDashboardPage() {
   const targetHighlights = dashboard?.targetHighlights ?? [];
   const revenueCurve = dashboard?.revenueCurve ?? [];
   const executiveAlerts = dashboard?.executiveAlerts ?? [];
+  const customerHighlights = dashboard?.customerHighlights ?? [];
+  const customerCohorts = dashboard?.customerCohorts ?? [];
+  const topRecurringCustomers = dashboard?.topRecurringCustomers ?? [];
   const lowStockItems = dashboard?.lowStockItems ?? [];
   const inventoryHighlights = dashboard?.inventoryHighlights ?? [];
   const profitabilityByProduct = dashboard?.profitabilityByProduct ?? [];
@@ -201,6 +204,108 @@ export default async function AdminDashboardPage() {
               </div>
             )}
           </section>
+
+          <section className="rounded-[2rem] border border-espresso/10 bg-white/80 p-6 shadow-soft">
+            <p className="text-xs uppercase tracking-[0.3em] text-terracotta">
+              Recorrencia
+            </p>
+            <h2 className="mt-2 font-display text-3xl">Saude da base de clientes</h2>
+
+            <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              {customerHighlights.map((item) => (
+                <article
+                  key={item.label}
+                  className="rounded-[1.5rem] border border-espresso/10 bg-sand/35 p-4"
+                >
+                  <p className="text-sm text-espresso/55">{item.label}</p>
+                  <p className="mt-2 font-display text-3xl">{item.value}</p>
+                  <p className="mt-2 text-sm text-moss">{item.detail}</p>
+                </article>
+              ))}
+            </div>
+          </section>
+
+          <div className="grid gap-5 lg:grid-cols-[0.95fr_1.05fr]">
+            <section className="rounded-[2rem] border border-espresso/10 bg-white/80 p-6 shadow-soft">
+              <p className="text-xs uppercase tracking-[0.3em] text-terracotta">
+                Cohort
+              </p>
+              <h2 className="mt-2 font-display text-3xl">Aquisicao e recompra</h2>
+
+              {customerCohorts.length > 0 ? (
+                <div className="mt-6 space-y-3">
+                  {customerCohorts.map((cohort) => (
+                    <div
+                      key={cohort.month}
+                      className="rounded-[1.5rem] border border-espresso/10 bg-sand/35 p-4"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <p className="font-medium">{cohort.label}</p>
+                          <p className="mt-1 text-sm text-espresso/60">
+                            {cohort.acquiredCustomers} clientes adquiridos
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-medium text-moss">
+                            {Math.round(cohort.retentionRate)}% recompra
+                          </p>
+                          <p className="mt-1 text-sm text-espresso/60">
+                            {cohort.repeatCustomers} clientes voltaram
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="mt-6 rounded-[1.5rem] border border-espresso/10 bg-sand/35 p-4 text-sm text-espresso/70">
+                  Ainda nao ha historico suficiente para montar cohorts.
+                </div>
+              )}
+            </section>
+
+            <section className="rounded-[2rem] border border-espresso/10 bg-white/80 p-6 shadow-soft">
+              <p className="text-xs uppercase tracking-[0.3em] text-terracotta">
+                Recorrencia
+              </p>
+              <h2 className="mt-2 font-display text-3xl">Clientes mais recorrentes</h2>
+
+              {topRecurringCustomers.length > 0 ? (
+                <div className="mt-6 space-y-3">
+                  {topRecurringCustomers.map((customer) => (
+                    <div
+                      key={customer.id}
+                      className="rounded-[1.5rem] border border-espresso/10 bg-sand/35 p-4"
+                    >
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <p className="font-medium">{customer.name}</p>
+                          <p className="mt-1 text-sm text-espresso/60">{customer.email}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-medium">{customer.ordersCount} pedidos</p>
+                          <p className="mt-1 text-sm text-moss">
+                            {customer.revenue.toLocaleString("pt-BR", {
+                              style: "currency",
+                              currency: "BRL"
+                            })}
+                          </p>
+                        </div>
+                      </div>
+                      <p className="mt-3 text-sm text-espresso/65">
+                        Primeiro pedido em {customer.firstOrderAt} - ultimo em {customer.lastOrderAt}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="mt-6 rounded-[1.5rem] border border-espresso/10 bg-sand/35 p-4 text-sm text-espresso/70">
+                  Ainda nao ha clientes recorrentes suficientes para ranking.
+                </div>
+              )}
+            </section>
+          </div>
 
           <section className="rounded-[2rem] border border-espresso/10 bg-white/80 p-6 shadow-soft">
             <div className="flex items-center justify-between gap-4">
