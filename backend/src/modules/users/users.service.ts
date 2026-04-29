@@ -38,6 +38,8 @@ export class UsersService {
         name: true,
         email: true,
         role: true,
+        preferredPaymentMethod: true,
+        preferredShippingMethod: true,
         createdAt: true,
         addresses: {
           orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }]
@@ -79,6 +81,8 @@ export class UsersService {
       data: {
         name: payload.name,
         email: payload.email,
+        preferredPaymentMethod: payload.preferredPaymentMethod,
+        preferredShippingMethod: payload.preferredShippingMethod,
         passwordHash: payload.password
           ? await bcrypt.hash(payload.password, 10)
           : undefined
@@ -88,6 +92,8 @@ export class UsersService {
         name: true,
         email: true,
         role: true,
+        preferredPaymentMethod: true,
+        preferredShippingMethod: true,
         createdAt: true
       }
     });
@@ -571,7 +577,10 @@ export class UsersService {
       shippingCity: payload.shippingCity.trim(),
       shippingState: payload.shippingState.trim().toUpperCase(),
       shippingPostalCode: payload.shippingPostalCode.trim(),
-      isDefault: Boolean(isDefault)
+      isDefault: Boolean(isDefault),
+      favoriteForStandard: Boolean(payload.favoriteForStandard),
+      favoriteForExpress: Boolean(payload.favoriteForExpress),
+      favoriteForPickup: Boolean(payload.favoriteForPickup)
     };
   }
 }

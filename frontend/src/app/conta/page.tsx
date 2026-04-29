@@ -108,6 +108,32 @@ export default async function CustomerAccountPage({
                     placeholder="Preencha so se quiser trocar"
                   />
                 </label>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <label className="block space-y-2 text-sm">
+                    <span>Pagamento preferido</span>
+                    <select
+                      name="preferredPaymentMethod"
+                      defaultValue={account.preferredPaymentMethod ?? "PIX"}
+                      className="w-full rounded-2xl border border-espresso/15 bg-sand px-4 py-3"
+                    >
+                      <option value="PIX">PIX</option>
+                      <option value="CREDIT_CARD">Cartao de credito</option>
+                      <option value="BOLETO">Boleto</option>
+                    </select>
+                  </label>
+                  <label className="block space-y-2 text-sm">
+                    <span>Frete preferido</span>
+                    <select
+                      name="preferredShippingMethod"
+                      defaultValue={account.preferredShippingMethod ?? "STANDARD"}
+                      className="w-full rounded-2xl border border-espresso/15 bg-sand px-4 py-3"
+                    >
+                      <option value="STANDARD">Entrega padrao</option>
+                      <option value="EXPRESS">Entrega expressa</option>
+                      <option value="PICKUP">Retirada na loja</option>
+                    </select>
+                  </label>
+                </div>
                 <button className="rounded-full bg-espresso px-5 py-3 text-sm text-sand">
                   Salvar perfil
                 </button>
@@ -187,6 +213,21 @@ export default async function CustomerAccountPage({
                   <input type="checkbox" name="isDefault" />
                   Definir como endereco principal
                 </label>
+                <div className="md:col-span-2 grid gap-2 rounded-[1.25rem] border border-espresso/10 bg-white/40 p-4 text-sm">
+                  <p className="text-espresso/65">Marcar como favorito para:</p>
+                  <label className="flex items-center gap-2">
+                    <input type="checkbox" name="favoriteForStandard" />
+                    Entrega padrao
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input type="checkbox" name="favoriteForExpress" />
+                    Entrega expressa
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input type="checkbox" name="favoriteForPickup" />
+                    Retirada na loja
+                  </label>
+                </div>
                 <button className="rounded-full bg-espresso px-5 py-3 text-sm text-sand md:col-span-2">
                   Adicionar endereco
                 </button>
@@ -249,6 +290,33 @@ export default async function CustomerAccountPage({
                         <input name="shippingCity" defaultValue={address.shippingCity} className="rounded-2xl border border-espresso/15 bg-white px-4 py-3 text-sm" />
                         <input name="shippingState" defaultValue={address.shippingState} className="rounded-2xl border border-espresso/15 bg-white px-4 py-3 text-sm uppercase" />
                         <input name="shippingPostalCode" defaultValue={address.shippingPostalCode} className="rounded-2xl border border-espresso/15 bg-white px-4 py-3 text-sm" />
+                      </div>
+                      <div className="mt-4 grid gap-2 rounded-[1.25rem] border border-espresso/10 bg-white/50 p-4 text-sm">
+                        <p className="text-espresso/65">Favorito por contexto</p>
+                        <label className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            name="favoriteForStandard"
+                            defaultChecked={address.favoriteForStandard}
+                          />
+                          Entrega padrao
+                        </label>
+                        <label className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            name="favoriteForExpress"
+                            defaultChecked={address.favoriteForExpress}
+                          />
+                          Entrega expressa
+                        </label>
+                        <label className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            name="favoriteForPickup"
+                            defaultChecked={address.favoriteForPickup}
+                          />
+                          Retirada na loja
+                        </label>
                       </div>
                       <button className="mt-4 rounded-full border border-espresso/15 px-5 py-3 text-sm">
                         Salvar endereco

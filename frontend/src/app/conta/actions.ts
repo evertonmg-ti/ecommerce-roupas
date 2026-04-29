@@ -18,9 +18,17 @@ export async function updateCustomerProfileAction(formData: FormData) {
   const name = normalizeOptional(formData.get("name"));
   const email = normalizeOptional(formData.get("email"));
   const password = normalizeOptional(formData.get("password"));
+  const preferredPaymentMethod = normalizeOptional(formData.get("preferredPaymentMethod"));
+  const preferredShippingMethod = normalizeOptional(formData.get("preferredShippingMethod"));
 
   try {
-    await updateCurrentCustomerProfile({ name, email, password });
+    await updateCurrentCustomerProfile({
+      name,
+      email,
+      password,
+      preferredPaymentMethod,
+      preferredShippingMethod
+    });
     revalidatePath("/conta");
   } catch {
     redirect("/conta?error=profile_update_failed");
@@ -42,7 +50,10 @@ function parseAddressPayload(formData: FormData) {
     shippingCity: String(formData.get("shippingCity") ?? "").trim(),
     shippingState: String(formData.get("shippingState") ?? "").trim().toUpperCase(),
     shippingPostalCode: String(formData.get("shippingPostalCode") ?? "").trim(),
-    isDefault: formData.get("isDefault") === "on"
+    isDefault: formData.get("isDefault") === "on",
+    favoriteForStandard: formData.get("favoriteForStandard") === "on",
+    favoriteForExpress: formData.get("favoriteForExpress") === "on",
+    favoriteForPickup: formData.get("favoriteForPickup") === "on"
   };
 }
 

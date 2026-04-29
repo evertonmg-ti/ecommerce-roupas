@@ -118,6 +118,8 @@ model User {
   email        String   @unique
   passwordHash String
   role         Role     @default(CUSTOMER)
+  preferredPaymentMethod PaymentMethod?
+  preferredShippingMethod ShippingMethod?
   orders       Order[]
   addresses    CustomerAddress[]
   savedCart    SavedCart?
@@ -190,6 +192,9 @@ model CustomerAddress {
   shippingState        String
   shippingPostalCode   String
   isDefault            Boolean  @default(false)
+  favoriteForStandard  Boolean  @default(false)
+  favoriteForExpress   Boolean  @default(false)
+  favoriteForPickup    Boolean  @default(false)
   user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt

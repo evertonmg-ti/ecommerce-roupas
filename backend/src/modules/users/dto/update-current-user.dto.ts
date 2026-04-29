@@ -1,4 +1,5 @@
-import { IsEmail, IsOptional, IsString, MinLength } from "class-validator";
+import { PaymentMethod, ShippingMethod } from "@prisma/client";
+import { IsEmail, IsEnum, IsOptional, IsString, MinLength } from "class-validator";
 
 export class UpdateCurrentUserDto {
   @IsOptional()
@@ -14,4 +15,12 @@ export class UpdateCurrentUserDto {
   @IsString()
   @MinLength(6)
   password?: string;
+
+  @IsOptional()
+  @IsEnum(PaymentMethod)
+  preferredPaymentMethod?: PaymentMethod;
+
+  @IsOptional()
+  @IsEnum(ShippingMethod)
+  preferredShippingMethod?: ShippingMethod;
 }

@@ -47,6 +47,9 @@ type AddressResponse = {
   shippingState: string;
   shippingPostalCode: string;
   isDefault: boolean;
+  favoriteForStandard: boolean;
+  favoriteForExpress: boolean;
+  favoriteForPickup: boolean;
   createdAt: string;
 };
 
@@ -55,6 +58,8 @@ type CurrentUserResponse = {
   name: string;
   email: string;
   role: string;
+  preferredPaymentMethod?: string | null;
+  preferredShippingMethod?: string | null;
   createdAt: string;
   addresses?: AddressResponse[];
 };
@@ -64,6 +69,8 @@ export type CustomerAccount = {
   name: string;
   email: string;
   role: string;
+  preferredPaymentMethod?: string;
+  preferredShippingMethod?: string;
   createdAt: string;
   addresses: CustomerAddress[];
 };
@@ -82,6 +89,9 @@ export type CustomerAddress = {
   shippingState: string;
   shippingPostalCode: string;
   isDefault: boolean;
+  favoriteForStandard: boolean;
+  favoriteForExpress: boolean;
+  favoriteForPickup: boolean;
   createdAt: string;
 };
 
@@ -164,6 +174,9 @@ function normalizeAddress(address: AddressResponse): CustomerAddress {
     shippingState: address.shippingState,
     shippingPostalCode: address.shippingPostalCode,
     isDefault: address.isDefault,
+    favoriteForStandard: address.favoriteForStandard,
+    favoriteForExpress: address.favoriteForExpress,
+    favoriteForPickup: address.favoriteForPickup,
     createdAt: formatDateTime(address.createdAt)
   };
 }
@@ -176,6 +189,8 @@ export async function getCurrentCustomerAccount(): Promise<CustomerAccount> {
     name: user.name,
     email: user.email,
     role: user.role,
+    preferredPaymentMethod: user.preferredPaymentMethod ?? undefined,
+    preferredShippingMethod: user.preferredShippingMethod ?? undefined,
     createdAt: formatDateTime(user.createdAt),
     addresses: (user.addresses ?? []).map(normalizeAddress)
   };
@@ -214,6 +229,8 @@ export async function updateCurrentCustomerProfile(payload: {
   name?: string;
   email?: string;
   password?: string;
+  preferredPaymentMethod?: string;
+  preferredShippingMethod?: string;
 }) {
   return fetchCustomer("/users/me", {
     method: "PATCH",
@@ -234,6 +251,9 @@ export async function createCurrentCustomerAddress(payload: {
   shippingState: string;
   shippingPostalCode: string;
   isDefault?: boolean;
+  favoriteForStandard?: boolean;
+  favoriteForExpress?: boolean;
+  favoriteForPickup?: boolean;
 }) {
   return fetchCustomer("/users/me/addresses", {
     method: "POST",
@@ -256,6 +276,9 @@ export async function updateCurrentCustomerAddress(
     shippingState: string;
     shippingPostalCode: string;
     isDefault?: boolean;
+    favoriteForStandard?: boolean;
+    favoriteForExpress?: boolean;
+    favoriteForPickup?: boolean;
   }
 ) {
   return fetchCustomer(`/users/me/addresses/${addressId}`, {

@@ -7,12 +7,26 @@ export default async function CheckoutPage() {
   const customerSession = await getCustomerSession();
   const initialCustomerData = customerSession
     ? await getCurrentCustomerAccount()
-        .then((account) => ({
-          name: account.name,
-          email: account.email,
-          addresses: account.addresses,
-          defaultAddress: account.addresses.find((address) => address.isDefault)
-        }))
+        .then((account) => {
+          const preferredShippingMethod =
+            account.preferredShippingMethod ?? "STANDARD";
+          const defaultAddress =
+            (preferredShippingMethod === "EXPRESS"
+              ? account.addresses.find((address) => address.favoriteForExpress)
+              : preferredShippingMethod === "PICKUP"
+                ? account.addresses.find((address) => address.favoriteForPickup)
+                : account.addresses.find((address) => address.favoriteForStandard)) ??
+            account.addresses.find((address) => address.isDefault);
+
+          return {
+            name: account.name,
+            email: account.email,
+            preferredPaymentMethod: account.preferredPaymentMethod,
+            preferredShippingMethod: account.preferredShippingMethod,
+            addresses: account.addresses,
+            defaultAddress
+          };
+        })
         .catch(() => null)
     : null;
 

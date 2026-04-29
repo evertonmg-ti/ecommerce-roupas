@@ -62,6 +62,8 @@ type CheckoutClientProps = {
   initialCustomerData?: {
     name: string;
     email: string;
+    preferredPaymentMethod?: string;
+    preferredShippingMethod?: string;
     addresses?: Array<{
       id: string;
       label: string;
@@ -76,6 +78,9 @@ type CheckoutClientProps = {
       shippingState: string;
       shippingPostalCode: string;
       isDefault: boolean;
+      favoriteForStandard: boolean;
+      favoriteForExpress: boolean;
+      favoriteForPickup: boolean;
     }>;
     defaultAddress?: {
       recipientName: string;
@@ -106,6 +111,9 @@ function mergeProfile(
     ...base,
     customerName: base.customerName || initialCustomerData.name,
     customerEmail: base.customerEmail || initialCustomerData.email,
+    paymentMethod: base.paymentMethod || initialCustomerData.preferredPaymentMethod || "PIX",
+    shippingMethod:
+      base.shippingMethod || initialCustomerData.preferredShippingMethod || "STANDARD",
     recipientName: base.recipientName || defaultAddress?.recipientName || initialCustomerData.name,
     customerDocument: base.customerDocument || defaultAddress?.customerDocument || "",
     customerPhone: base.customerPhone || defaultAddress?.customerPhone || "",
@@ -158,6 +166,30 @@ export function CheckoutClient({ initialCustomerData }: CheckoutClientProps) {
     () => items.length > 0 && state.type !== "submitting",
     [items.length, state.type]
   );
+
+  function findAddressForShippingMethod(method: string) {
+    if (method === "EXPRESS") {
+      return (
+        savedAddresses.find((address) => address.favoriteForExpress) ??
+        savedAddresses.find((address) => address.isDefault) ??
+        savedAddresses[0]
+      );
+    }
+
+    if (method === "PICKUP") {
+      return (
+        savedAddresses.find((address) => address.favoriteForPickup) ??
+        savedAddresses.find((address) => address.isDefault) ??
+        savedAddresses[0]
+      );
+    }
+
+    return (
+      savedAddresses.find((address) => address.favoriteForStandard) ??
+      savedAddresses.find((address) => address.isDefault) ??
+      savedAddresses[0]
+    );
+  }
 
   useEffect(() => {
     if (!restoredToken) {
@@ -243,9 +275,9 @@ export function CheckoutClient({ initialCustomerData }: CheckoutClientProps) {
   }, [initialCustomerData]);
 
   useEffect(() => {
-    const defaultAddress = savedAddresses.find((address) => address.isDefault) ?? savedAddresses[0];
-    setSelectedAddressId(defaultAddress?.id ?? "");
-  }, [savedAddresses]);
+    const favoriteAddress = findAddressForShippingMethod(shippingMethod);
+    setSelectedAddressId(favoriteAddress?.id ?? "");
+  }, [savedAddresses, shippingMethod]);
 
   useEffect(() => {
     window.localStorage.setItem(
@@ -682,13 +714,44 @@ export function CheckoutClient({ initialCustomerData }: CheckoutClientProps) {
     setShippingPostalCode(address.shippingPostalCode);
   }
 
+  useEffect(() => {
+    if (savedAddresses.length === 0) {
+      return;
+    }
+
+    const favoriteAddress = findAddressForShippingMethod(shippingMethod);
+
+    if (!favoriteAddress) {
+      return;
+    }
+
+    setSelectedAddressId(favoriteAddress.id);
+    setProfile((current) => ({
+      ...current,
+      recipientName: current.recipientName || favoriteAddress.recipientName,
+      customerDocument: current.customerDocument || favoriteAddress.customerDocument || "",
+      customerPhone: current.customerPhone || favoriteAddress.customerPhone || "",
+      shippingAddress: current.shippingAddress || favoriteAddress.shippingAddress,
+      shippingNumber: current.shippingNumber || favoriteAddress.shippingNumber,
+      shippingAddress2: current.shippingAddress2 || favoriteAddress.shippingAddress2 || "",
+      shippingNeighborhood:
+        current.shippingNeighborhood || favoriteAddress.shippingNeighborhood,
+      shippingCity: current.shippingCity || favoriteAddress.shippingCity,
+      shippingState: current.shippingState || favoriteAddress.shippingState,
+      shippingPostalCode: current.shippingPostalCode || favoriteAddress.shippingPostalCode
+    }));
+
+    if (!shippingPostalCode) {
+      setShippingPostalCode(favoriteAddress.shippingPostalCode);
+    }
+  }, [savedAddresses, shippingMethod, shippingPostalCode]);
+
   function clearSavedProfile() {
-    setProfile(mergeProfile(emptyCheckoutProfile, initialCustomerData));
-    setShippingMethod("STANDARD");
-    setShippingPostalCode(
-      mergeProfile(emptyCheckoutProfile, initialCustomerData).shippingPostalCode || ""
-    );
-    setSelectedAddressId(savedAddresses.find((address) => address.isDefault)?.id ?? "");
+    const nextProfile = mergeProfile(emptyCheckoutProfile, initialCustomerData);
+    setProfile(nextProfile);
+    setShippingMethod(nextProfile.shippingMethod || "STANDARD");
+    setShippingPostalCode(nextProfile.shippingPostalCode || "");
+    setSelectedAddressId(findAddressForShippingMethod(nextProfile.shippingMethod || "STANDARD")?.id ?? "");
     window.localStorage.removeItem(CHECKOUT_PROFILE_STORAGE_KEY);
   }
 
@@ -875,8 +938,14 @@ export function CheckoutClient({ initialCustomerData }: CheckoutClientProps) {
                 required
                 value={shippingMethod}
                 onChange={(event) => {
-                  setShippingMethod(event.target.value);
-                  updateProfile("shippingMethod", event.target.value);
+                  const nextMethod = event.target.value;
+                  setShippingMethod(nextMethod);
+                  updateProfile("shippingMethod", nextMethod);
+                  const contextualAddress = findAddressForShippingMethod(nextMethod);
+
+                  if (contextualAddress) {
+                    applySavedAddress(contextualAddress.id);
+                  }
                 }}
                 className="w-full rounded-[1.5rem] border border-espresso/15 bg-transparent px-4 py-3"
               >

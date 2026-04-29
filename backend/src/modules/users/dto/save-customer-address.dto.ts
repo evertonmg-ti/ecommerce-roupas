@@ -48,4 +48,16 @@ export class SaveCustomerAddressDto {
   @IsOptional()
   @IsBoolean()
   isDefault?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  favoriteForStandard?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  favoriteForExpress?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  favoriteForPickup?: boolean;
 }
