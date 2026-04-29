@@ -573,6 +573,62 @@ export class DashboardService {
         priorityOrder
       )
     ];
+    const replenishmentSchedule = purchaseSuggestions.map((item) => {
+      const daysUntilAction =
+        item.priority === "CRITICAL"
+          ? 0
+          : item.priority === "HIGH"
+            ? 2
+            : item.priority === "MEDIUM"
+              ? 7
+              : 14;
+      const actionDate = new Date(now);
+      actionDate.setDate(now.getDate() + daysUntilAction);
+
+      return {
+        productId: item.productId,
+        productName: item.productName,
+        categoryName: item.categoryName,
+        priority: item.priority,
+        suggestedQuantity: item.suggestedQuantity,
+        estimatedPurchaseCost: item.estimatedPurchaseCost,
+        coverageDays: item.coverageDays,
+        projectedCoverageDays: item.projectedCoverageDays,
+        actionDate,
+        actionWindowLabel:
+          daysUntilAction === 0
+            ? "Hoje"
+            : daysUntilAction <= 2
+              ? "Proximas 48h"
+              : daysUntilAction <= 7
+                ? "Esta semana"
+                : "Proxima semana"
+      };
+    });
+    const operationalAgenda = priorityOrder
+      .map((priority) => {
+        const items = replenishmentSchedule.filter((item) => item.priority === priority);
+
+        return {
+          priority,
+          label:
+            priority === "CRITICAL"
+              ? "Acao imediata"
+              : priority === "HIGH"
+                ? "Curto prazo"
+                : priority === "MEDIUM"
+                  ? "Planejar esta semana"
+                  : "Monitorar proximo ciclo",
+          itemsCount: items.length,
+          estimatedPurchaseCost: items.reduce(
+            (sum, item) => sum + item.estimatedPurchaseCost,
+            0
+          ),
+          suggestedUnits: items.reduce((sum, item) => sum + item.suggestedQuantity, 0),
+          nextActionDate: items[0]?.actionDate ?? null
+        };
+      })
+      .filter((item) => item.itemsCount > 0);
     const stockoutRiskItems = stockCoverage.filter(
       (item) => item.coverageDays !== null && item.coverageDays <= 14
     );
@@ -767,6 +823,8 @@ export class DashboardService {
         itemsInPlan: purchaseSuggestions.length
       },
       budgetScenarios,
+      operationalAgenda,
+      replenishmentSchedule: replenishmentSchedule.slice(0, 10),
       customerInsights: {
         totalCustomers: customers.length,
         repeatCustomers: repeatCustomers.length,

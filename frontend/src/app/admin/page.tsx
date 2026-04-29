@@ -17,6 +17,8 @@ export default async function AdminDashboardPage() {
   const monthlyPurchasePlan = dashboard?.monthlyPurchasePlan ?? [];
   const purchasePlanSummary = dashboard?.purchasePlanSummary ?? [];
   const budgetScenarios = dashboard?.budgetScenarios ?? [];
+  const operationalAgenda = dashboard?.operationalAgenda ?? [];
+  const replenishmentSchedule = dashboard?.replenishmentSchedule ?? [];
   const customerHighlights = dashboard?.customerHighlights ?? [];
   const customerCohorts = dashboard?.customerCohorts ?? [];
   const topRecurringCustomers = dashboard?.topRecurringCustomers ?? [];
@@ -527,6 +529,103 @@ export default async function AdminDashboardPage() {
               ) : (
                 <div className="mt-6 rounded-[1.5rem] border border-espresso/10 bg-sand/35 p-4 text-sm text-espresso/70">
                   Ainda nao ha dados suficientes para simular cenarios de orcamento.
+                </div>
+              )}
+            </section>
+          </div>
+
+          <div className="grid gap-5 lg:grid-cols-[0.95fr_1.05fr]">
+            <section className="rounded-[2rem] border border-espresso/10 bg-white/80 p-6 shadow-soft">
+              <p className="text-xs uppercase tracking-[0.3em] text-terracotta">
+                Agenda operacional
+              </p>
+              <h2 className="mt-2 font-display text-3xl">Prioridades por janela</h2>
+
+              {operationalAgenda.length > 0 ? (
+                <div className="mt-6 space-y-3">
+                  {operationalAgenda.map((item) => (
+                    <div
+                      key={item.priority}
+                      className="rounded-[1.5rem] border border-espresso/10 bg-sand/35 p-4"
+                    >
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <p className="font-medium">{item.label}</p>
+                          <p className="mt-1 text-sm text-espresso/60">
+                            {item.itemsCount} SKUs / {item.suggestedUnits} un.
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-medium">{item.priority}</p>
+                          <p className="mt-1 text-sm text-moss">
+                            {item.estimatedPurchaseCost.toLocaleString("pt-BR", {
+                              style: "currency",
+                              currency: "BRL"
+                            })}
+                          </p>
+                        </div>
+                      </div>
+                      <p className="mt-3 text-sm text-espresso/65">
+                        {item.nextActionDate
+                          ? `Proxima acao sugerida em ${item.nextActionDate}`
+                          : "Sem data imediata sugerida"}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="mt-6 rounded-[1.5rem] border border-espresso/10 bg-sand/35 p-4 text-sm text-espresso/70">
+                  Ainda nao ha agenda operacional de reposicao para montar.
+                </div>
+              )}
+            </section>
+
+            <section className="rounded-[2rem] border border-espresso/10 bg-white/80 p-6 shadow-soft">
+              <p className="text-xs uppercase tracking-[0.3em] text-terracotta">
+                Calendario
+              </p>
+              <h2 className="mt-2 font-display text-3xl">Reposicoes sugeridas</h2>
+
+              {replenishmentSchedule.length > 0 ? (
+                <div className="mt-6 space-y-3">
+                  {replenishmentSchedule.map((item) => (
+                    <div
+                      key={item.id}
+                      className="rounded-[1.5rem] border border-espresso/10 bg-sand/35 p-4"
+                    >
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <p className="font-medium">{item.name}</p>
+                          <p className="mt-1 text-sm text-espresso/60">
+                            {item.category} / {item.actionWindowLabel}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-medium">{item.actionDate}</p>
+                          <p className="mt-1 text-sm text-terracotta">{item.priority}</p>
+                        </div>
+                      </div>
+                      <p className="mt-3 text-sm text-espresso/65">
+                        Comprar {item.suggestedQuantity} un. / investimento de{" "}
+                        {item.estimatedPurchaseCost.toLocaleString("pt-BR", {
+                          style: "currency",
+                          currency: "BRL"
+                        })}
+                      </p>
+                      <p className="mt-2 text-sm text-moss">
+                        {item.coverageDays !== undefined
+                          ? `Cobertura atual ${Math.round(item.coverageDays)} dias`
+                          : "Cobertura atual indisponivel"}
+                        {item.projectedCoverageDays !== undefined
+                          ? ` / cobertura apos reposicao ${Math.round(item.projectedCoverageDays)} dias`
+                          : ""}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="mt-6 rounded-[1.5rem] border border-espresso/10 bg-sand/35 p-4 text-sm text-espresso/70">
+                  Ainda nao ha reposicoes sugeridas para montar calendario.
                 </div>
               )}
             </section>

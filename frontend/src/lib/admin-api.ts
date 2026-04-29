@@ -183,6 +183,26 @@ type DashboardResponse = {
     coverageShare: number;
     prioritiesCovered: string[];
   }>;
+  operationalAgenda: Array<{
+    priority: string;
+    label: string;
+    itemsCount: number;
+    estimatedPurchaseCost: number;
+    suggestedUnits: number;
+    nextActionDate: string | null;
+  }>;
+  replenishmentSchedule: Array<{
+    productId: string;
+    productName: string;
+    categoryName: string;
+    priority: string;
+    suggestedQuantity: number;
+    estimatedPurchaseCost: number;
+    coverageDays: number | null;
+    projectedCoverageDays: number | null;
+    actionDate: string;
+    actionWindowLabel: string;
+  }>;
   customerInsights: {
     totalCustomers: number;
     repeatCustomers: number;
@@ -571,6 +591,26 @@ export type AdminDashboardData = {
     averageCoverageGain: number;
     coverageShare: number;
     prioritiesCovered: string[];
+  }>;
+  operationalAgenda: Array<{
+    priority: string;
+    label: string;
+    itemsCount: number;
+    estimatedPurchaseCost: number;
+    suggestedUnits: number;
+    nextActionDate?: string;
+  }>;
+  replenishmentSchedule: Array<{
+    id: string;
+    name: string;
+    category: string;
+    priority: string;
+    suggestedQuantity: number;
+    estimatedPurchaseCost: number;
+    coverageDays?: number;
+    projectedCoverageDays?: number;
+    actionDate: string;
+    actionWindowLabel: string;
   }>;
   customerHighlights: Array<{
     label: string;
@@ -1190,6 +1230,26 @@ export async function getAdminDashboardMetrics(): Promise<AdminDashboardData> {
       }
     ],
     budgetScenarios: data.budgetScenarios,
+    operationalAgenda: data.operationalAgenda.map((item) => ({
+      priority: item.priority,
+      label: item.label,
+      itemsCount: item.itemsCount,
+      estimatedPurchaseCost: item.estimatedPurchaseCost,
+      suggestedUnits: item.suggestedUnits,
+      nextActionDate: item.nextActionDate ? formatDate(item.nextActionDate) : undefined
+    })),
+    replenishmentSchedule: data.replenishmentSchedule.map((item) => ({
+      id: item.productId,
+      name: item.productName,
+      category: item.categoryName,
+      priority: item.priority,
+      suggestedQuantity: item.suggestedQuantity,
+      estimatedPurchaseCost: item.estimatedPurchaseCost,
+      coverageDays: item.coverageDays ?? undefined,
+      projectedCoverageDays: item.projectedCoverageDays ?? undefined,
+      actionDate: formatDate(item.actionDate),
+      actionWindowLabel: item.actionWindowLabel
+    })),
     customerHighlights: [
       {
         label: "Clientes recorrentes",
