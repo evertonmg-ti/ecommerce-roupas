@@ -379,6 +379,93 @@ export class DashboardService {
 
         return leftCoverage - rightCoverage;
       });
+    const purchaseSuggestions = stockCoverage
+      .filter((item) => item.averageDailySales > 0)
+      .map((item) => {
+        const targetCoverageDays = item.averageDailySales >= 1 ? 30 : 21;
+        const suggestedQuantity = Math.max(
+          0,
+          Math.ceil(item.averageDailySales * targetCoverageDays - item.currentStock)
+        );
+
+        return {
+          productId: item.productId,
+          productName: item.productName,
+          categoryName: item.categoryName,
+          currentStock: item.currentStock,
+          quantitySold30d: item.quantitySold30d,
+          averageDailySales: item.averageDailySales,
+          coverageDays: item.coverageDays,
+          targetCoverageDays,
+          suggestedQuantity,
+          priority:
+            item.coverageDays !== null && item.coverageDays <= 7
+              ? "CRITICAL"
+              : item.coverageDays !== null && item.coverageDays <= 14
+                ? "HIGH"
+                : item.coverageDays !== null && item.coverageDays <= 30
+                  ? "MEDIUM"
+                  : "LOW"
+        };
+      })
+      .filter((item) => item.suggestedQuantity > 0)
+      .sort((left, right) => {
+        const leftCoverage = left.coverageDays ?? Number.POSITIVE_INFINITY;
+        const rightCoverage = right.coverageDays ?? Number.POSITIVE_INFINITY;
+
+        if (leftCoverage !== rightCoverage) {
+          return leftCoverage - rightCoverage;
+        }
+
+        return right.suggestedQuantity - left.suggestedQuantity;
+      });
+    const replenishmentCategoryMap = new Map<
+      string,
+      {
+        categoryName: string;
+        productsAtRisk: number;
+        totalSuggestedUnits: number;
+        totalCurrentStock: number;
+        totalCoverageDays: number;
+        coveredProducts: number;
+        highestPriority: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+      }
+    >();
+
+    for (const item of purchaseSuggestions) {
+      const existing = replenishmentCategoryMap.get(item.categoryName);
+
+      replenishmentCategoryMap.set(item.categoryName, {
+        categoryName: item.categoryName,
+        productsAtRisk: (existing?.productsAtRisk ?? 0) + 1,
+        totalSuggestedUnits: (existing?.totalSuggestedUnits ?? 0) + item.suggestedQuantity,
+        totalCurrentStock: (existing?.totalCurrentStock ?? 0) + item.currentStock,
+        totalCoverageDays: (existing?.totalCoverageDays ?? 0) + (item.coverageDays ?? 0),
+        coveredProducts: (existing?.coveredProducts ?? 0) + (item.coverageDays !== null ? 1 : 0),
+        highestPriority: this.maxPriority(existing?.highestPriority, item.priority)
+      });
+    }
+
+    const replenishmentByCategory = Array.from(replenishmentCategoryMap.values())
+      .map((item) => ({
+        categoryName: item.categoryName,
+        productsAtRisk: item.productsAtRisk,
+        totalSuggestedUnits: item.totalSuggestedUnits,
+        totalCurrentStock: item.totalCurrentStock,
+        averageCoverageDays:
+          item.coveredProducts > 0 ? item.totalCoverageDays / item.coveredProducts : null,
+        priority: item.highestPriority
+      }))
+      .sort((left, right) => {
+        const priorityDelta =
+          this.priorityWeight(right.priority) - this.priorityWeight(left.priority);
+
+        if (priorityDelta !== 0) {
+          return priorityDelta;
+        }
+
+        return right.totalSuggestedUnits - left.totalSuggestedUnits;
+      });
     const stockoutRiskItems = stockCoverage.filter(
       (item) => item.coverageDays !== null && item.coverageDays <= 14
     );
@@ -563,6 +650,8 @@ export class DashboardService {
       executiveAlerts,
       predictiveAlerts,
       stockCoverage: stockCoverage.slice(0, 8),
+      replenishmentByCategory: replenishmentByCategory.slice(0, 6),
+      purchaseSuggestions: purchaseSuggestions.slice(0, 8),
       customerInsights: {
         totalCustomers: customers.length,
         repeatCustomers: repeatCustomers.length,
@@ -585,6 +674,31 @@ export class DashboardService {
       style: "currency",
       currency: "BRL"
     }).format(value);
+  }
+
+  private priorityWeight(priority: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL") {
+    switch (priority) {
+      case "CRITICAL":
+        return 4;
+      case "HIGH":
+        return 3;
+      case "MEDIUM":
+        return 2;
+      case "LOW":
+      default:
+        return 1;
+    }
+  }
+
+  private maxPriority(
+    current: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL" | undefined,
+    next: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL"
+  ) {
+    if (!current) {
+      return next;
+    }
+
+    return this.priorityWeight(next) > this.priorityWeight(current) ? next : current;
   }
 
   private buildRevenueCurve(

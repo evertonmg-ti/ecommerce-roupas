@@ -12,6 +12,8 @@ export default async function AdminDashboardPage() {
   const executiveAlerts = dashboard?.executiveAlerts ?? [];
   const predictiveAlerts = dashboard?.predictiveAlerts ?? [];
   const stockCoverage = dashboard?.stockCoverage ?? [];
+  const replenishmentByCategory = dashboard?.replenishmentByCategory ?? [];
+  const purchaseSuggestions = dashboard?.purchaseSuggestions ?? [];
   const customerHighlights = dashboard?.customerHighlights ?? [];
   const customerCohorts = dashboard?.customerCohorts ?? [];
   const topRecurringCustomers = dashboard?.topRecurringCustomers ?? [];
@@ -231,8 +233,8 @@ export default async function AdminDashboardPage() {
                         </div>
                       </div>
                       <p className="mt-3 text-sm text-espresso/65">
-                        {item.quantitySold30d} un. vendidas em 30d ·{" "}
-                        {item.averageDailySales.toFixed(1)} un./dia ·{" "}
+                        {item.quantitySold30d} un. vendidas em 30d /{" "}
+                        {item.averageDailySales.toFixed(1)} un./dia /{" "}
                         {item.revenue30d.toLocaleString("pt-BR", {
                           style: "currency",
                           currency: "BRL"
@@ -304,6 +306,89 @@ export default async function AdminDashboardPage() {
               </div>
             )}
           </section>
+
+          <div className="grid gap-5 lg:grid-cols-[0.95fr_1.05fr]">
+            <section className="rounded-[2rem] border border-espresso/10 bg-white/80 p-6 shadow-soft">
+              <p className="text-xs uppercase tracking-[0.3em] text-terracotta">
+                Reposicao por categoria
+              </p>
+              <h2 className="mt-2 font-display text-3xl">Prioridades de compra</h2>
+
+              {replenishmentByCategory.length > 0 ? (
+                <div className="mt-6 space-y-3">
+                  {replenishmentByCategory.map((item) => (
+                    <div
+                      key={item.category}
+                      className="rounded-[1.5rem] border border-espresso/10 bg-sand/35 p-4"
+                    >
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <p className="font-medium">{item.category}</p>
+                          <p className="mt-1 text-sm text-espresso/60">
+                            {item.productsAtRisk} produtos com risco de reposicao
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-medium">{item.totalSuggestedUnits} un. sugeridas</p>
+                          <p className="mt-1 text-sm text-terracotta">{item.priority}</p>
+                        </div>
+                      </div>
+                      <p className="mt-3 text-sm text-espresso/65">
+                        Estoque atual de {item.totalCurrentStock} un.
+                        {item.averageCoverageDays !== undefined
+                          ? ` / cobertura media de ${Math.round(item.averageCoverageDays)} dias`
+                          : ""}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="mt-6 rounded-[1.5rem] border border-espresso/10 bg-sand/35 p-4 text-sm text-espresso/70">
+                  Nenhuma categoria exige reposicao preventiva neste momento.
+                </div>
+              )}
+            </section>
+
+            <section className="rounded-[2rem] border border-espresso/10 bg-white/80 p-6 shadow-soft">
+              <p className="text-xs uppercase tracking-[0.3em] text-terracotta">
+                Sugestao de compra
+              </p>
+              <h2 className="mt-2 font-display text-3xl">Pedido sugerido por SKU</h2>
+
+              {purchaseSuggestions.length > 0 ? (
+                <div className="mt-6 space-y-3">
+                  {purchaseSuggestions.map((item) => (
+                    <div
+                      key={item.id}
+                      className="rounded-[1.5rem] border border-espresso/10 bg-sand/35 p-4"
+                    >
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <p className="font-medium">{item.name}</p>
+                          <p className="mt-1 text-sm text-espresso/60">{item.category}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-medium">{item.suggestedQuantity} un. sugeridas</p>
+                          <p className="mt-1 text-sm text-terracotta">{item.priority}</p>
+                        </div>
+                      </div>
+                      <p className="mt-3 text-sm text-espresso/65">
+                        Estoque atual {item.currentStock} / alvo de {item.targetCoverageDays} dias /
+                        giro de {item.averageDailySales.toFixed(1)} un./dia
+                        {item.coverageDays !== undefined
+                          ? ` / cobertura atual ${Math.round(item.coverageDays)} dias`
+                          : ""}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="mt-6 rounded-[1.5rem] border border-espresso/10 bg-sand/35 p-4 text-sm text-espresso/70">
+                  Nenhum SKU exige compra sugerida com base no giro recente.
+                </div>
+              )}
+            </section>
+          </div>
 
           <section className="rounded-[2rem] border border-espresso/10 bg-white/80 p-6 shadow-soft">
             <p className="text-xs uppercase tracking-[0.3em] text-terracotta">

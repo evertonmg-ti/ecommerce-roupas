@@ -131,6 +131,26 @@ type DashboardResponse = {
     revenue30d: number;
     coverageDays: number | null;
   }>;
+  replenishmentByCategory: Array<{
+    categoryName: string;
+    productsAtRisk: number;
+    totalSuggestedUnits: number;
+    totalCurrentStock: number;
+    averageCoverageDays: number | null;
+    priority: string;
+  }>;
+  purchaseSuggestions: Array<{
+    productId: string;
+    productName: string;
+    categoryName: string;
+    currentStock: number;
+    quantitySold30d: number;
+    averageDailySales: number;
+    coverageDays: number | null;
+    targetCoverageDays: number;
+    suggestedQuantity: number;
+    priority: string;
+  }>;
   customerInsights: {
     totalCustomers: number;
     repeatCustomers: number;
@@ -468,6 +488,26 @@ export type AdminDashboardData = {
     averageDailySales: number;
     revenue30d: number;
     coverageDays?: number;
+  }>;
+  replenishmentByCategory: Array<{
+    category: string;
+    productsAtRisk: number;
+    totalSuggestedUnits: number;
+    totalCurrentStock: number;
+    averageCoverageDays?: number;
+    priority: string;
+  }>;
+  purchaseSuggestions: Array<{
+    id: string;
+    name: string;
+    category: string;
+    currentStock: number;
+    quantitySold30d: number;
+    averageDailySales: number;
+    coverageDays?: number;
+    targetCoverageDays: number;
+    suggestedQuantity: number;
+    priority: string;
   }>;
   customerHighlights: Array<{
     label: string;
@@ -1028,6 +1068,26 @@ export async function getAdminDashboardMetrics(): Promise<AdminDashboardData> {
       averageDailySales: item.averageDailySales,
       revenue30d: item.revenue30d,
       coverageDays: item.coverageDays ?? undefined
+    })),
+    replenishmentByCategory: data.replenishmentByCategory.map((item) => ({
+      category: item.categoryName,
+      productsAtRisk: item.productsAtRisk,
+      totalSuggestedUnits: item.totalSuggestedUnits,
+      totalCurrentStock: item.totalCurrentStock,
+      averageCoverageDays: item.averageCoverageDays ?? undefined,
+      priority: item.priority
+    })),
+    purchaseSuggestions: data.purchaseSuggestions.map((item) => ({
+      id: item.productId,
+      name: item.productName,
+      category: item.categoryName,
+      currentStock: item.currentStock,
+      quantitySold30d: item.quantitySold30d,
+      averageDailySales: item.averageDailySales,
+      coverageDays: item.coverageDays ?? undefined,
+      targetCoverageDays: item.targetCoverageDays,
+      suggestedQuantity: item.suggestedQuantity,
+      priority: item.priority
     })),
     customerHighlights: [
       {
