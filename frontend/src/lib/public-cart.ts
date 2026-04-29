@@ -91,12 +91,14 @@ export function reconcileCartWithAvailability(
   currentItems: CartItem[],
   availability: ApiAvailabilityResponse
 ): CartAvailabilityResult {
-  const currentMap = new Map(currentItems.map((item) => [item.id, item]));
+  const currentMap = new Map(
+    currentItems.map((item) => [`${item.productId}:${item.variantId ?? "base"}`, item])
+  );
   const nextItems: CartItem[] = [];
   const issues: CartAvailabilityIssue[] = [];
 
   for (const item of availability.items) {
-    const current = currentMap.get(item.productId);
+    const current = currentMap.get(`${item.productId}:${item.variantId ?? "base"}`);
     const name = item.product?.name ?? current?.name ?? "Produto";
 
     if (!current) {
@@ -128,7 +130,7 @@ export function reconcileCartWithAvailability(
     }
 
     nextItems.push({
-      id: item.product.id,
+      id: item.variant?.id ?? item.product.id,
       productId: item.product.id,
       variantId: item.variant?.id,
       sku: item.variant?.sku ?? current.sku,

@@ -120,10 +120,36 @@ model User {
   role         Role     @default(CUSTOMER)
   orders       Order[]
   addresses    CustomerAddress[]
+  savedCart    SavedCart?
   inventoryMovements InventoryMovement[]
   passwordResetTokens PasswordResetToken[]
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+}
+
+model SavedCart {
+  id        String          @id @default(cuid())
+  userId    String          @unique
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items     SavedCartItem[]
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+}
+
+model SavedCartItem {
+  id        String          @id @default(cuid())
+  cartId    String
+  productId String
+  variantId String?
+  quantity  Int
+  cart      SavedCart       @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product   Product         @relation(fields: [productId], references: [id])
+  variant   ProductVariant? @relation(fields: [variantId], references: [id])
+  createdAt DateTime        @default(now())
+
+  @@index([cartId])
+  @@index([productId])
+  @@index([variantId])
 }
 
 model CustomerAddress {
@@ -203,6 +229,7 @@ model Product {
   category    Category      @relation(fields: [categoryId], references: [id])
   variants    ProductVariant[]
   orderItems  OrderItem[]
+  savedCartItems SavedCartItem[]
   inventoryMovements InventoryMovement[]
   backInStockSubscriptions BackInStockSubscription[]
   createdAt   DateTime      @default(now())
@@ -223,6 +250,7 @@ model ProductVariant {
   isDefault     Boolean   @default(false)
   product       Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
   orderItems    OrderItem[]
+  savedCartItems SavedCartItem[]
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 

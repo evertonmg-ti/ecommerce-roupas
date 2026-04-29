@@ -19,6 +19,7 @@ import { currency } from "@/lib/utils";
 export function CartPageClient() {
   const {
     items,
+    isSyncing,
     removeItem,
     replaceItems,
     totalPrice,
@@ -114,7 +115,10 @@ export function CartPageClient() {
         email: checkoutEmail,
         customerName: checkoutName || undefined,
         items: items.map((item) => ({
-          productId: item.id,
+          productId: item.productId,
+          variantId: item.variantId,
+          variantSku: item.sku,
+          variantLabel: item.variantLabel,
           productName: item.name,
           productSlug: item.slug,
           imageUrl: item.imageUrl,
@@ -161,6 +165,11 @@ export function CartPageClient() {
         <div>
           <p className="text-xs uppercase tracking-[0.3em] text-terracotta">Carrinho</p>
           <h1 className="mt-3 font-display text-5xl">Itens selecionados</h1>
+          {isSyncing ? (
+            <p className="mt-2 text-sm text-espresso/60">
+              Sincronizando carrinho com sua conta...
+            </p>
+          ) : null}
         </div>
         {availabilityIssues.length > 0 ? (
           <div className="rounded-[1.5rem] border border-terracotta/20 bg-terracotta/10 p-4 text-sm text-terracotta">
@@ -189,6 +198,12 @@ export function CartPageClient() {
                     {item.category}
                   </p>
                   <h2 className="mt-2 font-display text-3xl">{item.name}</h2>
+                  {item.variantLabel ? (
+                    <p className="mt-2 text-sm text-espresso/60">
+                      Variacao: {item.variantLabel}
+                      {item.sku ? ` - SKU ${item.sku}` : ""}
+                    </p>
+                  ) : null}
                   <p className="mt-2 text-sm text-espresso/60">
                     Estoque disponivel: {item.stock}
                   </p>

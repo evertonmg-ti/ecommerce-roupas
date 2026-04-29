@@ -74,6 +74,10 @@ export default async function CustomerAccountPage({
               <p className="text-xs uppercase tracking-[0.25em] text-terracotta">
                 Perfil
               </p>
+              <p className="mt-3 text-sm text-espresso/65">
+                Seu carrinho autenticado agora sincroniza automaticamente entre dispositivos
+                enquanto esta sessao estiver ativa.
+              </p>
               <form action={updateCustomerProfileAction} className="mt-6 space-y-4">
                 <label className="block space-y-2 text-sm">
                   <span>Nome</span>

@@ -3,10 +3,11 @@ import {
   Injectable,
   NotFoundException
 } from "@nestjs/common";
-import { Role } from "@prisma/client";
+import { ProductStatus, Role } from "@prisma/client";
 import * as bcrypt from "bcryptjs";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreateUserDto } from "./dto/create-user.dto";
+import { SaveCurrentUserCartDto } from "./dto/save-current-user-cart.dto";
 import { SaveCustomerAddressDto } from "./dto/save-customer-address.dto";
 import { UpdateCurrentUserDto } from "./dto/update-current-user.dto";
 import { UpdateUserDto } from "./dto/update-user.dto";
@@ -96,6 +97,123 @@ export class UsersService {
       where: { userId },
       orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }]
     });
+  }
+
+  async getCurrentUserCart(userId: string) {
+    await this.ensureExists(userId);
+
+    const cart = await this.prisma.savedCart.findUnique({
+      where: { userId },
+      include: {
+        items: {
+          orderBy: { createdAt: "asc" },
+          include: {
+            product: {
+              include: {
+                category: true
+              }
+            },
+            variant: true
+          }
+        }
+      }
+    });
+
+    return {
+      items:
+        cart?.items
+          .filter((item) => item.product.status !== ProductStatus.ARCHIVED)
+          .map((item) => ({
+            id: item.variant?.id ?? item.product.id,
+            productId: item.product.id,
+            variantId: item.variant?.id ?? undefined,
+            sku: item.variant?.sku ?? undefined,
+            variantLabel: item.variant?.optionLabel ?? undefined,
+            name: item.product.name,
+            slug: item.product.slug,
+            price: Number(item.variant?.priceOverride ?? item.product.price),
+            imageUrl: item.variant?.imageUrl ?? item.product.imageUrl ?? undefined,
+            category: item.product.category.name,
+            stock: item.variant?.stock ?? item.product.stock,
+            quantity: item.quantity
+          })) ?? [],
+      updatedAt: cart?.updatedAt ?? null
+    };
+  }
+
+  async replaceCurrentUserCart(userId: string, payload: SaveCurrentUserCartDto) {
+    await this.ensureExists(userId);
+
+    const normalizedItems = this.normalizeCartItems(payload.items);
+    const productIds = normalizedItems.map((item) => item.productId);
+    const products = productIds.length
+      ? await this.prisma.product.findMany({
+          where: {
+            id: { in: productIds }
+          },
+          include: {
+            variants: true
+          }
+        })
+      : [];
+    const productMap = new Map(products.map((product) => [product.id, product]));
+    const validItems = normalizedItems.filter((item) => {
+      const product = productMap.get(item.productId);
+
+      if (!product || product.status === ProductStatus.ARCHIVED) {
+        return false;
+      }
+
+      if (!item.variantId) {
+        return true;
+      }
+
+      return product.variants.some((variant) => variant.id === item.variantId);
+    });
+
+    await this.prisma.$transaction(async (tx) => {
+      const cart = await tx.savedCart.upsert({
+        where: { userId },
+        update: {},
+        create: { userId }
+      });
+
+      await tx.savedCartItem.deleteMany({
+        where: { cartId: cart.id }
+      });
+
+      if (validItems.length > 0) {
+        await tx.savedCartItem.createMany({
+          data: validItems.map((item) => ({
+            cartId: cart.id,
+            productId: item.productId,
+            variantId: item.variantId,
+            quantity: item.quantity
+          }))
+        });
+      }
+    });
+
+    return this.getCurrentUserCart(userId);
+  }
+
+  async clearCurrentUserCart(userId: string) {
+    await this.ensureExists(userId);
+
+    const cart = await this.prisma.savedCart.findUnique({
+      where: { userId },
+      select: { id: true }
+    });
+
+    if (!cart) {
+      return { success: true };
+    }
+
+    await this.prisma.savedCartItem.deleteMany({
+      where: { cartId: cart.id }
+    });
+
+    return { success: true };
   }
 
   async createCurrentUserAddress(userId: string, payload: SaveCustomerAddressDto) {
@@ -308,6 +426,34 @@ export class UsersService {
     }
 
     return address;
+  }
+
+  private normalizeCartItems(items: SaveCurrentUserCartDto["items"]) {
+    const grouped = new Map<
+      string,
+      { productId: string; variantId?: string; quantity: number }
+    >();
+
+    for (const item of items) {
+      const productId = item.productId.trim();
+      const variantId = item.variantId?.trim() || undefined;
+      const quantity = Math.trunc(Number(item.quantity));
+
+      if (!productId || !Number.isFinite(quantity) || quantity < 1) {
+        continue;
+      }
+
+      const key = `${productId}:${variantId ?? "base"}`;
+      const current = grouped.get(key);
+
+      grouped.set(key, {
+        productId,
+        variantId,
+        quantity: (current?.quantity ?? 0) + quantity
+      });
+    }
+
+    return Array.from(grouped.values());
   }
 
   private normalizeAddressPayload(payload: SaveCustomerAddressDto, isDefault?: boolean) {

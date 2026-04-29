@@ -21,15 +21,19 @@ type ProductPurchaseActionsProps = {
       isDefault?: boolean;
     }>;
   };
+  selectedVariantId?: string;
+  onVariantChange?: (variantId: string) => void;
 };
 
 export function ProductPurchaseActions({
-  product
+  product,
+  selectedVariantId: controlledVariantId,
+  onVariantChange
 }: ProductPurchaseActionsProps) {
   const { addItem } = useCart();
   const initialVariant =
     product.variants?.find((variant) => variant.isDefault) ?? product.variants?.[0];
-  const [selectedVariantId, setSelectedVariantId] = useState(initialVariant?.id ?? "");
+  const [uncontrolledVariantId, setUncontrolledVariantId] = useState(initialVariant?.id ?? "");
   const [added, setAdded] = useState(false);
   const [quantity, setQuantity] = useState(1);
   const [notifyEmail, setNotifyEmail] = useState("");
@@ -37,6 +41,7 @@ export function ProductPurchaseActions({
     type: "idle" | "success" | "error";
     message?: string;
   }>({ type: "idle" });
+  const selectedVariantId = controlledVariantId ?? uncontrolledVariantId;
   const selectedVariant = product.variants?.find(
     (variant) => variant.id === selectedVariantId
   );
@@ -44,6 +49,16 @@ export function ProductPurchaseActions({
   const effectivePrice = selectedVariant?.price ?? product.price;
   const isUnavailable = effectiveStock < 1;
   const maxQuantity = Math.max(effectiveStock, 1);
+
+  function handleVariantChange(variantId: string) {
+    if (onVariantChange) {
+      onVariantChange(variantId);
+    } else {
+      setUncontrolledVariantId(variantId);
+    }
+
+    setQuantity(1);
+  }
 
   function handleAdd() {
     if (isUnavailable) {
@@ -141,10 +156,7 @@ export function ProductPurchaseActions({
               <span>Variacao</span>
               <select
                 value={selectedVariantId}
-                onChange={(event) => {
-                  setSelectedVariantId(event.target.value);
-                  setQuantity(1);
-                }}
+                onChange={(event) => handleVariantChange(event.target.value)}
                 className="w-full rounded-[1.5rem] border border-espresso/10 bg-sand/40 px-4 py-3"
               >
                 {product.variants.map((variant) => (

@@ -940,6 +940,12 @@ export function CheckoutClient() {
               <div key={item.id} className="flex items-start justify-between gap-4 text-sm">
                 <div>
                   <p className="font-medium">{item.name}</p>
+                  {item.variantLabel ? (
+                    <p className="mt-1 text-xs text-espresso/55">
+                      {item.variantLabel}
+                      {item.sku ? ` - SKU ${item.sku}` : ""}
+                    </p>
+                  ) : null}
                   <p className="mt-1 text-espresso/60">
                     {item.quantity} x {currency(item.price)}
                   </p>

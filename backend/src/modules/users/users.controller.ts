@@ -14,6 +14,7 @@ import { Roles } from "../../common/decorators/roles.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { RolesGuard } from "../../common/guards/roles.guard";
 import { CreateUserDto } from "./dto/create-user.dto";
+import { SaveCurrentUserCartDto } from "./dto/save-current-user-cart.dto";
 import { SaveCustomerAddressDto } from "./dto/save-customer-address.dto";
 import { UpdateCurrentUserDto } from "./dto/update-current-user.dto";
 import { UpdateUserDto } from "./dto/update-user.dto";
@@ -56,6 +57,27 @@ export class UsersController {
   @UseGuards(JwtAuthGuard)
   listCurrentUserAddresses(@CurrentUser() user: { id: string }) {
     return this.usersService.listCurrentUserAddresses(user.id);
+  }
+
+  @Get("me/cart")
+  @UseGuards(JwtAuthGuard)
+  getCurrentUserCart(@CurrentUser() user: { id: string }) {
+    return this.usersService.getCurrentUserCart(user.id);
+  }
+
+  @Patch("me/cart")
+  @UseGuards(JwtAuthGuard)
+  replaceCurrentUserCart(
+    @CurrentUser() user: { id: string },
+    @Body() payload: SaveCurrentUserCartDto
+  ) {
+    return this.usersService.replaceCurrentUserCart(user.id, payload);
+  }
+
+  @Delete("me/cart")
+  @UseGuards(JwtAuthGuard)
+  clearCurrentUserCart(@CurrentUser() user: { id: string }) {
+    return this.usersService.clearCurrentUserCart(user.id);
   }
 
   @Post("me/addresses")
