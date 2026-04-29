@@ -146,6 +146,21 @@ export default async function CustomerOrdersPage({
                 </div>
 
                 <div className="mt-4 rounded-[1.25rem] border border-espresso/10 bg-white/50 p-4 text-sm text-espresso/70">
+                  {order.recipientName ? (
+                    <p>
+                      <strong>Destinatario:</strong> {order.recipientName}
+                    </p>
+                  ) : null}
+                  {order.customerDocument ? (
+                    <p className="mt-2">
+                      <strong>Documento:</strong> {order.customerDocument}
+                    </p>
+                  ) : null}
+                  {order.customerPhone ? (
+                    <p className="mt-2">
+                      <strong>Telefone:</strong> {order.customerPhone}
+                    </p>
+                  ) : null}
                   <p>
                     <strong>Pagamento:</strong> {order.paymentMethod}
                   </p>
@@ -159,7 +174,9 @@ export default async function CustomerOrdersPage({
                   ) : null}
                   <p className="mt-2">
                     <strong>Endereco:</strong> {order.shippingAddress}
-                    {order.shippingAddress2 ? `, ${order.shippingAddress2}` : ""} -{" "}
+                    {order.shippingNumber ? `, ${order.shippingNumber}` : ""}
+                    {order.shippingAddress2 ? `, ${order.shippingAddress2}` : ""}
+                    {order.shippingNeighborhood ? ` - ${order.shippingNeighborhood}` : ""} -{" "}
                     {order.shippingCity}/{order.shippingState} - CEP {order.shippingPostalCode}
                   </p>
                   {order.notes ? (

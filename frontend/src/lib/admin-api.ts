@@ -121,8 +121,13 @@ type OrderResponse = {
   status: string;
   paymentMethod: string;
   shippingMethod: string;
+  recipientName?: string | null;
+  customerDocument?: string | null;
+  customerPhone?: string | null;
   shippingAddress: string;
+  shippingNumber?: string | null;
   shippingAddress2?: string | null;
+  shippingNeighborhood?: string | null;
   shippingCity: string;
   shippingState: string;
   shippingPostalCode: string;
@@ -269,8 +274,13 @@ export type AdminOrder = {
   status: string;
   paymentMethod: string;
   shippingMethod: string;
+  recipientName?: string;
+  customerDocument?: string;
+  customerPhone?: string;
   shippingAddress: string;
+  shippingNumber?: string;
   shippingAddress2?: string;
+  shippingNeighborhood?: string;
   shippingCity: string;
   shippingState: string;
   shippingPostalCode: string;
@@ -631,8 +641,13 @@ function normalizeAdminOrder(order: OrderResponse): AdminOrder {
     status: order.status,
     paymentMethod: order.paymentMethod,
     shippingMethod: order.shippingMethod,
+    recipientName: order.recipientName ?? undefined,
+    customerDocument: order.customerDocument ?? undefined,
+    customerPhone: order.customerPhone ?? undefined,
     shippingAddress: order.shippingAddress,
+    shippingNumber: order.shippingNumber ?? undefined,
     shippingAddress2: order.shippingAddress2 ?? undefined,
+    shippingNeighborhood: order.shippingNeighborhood ?? undefined,
     shippingCity: order.shippingCity,
     shippingState: order.shippingState,
     shippingPostalCode: order.shippingPostalCode,
@@ -811,8 +826,13 @@ export type CustomerOrder = {
   status: string;
   paymentMethod: string;
   shippingMethod: string;
+  recipientName?: string;
+  customerDocument?: string;
+  customerPhone?: string;
   shippingAddress: string;
+  shippingNumber?: string;
   shippingAddress2?: string;
+  shippingNeighborhood?: string;
   shippingCity: string;
   shippingState: string;
   shippingPostalCode: string;
@@ -860,8 +880,13 @@ export async function lookupCustomerOrders(email: string): Promise<CustomerOrder
     status: order.status,
     paymentMethod: order.paymentMethod,
     shippingMethod: order.shippingMethod,
+    recipientName: order.recipientName ?? undefined,
+    customerDocument: order.customerDocument ?? undefined,
+    customerPhone: order.customerPhone ?? undefined,
     shippingAddress: order.shippingAddress,
+    shippingNumber: order.shippingNumber ?? undefined,
     shippingAddress2: order.shippingAddress2 ?? undefined,
+    shippingNeighborhood: order.shippingNeighborhood ?? undefined,
     shippingCity: order.shippingCity,
     shippingState: order.shippingState,
     shippingPostalCode: order.shippingPostalCode,

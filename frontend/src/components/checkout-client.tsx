@@ -5,6 +5,14 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useCart } from "@/components/cart-provider";
 import { CheckoutProfile, emptyCheckoutProfile } from "@/lib/checkout-profile";
 import { getCartSnapshotKey } from "@/lib/cart";
+import {
+  digitsOnly,
+  formatDocument,
+  formatPhone,
+  formatPostalCode,
+  isValidCpfOrCnpj,
+  isValidPhone
+} from "@/lib/checkout-formatters";
 import { validateCoupon } from "@/lib/public-coupons";
 import {
   CartAvailabilityIssue,
@@ -235,10 +243,15 @@ export function CheckoutClient() {
     const formData = new FormData(event.currentTarget);
     const customerName = String(formData.get("customerName") ?? "").trim();
     const customerEmail = String(formData.get("customerEmail") ?? "").trim();
+    const recipientName = String(formData.get("recipientName") ?? "").trim();
+    const customerDocument = String(formData.get("customerDocument") ?? "").trim();
+    const customerPhone = String(formData.get("customerPhone") ?? "").trim();
     const paymentMethod = String(formData.get("paymentMethod") ?? "").trim();
     const shippingMethodValue = String(formData.get("shippingMethod") ?? "").trim();
     const shippingAddress = String(formData.get("shippingAddress") ?? "").trim();
+    const shippingNumber = String(formData.get("shippingNumber") ?? "").trim();
     const shippingAddress2 = String(formData.get("shippingAddress2") ?? "").trim();
+    const shippingNeighborhood = String(formData.get("shippingNeighborhood") ?? "").trim();
     const shippingCity = String(formData.get("shippingCity") ?? "").trim();
     const shippingState = String(formData.get("shippingState") ?? "").trim();
     const shippingPostalCode = String(formData.get("shippingPostalCode") ?? "").trim();
@@ -247,9 +260,14 @@ export function CheckoutClient() {
     if (
       !customerName ||
       !customerEmail ||
+      !recipientName ||
+      !customerDocument ||
+      !customerPhone ||
       !paymentMethod ||
       !shippingMethodValue ||
       !shippingAddress ||
+      !shippingNumber ||
+      !shippingNeighborhood ||
       !shippingCity ||
       !shippingState ||
       !shippingPostalCode
@@ -257,6 +275,22 @@ export function CheckoutClient() {
       setState({
         type: "error",
         message: "Preencha os dados de cliente, entrega e pagamento para concluir."
+      });
+      return;
+    }
+
+    if (!isValidCpfOrCnpj(customerDocument)) {
+      setState({
+        type: "error",
+        message: "Informe um CPF ou CNPJ valido para o pedido."
+      });
+      return;
+    }
+
+    if (!isValidPhone(customerPhone)) {
+      setState({
+        type: "error",
+        message: "Informe um telefone valido com DDD."
       });
       return;
     }
@@ -286,10 +320,15 @@ export function CheckoutClient() {
       setProfile({
         customerName,
         customerEmail,
+        recipientName,
+        customerDocument,
+        customerPhone,
         paymentMethod,
         shippingMethod: shippingMethodValue,
         shippingAddress,
+        shippingNumber,
         shippingAddress2,
+        shippingNeighborhood,
         shippingCity,
         shippingState,
         shippingPostalCode,
@@ -304,13 +343,18 @@ export function CheckoutClient() {
         body: JSON.stringify({
           customerName,
           customerEmail,
+          recipientName,
+          customerDocument: digitsOnly(customerDocument),
+          customerPhone: digitsOnly(customerPhone),
           paymentMethod,
           shippingMethod: shippingMethodValue,
           shippingAddress,
+          shippingNumber,
           shippingAddress2: shippingAddress2 || undefined,
+          shippingNeighborhood,
           shippingCity,
           shippingState,
-          shippingPostalCode,
+          shippingPostalCode: digitsOnly(shippingPostalCode),
           notes: notes || undefined,
           couponCode: couponState.status === "applied" ? couponState.code : undefined,
           items: items.map((item) => ({
@@ -356,10 +400,15 @@ export function CheckoutClient() {
       setProfile({
         customerName,
         customerEmail,
+        recipientName,
+        customerDocument,
+        customerPhone,
         paymentMethod,
         shippingMethod: shippingMethodValue,
         shippingAddress,
+        shippingNumber,
         shippingAddress2,
+        shippingNeighborhood,
         shippingCity,
         shippingState,
         shippingPostalCode,
@@ -531,6 +580,43 @@ export function CheckoutClient() {
                 className="w-full rounded-[1.5rem] border border-espresso/15 bg-transparent px-4 py-3"
               />
             </label>
+            <label className="space-y-2 text-sm">
+              <span className="text-espresso/70">Destinatario</span>
+              <input
+                name="recipientName"
+                required
+                minLength={3}
+                value={profile.recipientName}
+                onChange={(event) => updateProfile("recipientName", event.target.value)}
+                className="w-full rounded-[1.5rem] border border-espresso/15 bg-transparent px-4 py-3"
+              />
+            </label>
+            <label className="space-y-2 text-sm">
+              <span className="text-espresso/70">CPF ou CNPJ</span>
+              <input
+                name="customerDocument"
+                required
+                value={profile.customerDocument}
+                onChange={(event) =>
+                  updateProfile("customerDocument", formatDocument(event.target.value))
+                }
+                className="w-full rounded-[1.5rem] border border-espresso/15 bg-transparent px-4 py-3"
+                placeholder="000.000.000-00"
+              />
+            </label>
+            <label className="space-y-2 text-sm">
+              <span className="text-espresso/70">Telefone</span>
+              <input
+                name="customerPhone"
+                required
+                value={profile.customerPhone}
+                onChange={(event) =>
+                  updateProfile("customerPhone", formatPhone(event.target.value))
+                }
+                className="w-full rounded-[1.5rem] border border-espresso/15 bg-transparent px-4 py-3"
+                placeholder="(11) 99999-9999"
+              />
+            </label>
           </div>
 
           <div className="grid gap-5 md:grid-cols-2">
@@ -584,12 +670,35 @@ export function CheckoutClient() {
                 className="w-full rounded-[1.5rem] border border-espresso/15 bg-transparent px-4 py-3"
               />
             </label>
+            <label className="space-y-2 text-sm">
+              <span className="text-espresso/70">Numero</span>
+              <input
+                name="shippingNumber"
+                required
+                value={profile.shippingNumber}
+                onChange={(event) => updateProfile("shippingNumber", event.target.value)}
+                className="w-full rounded-[1.5rem] border border-espresso/15 bg-transparent px-4 py-3"
+              />
+            </label>
             <label className="space-y-2 text-sm md:col-span-2">
               <span className="text-espresso/70">Complemento</span>
               <input
                 name="shippingAddress2"
                 value={profile.shippingAddress2}
                 onChange={(event) => updateProfile("shippingAddress2", event.target.value)}
+                className="w-full rounded-[1.5rem] border border-espresso/15 bg-transparent px-4 py-3"
+              />
+            </label>
+            <label className="space-y-2 text-sm">
+              <span className="text-espresso/70">Bairro</span>
+              <input
+                name="shippingNeighborhood"
+                required
+                minLength={2}
+                value={profile.shippingNeighborhood}
+                onChange={(event) =>
+                  updateProfile("shippingNeighborhood", event.target.value)
+                }
                 className="w-full rounded-[1.5rem] border border-espresso/15 bg-transparent px-4 py-3"
               />
             </label>
@@ -626,8 +735,9 @@ export function CheckoutClient() {
                 minLength={8}
                 value={shippingPostalCode}
                 onChange={(event) => {
-                  setShippingPostalCode(event.target.value);
-                  updateProfile("shippingPostalCode", event.target.value);
+                  const formatted = formatPostalCode(event.target.value);
+                  setShippingPostalCode(formatted);
+                  updateProfile("shippingPostalCode", formatted);
                 }}
                 className="w-full rounded-[1.5rem] border border-espresso/15 bg-transparent px-4 py-3"
               />

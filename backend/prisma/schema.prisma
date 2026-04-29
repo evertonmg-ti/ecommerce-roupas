@@ -112,8 +112,13 @@ model Order {
   status             OrderStatus    @default(PENDING)
   paymentMethod      PaymentMethod  @default(PIX)
   shippingMethod     ShippingMethod @default(STANDARD)
+  recipientName      String?
+  customerDocument   String?
+  customerPhone      String?
   shippingAddress    String         @default("Nao informado")
+  shippingNumber     String?
   shippingAddress2   String?
+  shippingNeighborhood String?
   shippingCity       String         @default("Nao informado")
   shippingState      String         @default("NI")
   shippingPostalCode String         @default("00000000")

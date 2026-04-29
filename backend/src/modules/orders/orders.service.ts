@@ -130,6 +130,9 @@ export class OrdersService {
   }
 
   async create(payload: CreateOrderDto) {
+    const customerDocument = this.sanitizeDigits(payload.customerDocument);
+    const customerPhone = this.sanitizeDigits(payload.customerPhone);
+    const shippingPostalCode = this.sanitizePostalCode(payload.shippingPostalCode);
     const normalizedItems = this.normalizeItems(payload.items);
     const productIds = normalizedItems.map((item) => item.productId);
     const products = await this.prisma.product.findMany({
@@ -171,7 +174,7 @@ export class OrdersService {
     );
     const shippingQuote = this.resolveShippingQuote(
       payload.shippingMethod,
-      payload.shippingPostalCode,
+      shippingPostalCode,
       subtotal
     );
     const shippingCost = shippingQuote.cost;
@@ -203,11 +206,16 @@ export class OrdersService {
           total,
           paymentMethod: payload.paymentMethod as PaymentMethod,
           shippingMethod: payload.shippingMethod as ShippingMethod,
+          recipientName: payload.recipientName.trim(),
+          customerDocument,
+          customerPhone,
           shippingAddress: payload.shippingAddress.trim(),
+          shippingNumber: payload.shippingNumber.trim(),
           shippingAddress2: payload.shippingAddress2?.trim() || undefined,
+          shippingNeighborhood: payload.shippingNeighborhood.trim(),
           shippingCity: payload.shippingCity.trim(),
           shippingState: payload.shippingState.trim(),
-          shippingPostalCode: payload.shippingPostalCode.trim(),
+          shippingPostalCode,
           notes: payload.notes?.trim() || undefined,
           items: {
             create: items.map((item) => ({
@@ -393,6 +401,10 @@ export class OrdersService {
     }
 
     return sanitizedPostalCode;
+  }
+
+  private sanitizeDigits(value: string) {
+    return value.replace(/\D/g, "");
   }
 
   private async findOrCreateCustomer(

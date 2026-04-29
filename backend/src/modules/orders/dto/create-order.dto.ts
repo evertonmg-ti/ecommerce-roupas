@@ -6,8 +6,10 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  Matches,
   Min,
   MinLength,
+  MaxLength,
   ValidateNested
 } from "class-validator";
 import { Type } from "class-transformer";
@@ -30,6 +32,22 @@ export class CreateOrderDto {
   @IsEmail()
   customerEmail!: string;
 
+  @IsString()
+  @MinLength(3)
+  recipientName!: string;
+
+  @IsString()
+  @Matches(/^\d{11}(\d{3})?$/, {
+    message: "Informe um CPF ou CNPJ valido."
+  })
+  customerDocument!: string;
+
+  @IsString()
+  @Matches(/^\d{10,11}$/, {
+    message: "Informe um telefone valido com DDD."
+  })
+  customerPhone!: string;
+
   @IsEnum(PaymentMethod)
   paymentMethod!: PaymentMethod;
 
@@ -40,9 +58,18 @@ export class CreateOrderDto {
   @MinLength(5)
   shippingAddress!: string;
 
+  @IsString()
+  @MinLength(1)
+  @MaxLength(20)
+  shippingNumber!: string;
+
   @IsOptional()
   @IsString()
   shippingAddress2?: string;
+
+  @IsString()
+  @MinLength(2)
+  shippingNeighborhood!: string;
 
   @IsString()
   @MinLength(2)
@@ -53,6 +80,9 @@ export class CreateOrderDto {
   shippingState!: string;
 
   @IsString()
+  @Matches(/^\d{8}$/, {
+    message: "Informe um CEP valido com 8 digitos."
+  })
   @MinLength(8)
   shippingPostalCode!: string;
 

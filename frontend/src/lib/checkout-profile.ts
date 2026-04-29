@@ -1,10 +1,15 @@
 export type CheckoutProfile = {
   customerName: string;
   customerEmail: string;
+  recipientName: string;
+  customerDocument: string;
+  customerPhone: string;
   paymentMethod: string;
   shippingMethod: string;
   shippingAddress: string;
+  shippingNumber: string;
   shippingAddress2: string;
+  shippingNeighborhood: string;
   shippingCity: string;
   shippingState: string;
   shippingPostalCode: string;
@@ -14,10 +19,15 @@ export type CheckoutProfile = {
 export const emptyCheckoutProfile: CheckoutProfile = {
   customerName: "",
   customerEmail: "",
+  recipientName: "",
+  customerDocument: "",
+  customerPhone: "",
   paymentMethod: "PIX",
   shippingMethod: "STANDARD",
   shippingAddress: "",
+  shippingNumber: "",
   shippingAddress2: "",
+  shippingNeighborhood: "",
   shippingCity: "",
   shippingState: "",
   shippingPostalCode: "",
