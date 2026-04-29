@@ -1,8 +1,9 @@
 import {
   CanActivate,
   ExecutionContext,
+  HttpException,
+  HttpStatus,
   Injectable,
-  TooManyRequestsException
 } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
 import { EventLevel } from "@prisma/client";
@@ -73,8 +74,9 @@ export class RateLimitGuard implements CanActivate {
           windowSec: config.windowSec
         }
       });
-      throw new TooManyRequestsException(
-        "Muitas tentativas seguidas. Aguarde e tente novamente."
+      throw new HttpException(
+        "Muitas tentativas seguidas. Aguarde e tente novamente.",
+        HttpStatus.TOO_MANY_REQUESTS
       );
     }
 
