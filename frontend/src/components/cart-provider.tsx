@@ -18,6 +18,7 @@ type CartContextValue = {
   addItem: (product: CartProductInput, quantity?: number) => void;
   updateQuantity: (productId: string, quantity: number) => void;
   removeItem: (productId: string) => void;
+  replaceItems: (items: CartItem[]) => void;
   clearCart: () => void;
 };
 
@@ -57,11 +58,17 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           const existing = current.find((item) => item.id === product.id);
 
           if (!existing) {
+            const nextQuantity = clampCartQuantity(quantity, product.stock);
+
+            if (nextQuantity <= 0) {
+              return current;
+            }
+
             return [
               ...current,
               {
                 ...product,
-                quantity: clampCartQuantity(quantity, product.stock)
+                quantity: nextQuantity
               }
             ];
           }
@@ -92,6 +99,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       },
       removeItem(productId) {
         setItems((current) => current.filter((item) => item.id !== productId));
+      },
+      replaceItems(nextItems) {
+        setItems(nextItems);
       },
       clearCart() {
         setItems([]);

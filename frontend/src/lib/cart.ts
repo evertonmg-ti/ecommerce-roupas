@@ -16,7 +16,18 @@ export function clampCartQuantity(quantity: number, stock: number) {
     return 1;
   }
 
+  if (stock <= 0) {
+    return 0;
+  }
+
   return Math.max(1, Math.min(Math.trunc(quantity), Math.max(stock, 1)));
+}
+
+export function getCartSnapshotKey(items: CartItem[]) {
+  return items
+    .map((item) => `${item.id}:${item.quantity}:${item.stock}:${item.price}`)
+    .sort()
+    .join("|");
 }
 
 export function getCartTotals(items: CartItem[]) {

@@ -3,6 +3,7 @@ import { Prisma, ProductStatus } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreateProductDto } from "./dto/create-product.dto";
 import { UpdateProductDto } from "./dto/update-product.dto";
+import { ValidateCartDto } from "./dto/validate-cart.dto";
 
 @Injectable()
 export class ProductsService {
@@ -67,6 +68,85 @@ export class ProductsService {
     return product;
   }
 
+  async checkAvailability(payload: ValidateCartDto) {
+    const normalizedItems = this.normalizeCartItems(payload.items);
+    const products = await this.prisma.product.findMany({
+      where: {
+        id: { in: normalizedItems.map((item) => item.productId) },
+        status: ProductStatus.ACTIVE
+      },
+      include: { category: true }
+    });
+
+    const productMap = new Map(products.map((product) => [product.id, product]));
+    const items = normalizedItems.map((item) => {
+      const product = productMap.get(item.productId);
+
+      if (!product) {
+        return {
+          productId: item.productId,
+          requestedQuantity: item.quantity,
+          adjustedQuantity: 0,
+          availableStock: 0,
+          available: false,
+          status: "unavailable" as const,
+          message: "Produto indisponivel no momento."
+        };
+      }
+
+      if (product.stock <= 0) {
+        return {
+          productId: product.id,
+          requestedQuantity: item.quantity,
+          adjustedQuantity: 0,
+          availableStock: 0,
+          available: false,
+          status: "unavailable" as const,
+          message: `${product.name} esta sem estoque no momento.`,
+          product
+        };
+      }
+
+      if (item.quantity > product.stock) {
+        return {
+          productId: product.id,
+          requestedQuantity: item.quantity,
+          adjustedQuantity: product.stock,
+          availableStock: product.stock,
+          available: true,
+          status: "adjusted" as const,
+          message: `A quantidade de ${product.name} foi ajustada para ${product.stock}.`,
+          product
+        };
+      }
+
+      return {
+        productId: product.id,
+        requestedQuantity: item.quantity,
+        adjustedQuantity: item.quantity,
+        availableStock: product.stock,
+        available: true,
+        status: "ok" as const,
+        message: "Disponivel.",
+        product
+      };
+    });
+
+    const subtotal = items.reduce((sum, item) => {
+      if (!item.available || !item.product) {
+        return sum;
+      }
+
+      return sum + Number(item.product.price) * item.adjustedQuantity;
+    }, 0);
+
+    return {
+      items,
+      canCheckout: items.every((item) => item.available),
+      subtotal
+    };
+  }
+
   create(payload: CreateProductDto) {
     return this.prisma.product.create({
       data: {
@@ -110,6 +190,26 @@ export class ProductsService {
     if (!product) {
       throw new NotFoundException("Produto nao encontrado.");
     }
+  }
+
+  private normalizeCartItems(items: ValidateCartDto["items"]) {
+    const grouped = new Map<string, number>();
+
+    for (const item of items) {
+      const productId = item.productId.trim();
+      const quantity = Math.trunc(Number(item.quantity));
+
+      if (!productId || !Number.isFinite(quantity) || quantity < 1) {
+        continue;
+      }
+
+      grouped.set(productId, (grouped.get(productId) ?? 0) + quantity);
+    }
+
+    return Array.from(grouped.entries()).map(([productId, quantity]) => ({
+      productId,
+      quantity
+    }));
   }
 
   private resolvePublicSort(sort?: string): Prisma.ProductOrderByWithRelationInput {

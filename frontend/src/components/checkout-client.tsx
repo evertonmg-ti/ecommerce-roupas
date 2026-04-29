@@ -4,7 +4,13 @@ import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useCart } from "@/components/cart-provider";
 import { CheckoutProfile, emptyCheckoutProfile } from "@/lib/checkout-profile";
+import { getCartSnapshotKey } from "@/lib/cart";
 import { validateCoupon } from "@/lib/public-coupons";
+import {
+  CartAvailabilityIssue,
+  reconcileCartWithAvailability,
+  validateCartAvailability
+} from "@/lib/public-cart";
 import { calculateShippingQuote } from "@/lib/public-shipping";
 import { currency } from "@/lib/utils";
 
@@ -43,7 +49,7 @@ type CheckoutState =
   | { type: "error"; message: string };
 
 export function CheckoutClient() {
-  const { items, clearCart, totalPrice } = useCart();
+  const { items, clearCart, replaceItems, totalPrice } = useCart();
   const [state, setState] = useState<CheckoutState>({ type: "idle" });
   const [shippingMethod, setShippingMethod] = useState("STANDARD");
   const [shippingPostalCode, setShippingPostalCode] = useState("");
@@ -66,8 +72,10 @@ export function CheckoutClient() {
     status: "idle",
     shippingCost: 0
   });
+  const [availabilityIssues, setAvailabilityIssues] = useState<CartAvailabilityIssue[]>([]);
   const shippingCost = shippingQuoteState.shippingCost;
   const grandTotal = Math.max(0, totalPrice - couponState.discountAmount + shippingCost);
+  const snapshotKey = getCartSnapshotKey(items);
 
   const canSubmit = useMemo(
     () => items.length > 0 && state.type !== "submitting",
@@ -101,6 +109,38 @@ export function CheckoutClient() {
       JSON.stringify(profile)
     );
   }, [profile]);
+
+  useEffect(() => {
+    if (items.length === 0) {
+      setAvailabilityIssues([]);
+      return;
+    }
+
+    let active = true;
+
+    validateCartAvailability(items)
+      .then((availability) => {
+        if (!active) {
+          return;
+        }
+
+        const reconciled = reconcileCartWithAvailability(items, availability);
+        setAvailabilityIssues(reconciled.issues);
+
+        if (getCartSnapshotKey(reconciled.items) !== snapshotKey) {
+          replaceItems(reconciled.items);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setAvailabilityIssues([]);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [items, replaceItems, snapshotKey]);
 
   useEffect(() => {
     if (items.length === 0) {
@@ -224,6 +264,25 @@ export function CheckoutClient() {
     setState({ type: "submitting" });
 
     try {
+      const availability = await validateCartAvailability(items);
+      const reconciled = reconcileCartWithAvailability(items, availability);
+      setAvailabilityIssues(reconciled.issues);
+
+      if (
+        getCartSnapshotKey(reconciled.items) !== getCartSnapshotKey(items) ||
+        reconciled.issues.length > 0 ||
+        !reconciled.canCheckout
+      ) {
+        replaceItems(reconciled.items);
+        setState({
+          type: "error",
+          message:
+            reconciled.issues[0]?.message ??
+            "Atualizamos seu carrinho com o estoque mais recente. Revise os itens antes de finalizar."
+        });
+        return;
+      }
+
       setProfile({
         customerName,
         customerEmail,
@@ -442,6 +501,13 @@ export function CheckoutClient() {
         ) : null}
 
         <form onSubmit={handleSubmit} className="mt-8 space-y-5">
+          {availabilityIssues.length > 0 ? (
+            <div className="rounded-[1.5rem] border border-terracotta/20 bg-terracotta/10 p-4 text-sm text-terracotta">
+              {availabilityIssues.map((issue) => (
+                <p key={`${issue.productId}-${issue.type}`}>{issue.message}</p>
+              ))}
+            </div>
+          ) : null}
           <div className="grid gap-5 md:grid-cols-2">
             <label className="space-y-2 text-sm">
               <span className="text-espresso/70">Nome completo</span>

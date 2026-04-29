@@ -15,6 +15,7 @@ import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { RolesGuard } from "../../common/guards/roles.guard";
 import { CreateProductDto } from "./dto/create-product.dto";
 import { UpdateProductDto } from "./dto/update-product.dto";
+import { ValidateCartDto } from "./dto/validate-cart.dto";
 import { ProductsService } from "./products.service";
 
 @Controller("products")
@@ -40,6 +41,11 @@ export class ProductsController {
   @Get(":slug")
   findBySlug(@Param("slug") slug: string) {
     return this.productsService.findBySlug(slug);
+  }
+
+  @Post("availability")
+  checkAvailability(@Body() payload: ValidateCartDto) {
+    return this.productsService.checkAvailability(payload);
   }
 
   @Post()

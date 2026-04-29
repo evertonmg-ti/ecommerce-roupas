@@ -2,12 +2,79 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { Trash2 } from "lucide-react";
 import { useCart } from "@/components/cart-provider";
+import { getCartSnapshotKey } from "@/lib/cart";
+import {
+  CartAvailabilityIssue,
+  reconcileCartWithAvailability,
+  validateCartAvailability
+} from "@/lib/public-cart";
 import { currency } from "@/lib/utils";
 
 export function CartPageClient() {
-  const { items, removeItem, totalPrice, totalItems, updateQuantity } = useCart();
+  const {
+    items,
+    removeItem,
+    replaceItems,
+    totalPrice,
+    totalItems,
+    updateQuantity
+  } = useCart();
+  const [availabilityIssues, setAvailabilityIssues] = useState<CartAvailabilityIssue[]>([]);
+  const [isValidating, setIsValidating] = useState(false);
+  const snapshotKey = getCartSnapshotKey(items);
+
+  useEffect(() => {
+    if (items.length === 0) {
+      setAvailabilityIssues([]);
+      return;
+    }
+
+    let active = true;
+    setIsValidating(true);
+
+    validateCartAvailability(items)
+      .then((availability) => {
+        if (!active) {
+          return;
+        }
+
+        const reconciled = reconcileCartWithAvailability(items, availability);
+        setAvailabilityIssues(reconciled.issues);
+
+        if (getCartSnapshotKey(reconciled.items) !== snapshotKey) {
+          replaceItems(reconciled.items);
+        }
+      })
+      .catch((error) => {
+        if (!active) {
+          return;
+        }
+
+        setAvailabilityIssues([
+          {
+            type: "removed",
+            productId: "sync-error",
+            name: "Carrinho",
+            message:
+              error instanceof Error
+                ? error.message
+                : "Nao foi possivel validar o estoque agora."
+          }
+        ]);
+      })
+      .finally(() => {
+        if (active) {
+          setIsValidating(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [items, replaceItems, snapshotKey]);
 
   if (items.length === 0) {
     return (
@@ -36,6 +103,13 @@ export function CartPageClient() {
           <p className="text-xs uppercase tracking-[0.3em] text-terracotta">Carrinho</p>
           <h1 className="mt-3 font-display text-5xl">Itens selecionados</h1>
         </div>
+        {availabilityIssues.length > 0 ? (
+          <div className="rounded-[1.5rem] border border-terracotta/20 bg-terracotta/10 p-4 text-sm text-terracotta">
+            {availabilityIssues.map((issue) => (
+              <p key={`${issue.productId}-${issue.type}`}>{issue.message}</p>
+            ))}
+          </div>
+        ) : null}
         {items.map((item) => (
           <article
             key={item.id}
@@ -122,7 +196,7 @@ export function CartPageClient() {
             href="/checkout"
             className="mt-6 inline-flex w-full items-center justify-center rounded-full bg-espresso px-6 py-3 text-sand"
           >
-            Ir para checkout
+            {isValidating ? "Validando estoque..." : "Ir para checkout"}
           </Link>
         </div>
       </aside>
