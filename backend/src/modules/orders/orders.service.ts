@@ -11,6 +11,7 @@ import {
   PaymentMethod,
   Prisma,
   ProductStatus,
+  ReturnRequestType,
   ReturnFinancialStatus,
   ReturnRequestStatus,
   Role,
@@ -654,6 +655,120 @@ export class OrdersService {
     return updatedRequest;
   }
 
+  async listAdminReturnRequests(filters?: {
+    status?: string;
+    type?: string;
+    priority?: string;
+    search?: string;
+    page?: string;
+    pageSize?: string;
+  }) {
+    const page = this.parsePositiveInteger(filters?.page, 1);
+    const pageSize = Math.min(this.parsePositiveInteger(filters?.pageSize, 12), 50);
+    const normalizedStatus =
+      filters?.status &&
+      Object.values(ReturnRequestStatus).includes(
+        filters.status as ReturnRequestStatus
+      )
+        ? (filters.status as ReturnRequestStatus)
+        : undefined;
+    const normalizedType =
+      filters?.type &&
+      Object.values(ReturnRequestType).includes(filters.type as ReturnRequestType)
+        ? (filters.type as ReturnRequestType)
+        : undefined;
+    const search = filters?.search?.trim();
+
+    const requests = await this.prisma.returnRequest.findMany({
+      where: {
+        ...(normalizedStatus ? { status: normalizedStatus } : {}),
+        ...(normalizedType ? { type: normalizedType } : {}),
+        ...(search
+          ? {
+              OR: [
+                {
+                  id: {
+                    contains: search,
+                    mode: "insensitive"
+                  }
+                },
+                {
+                  reason: {
+                    contains: search,
+                    mode: "insensitive"
+                  }
+                },
+                {
+                  user: {
+                    is: {
+                      email: {
+                        contains: search,
+                        mode: "insensitive"
+                      }
+                    }
+                  }
+                },
+                {
+                  user: {
+                    is: {
+                      name: {
+                        contains: search,
+                        mode: "insensitive"
+                      }
+                    }
+                  }
+                },
+                {
+                  order: {
+                    is: {
+                      id: {
+                        contains: search,
+                        mode: "insensitive"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          : {})
+      },
+      include: {
+        user: true,
+        order: {
+          include: {
+            items: {
+              include: {
+                product: {
+                  include: { category: true }
+                }
+              }
+            }
+          }
+        }
+      },
+      orderBy: {
+        createdAt: "desc"
+      }
+    });
+
+    const enriched = requests.map((request) => this.enrichAdminReturnRequest(request));
+    const filtered =
+      filters?.priority && filters.priority !== "ALL"
+        ? enriched.filter((request) => request.priority === filters.priority)
+        : enriched;
+    const total = filtered.length;
+    const start = (page - 1) * pageSize;
+    const items = filtered.slice(start, start + pageSize);
+
+    return {
+      items,
+      total,
+      page,
+      pageSize,
+      totalPages: Math.max(1, Math.ceil(total / pageSize))
+    };
+  }
+
   private normalizeItems(items: CreateOrderDto["items"]) {
     const grouped = new Map<
       string,
@@ -1185,6 +1300,48 @@ export class OrdersService {
     return Math.trunc(parsed);
   }
 
+  private enrichAdminReturnRequest(
+    request: Prisma.ReturnRequestGetPayload<{
+      include: {
+        user: true;
+        order: {
+          include: {
+            items: {
+              include: {
+                product: {
+                  include: { category: true };
+                };
+              };
+            };
+          };
+        };
+      };
+    }>
+  ) {
+    const priority = this.resolveReturnRequestPriority(request);
+    const sla = this.resolveReturnRequestSla(request);
+
+    return {
+      ...request,
+      priority,
+      slaHours: sla.hours,
+      slaLabel: sla.label,
+      selectedItemsDetailed: this.parseReturnRequestSelectedItems(request.selectedItems).map(
+        (selectedItem) => {
+          const matchedItem = request.order.items.find(
+            (item) => item.id === selectedItem.orderItemId
+          );
+
+          return {
+            ...selectedItem,
+            productName: matchedItem?.product.name ?? "Item",
+            categoryName: matchedItem?.product.category?.name ?? "Colecao"
+          };
+        }
+      )
+    };
+  }
+
   private async restockReturnRequestItems(
     tx: Prisma.TransactionClient,
     request: {
@@ -1267,6 +1424,100 @@ export class OrdersService {
     };
 
     return transitions[currentStatus].includes(nextStatus);
+  }
+
+  private resolveReturnRequestPriority(request: {
+    status: ReturnRequestStatus;
+    reverseDeadlineAt: Date | null;
+    createdAt: Date;
+  }) {
+    if (request.status === ReturnRequestStatus.REJECTED) {
+      return "LOW";
+    }
+
+    if (request.status === ReturnRequestStatus.COMPLETED) {
+      return "LOW";
+    }
+
+    const now = Date.now();
+
+    if (request.reverseDeadlineAt) {
+      const diffHours = (request.reverseDeadlineAt.getTime() - now) / 3_600_000;
+
+      if (diffHours < 0) {
+        return "CRITICAL";
+      }
+
+      if (diffHours <= 24) {
+        return "HIGH";
+      }
+    }
+
+    const ageHours = (now - request.createdAt.getTime()) / 3_600_000;
+
+    if (request.status === ReturnRequestStatus.REQUESTED) {
+      if (ageHours >= 72) {
+        return "CRITICAL";
+      }
+
+      if (ageHours >= 24) {
+        return "HIGH";
+      }
+    }
+
+    if (request.status === ReturnRequestStatus.APPROVED) {
+      if (ageHours >= 120) {
+        return "CRITICAL";
+      }
+
+      if (ageHours >= 48) {
+        return "HIGH";
+      }
+    }
+
+    if (request.status === ReturnRequestStatus.RECEIVED) {
+      if (ageHours >= 72) {
+        return "HIGH";
+      }
+    }
+
+    return "MEDIUM";
+  }
+
+  private resolveReturnRequestSla(request: {
+    status: ReturnRequestStatus;
+    createdAt: Date;
+    reverseDeadlineAt: Date | null;
+  }) {
+    const now = Date.now();
+
+    if (request.status === ReturnRequestStatus.COMPLETED) {
+      return { hours: 0, label: "Concluida" };
+    }
+
+    if (request.status === ReturnRequestStatus.REJECTED) {
+      return { hours: 0, label: "Encerrada" };
+    }
+
+    if (request.reverseDeadlineAt) {
+      const hours = Math.round(
+        (request.reverseDeadlineAt.getTime() - now) / 3_600_000
+      );
+
+      return {
+        hours,
+        label:
+          hours < 0
+            ? `Atrasada em ${Math.abs(hours)}h`
+            : `Prazo em ${hours}h`
+      };
+    }
+
+    const ageHours = Math.round((now - request.createdAt.getTime()) / 3_600_000);
+    return {
+      hours: ageHours,
+      label: `${ageHours}h em andamento`
+    };
   }
 
   private resolveReturnFinancialStatus(

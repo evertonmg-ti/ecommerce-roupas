@@ -9,6 +9,7 @@ import {
   Package,
   ShoppingBag,
   Boxes,
+  RotateCcw,
   Users
 } from "lucide-react";
 
@@ -17,6 +18,7 @@ const items = [
   { href: "/admin/produtos", label: "Produtos", icon: Package },
   { href: "/admin/estoque", label: "Estoque", icon: Boxes },
   { href: "/admin/pedidos", label: "Pedidos", icon: ShoppingBag },
+  { href: "/admin/devolucoes", label: "Devolucoes", icon: RotateCcw },
   { href: "/admin/engajamento", label: "Engajamento", icon: HeartHandshake },
   { href: "/admin/cupons", label: "Cupons", icon: BadgePercent },
   { href: "/admin/categorias", label: "Categorias", icon: ListTree },

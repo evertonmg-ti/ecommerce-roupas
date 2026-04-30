@@ -95,6 +95,27 @@ export class OrdersController {
     });
   }
 
+  @Get("return-requests/admin")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  listAdminReturnRequests(
+    @Query("status") status?: string,
+    @Query("type") type?: string,
+    @Query("priority") priority?: string,
+    @Query("search") search?: string,
+    @Query("page") page?: string,
+    @Query("pageSize") pageSize?: string
+  ) {
+    return this.ordersService.listAdminReturnRequests({
+      status,
+      type,
+      priority,
+      search,
+      page,
+      pageSize
+    });
+  }
+
   @Patch(":id/status")
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN)

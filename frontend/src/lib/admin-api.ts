@@ -562,6 +562,60 @@ type PaginatedOrdersResponse = {
   totalPages: number;
 };
 
+type PaginatedReturnRequestsResponse = {
+  items: Array<{
+    id: string;
+    orderId: string;
+    userId: string;
+    type: string;
+    status: string;
+    financialStatus?: string | null;
+    reason: string;
+    details?: string | null;
+    resolutionNote?: string | null;
+    reverseLogisticsCode?: string | null;
+    reverseShippingLabel?: string | null;
+    returnDestinationAddress?: string | null;
+    reverseInstructions?: string | null;
+    reverseDeadlineAt?: string | null;
+    refundAmount: number | string;
+    storeCreditAmount: number | string;
+    restockItems: boolean;
+    restockNote?: string | null;
+    receivedAt?: string | null;
+    completedAt?: string | null;
+    restockedAt?: string | null;
+    priority: string;
+    slaHours: number;
+    slaLabel: string;
+    createdAt: string;
+    updatedAt: string;
+    user: {
+      id: string;
+      name: string;
+      email: string;
+    };
+    order: {
+      id: string;
+      status: string;
+      createdAt: string;
+    };
+    selectedItemsDetailed: Array<{
+      orderItemId: string;
+      productId: string;
+      variantId?: string | null;
+      variantLabel?: string | null;
+      quantity: number;
+      productName: string;
+      categoryName: string;
+    }>;
+  }>;
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+};
+
 export type AdminMetric = {
   label: string;
   value: string;
@@ -1046,6 +1100,56 @@ export type AdminOrder = {
 
 export type AdminOrderList = {
   items: AdminOrder[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+};
+
+export type AdminReturnRequest = {
+  id: string;
+  orderId: string;
+  customerId: string;
+  customerName: string;
+  customerEmail: string;
+  orderStatus: string;
+  orderCreatedAt: string;
+  type: string;
+  status: string;
+  financialStatus?: string;
+  reason: string;
+  details?: string;
+  resolutionNote?: string;
+  reverseLogisticsCode?: string;
+  reverseShippingLabel?: string;
+  returnDestinationAddress?: string;
+  reverseInstructions?: string;
+  reverseDeadlineAt?: string;
+  refundAmount: number;
+  storeCreditAmount: number;
+  restockItems: boolean;
+  restockNote?: string;
+  receivedAt?: string;
+  completedAt?: string;
+  restockedAt?: string;
+  priority: string;
+  slaHours: number;
+  slaLabel: string;
+  createdAt: string;
+  updatedAt: string;
+  selectedItems: Array<{
+    orderItemId: string;
+    productId: string;
+    variantId?: string;
+    variantLabel?: string;
+    quantity: number;
+    productName: string;
+    categoryName: string;
+  }>;
+};
+
+export type AdminReturnRequestList = {
+  items: AdminReturnRequest[];
   total: number;
   page: number;
   pageSize: number;
@@ -1994,6 +2098,100 @@ export async function getAdminOrders(filters?: {
 
   return {
     items: response.items.map(normalizeAdminOrder),
+    total: response.total,
+    page: response.page,
+    pageSize: response.pageSize,
+    totalPages: response.totalPages
+  };
+}
+
+export async function getAdminReturnRequests(filters?: {
+  status?: string;
+  type?: string;
+  priority?: string;
+  search?: string;
+  page?: number;
+  pageSize?: number;
+}): Promise<AdminReturnRequestList> {
+  const params = new URLSearchParams();
+
+  if (filters?.status) {
+    params.set("status", filters.status);
+  }
+
+  if (filters?.type) {
+    params.set("type", filters.type);
+  }
+
+  if (filters?.priority) {
+    params.set("priority", filters.priority);
+  }
+
+  if (filters?.search) {
+    params.set("search", filters.search);
+  }
+
+  if (filters?.page) {
+    params.set("page", String(filters.page));
+  }
+
+  if (filters?.pageSize) {
+    params.set("pageSize", String(filters.pageSize));
+  }
+
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+  const response = await fetchAdmin<PaginatedReturnRequestsResponse>(
+    `/orders/return-requests/admin${suffix}`
+  );
+
+  return {
+    items: response.items.map((request) => ({
+      id: request.id,
+      orderId: request.order.id,
+      customerId: request.user.id,
+      customerName: request.user.name,
+      customerEmail: request.user.email,
+      orderStatus: request.order.status,
+      orderCreatedAt: formatDateTime(request.order.createdAt),
+      type: request.type,
+      status: request.status,
+      financialStatus: request.financialStatus ?? undefined,
+      reason: request.reason,
+      details: request.details ?? undefined,
+      resolutionNote: request.resolutionNote ?? undefined,
+      reverseLogisticsCode: request.reverseLogisticsCode ?? undefined,
+      reverseShippingLabel: request.reverseShippingLabel ?? undefined,
+      returnDestinationAddress: request.returnDestinationAddress ?? undefined,
+      reverseInstructions: request.reverseInstructions ?? undefined,
+      reverseDeadlineAt: request.reverseDeadlineAt
+        ? formatDateTimeInput(request.reverseDeadlineAt)
+        : undefined,
+      refundAmount: toNumber(request.refundAmount),
+      storeCreditAmount: toNumber(request.storeCreditAmount),
+      restockItems: request.restockItems,
+      restockNote: request.restockNote ?? undefined,
+      receivedAt: request.receivedAt ? formatDateTime(request.receivedAt) : undefined,
+      completedAt: request.completedAt
+        ? formatDateTime(request.completedAt)
+        : undefined,
+      restockedAt: request.restockedAt
+        ? formatDateTime(request.restockedAt)
+        : undefined,
+      priority: request.priority,
+      slaHours: request.slaHours,
+      slaLabel: request.slaLabel,
+      createdAt: formatDateTime(request.createdAt),
+      updatedAt: formatDateTime(request.updatedAt),
+      selectedItems: request.selectedItemsDetailed.map((item) => ({
+        orderItemId: item.orderItemId,
+        productId: item.productId,
+        variantId: item.variantId ?? undefined,
+        variantLabel: item.variantLabel ?? undefined,
+        quantity: item.quantity,
+        productName: item.productName,
+        categoryName: item.categoryName
+      }))
+    })),
     total: response.total,
     page: response.page,
     pageSize: response.pageSize,
