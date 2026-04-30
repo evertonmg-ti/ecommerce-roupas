@@ -614,6 +614,13 @@ type PaginatedReturnRequestsResponse = {
   page: number;
   pageSize: number;
   totalPages: number;
+  summary: {
+    openCount: number;
+    criticalCount: number;
+    refundPendingCount: number;
+    awaitingReceiptCount: number;
+    overdueCount: number;
+  };
 };
 
 export type AdminMetric = {
@@ -1150,6 +1157,13 @@ export type AdminReturnRequest = {
 
 export type AdminReturnRequestList = {
   items: AdminReturnRequest[];
+  summary: {
+    openCount: number;
+    criticalCount: number;
+    refundPendingCount: number;
+    awaitingReceiptCount: number;
+    overdueCount: number;
+  };
   total: number;
   page: number;
   pageSize: number;
@@ -2108,6 +2122,7 @@ export async function getAdminOrders(filters?: {
 export async function getAdminReturnRequests(filters?: {
   status?: string;
   type?: string;
+  financialStatus?: string;
   priority?: string;
   search?: string;
   page?: number;
@@ -2121,6 +2136,10 @@ export async function getAdminReturnRequests(filters?: {
 
   if (filters?.type) {
     params.set("type", filters.type);
+  }
+
+  if (filters?.financialStatus) {
+    params.set("financialStatus", filters.financialStatus);
   }
 
   if (filters?.priority) {
@@ -2192,6 +2211,7 @@ export async function getAdminReturnRequests(filters?: {
         categoryName: item.categoryName
       }))
     })),
+    summary: response.summary,
     total: response.total,
     page: response.page,
     pageSize: response.pageSize,

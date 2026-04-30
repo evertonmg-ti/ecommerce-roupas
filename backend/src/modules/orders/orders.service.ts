@@ -658,6 +658,7 @@ export class OrdersService {
   async listAdminReturnRequests(filters?: {
     status?: string;
     type?: string;
+    financialStatus?: string;
     priority?: string;
     search?: string;
     page?: string;
@@ -677,12 +678,22 @@ export class OrdersService {
       Object.values(ReturnRequestType).includes(filters.type as ReturnRequestType)
         ? (filters.type as ReturnRequestType)
         : undefined;
+    const normalizedFinancialStatus =
+      filters?.financialStatus &&
+      Object.values(ReturnFinancialStatus).includes(
+        filters.financialStatus as ReturnFinancialStatus
+      )
+        ? (filters.financialStatus as ReturnFinancialStatus)
+        : undefined;
     const search = filters?.search?.trim();
 
     const requests = await this.prisma.returnRequest.findMany({
       where: {
         ...(normalizedStatus ? { status: normalizedStatus } : {}),
         ...(normalizedType ? { type: normalizedType } : {}),
+        ...(normalizedFinancialStatus
+          ? { financialStatus: normalizedFinancialStatus }
+          : {}),
         ...(search
           ? {
               OR: [
@@ -756,12 +767,25 @@ export class OrdersService {
       filters?.priority && filters.priority !== "ALL"
         ? enriched.filter((request) => request.priority === filters.priority)
         : enriched;
-    const total = filtered.length;
+    const sorted = filtered.sort((left, right) => {
+      const priorityScore =
+        this.getReturnRequestPriorityScore(right.priority) -
+        this.getReturnRequestPriorityScore(left.priority);
+
+      if (priorityScore !== 0) {
+        return priorityScore;
+      }
+
+      return new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime();
+    });
+    const summary = this.buildAdminReturnRequestSummary(sorted);
+    const total = sorted.length;
     const start = (page - 1) * pageSize;
-    const items = filtered.slice(start, start + pageSize);
+    const items = sorted.slice(start, start + pageSize);
 
     return {
       items,
+      summary,
       total,
       page,
       pageSize,
@@ -1300,6 +1324,36 @@ export class OrdersService {
     return Math.trunc(parsed);
   }
 
+  private buildAdminReturnRequestSummary(
+    requests: Array<{
+      status: ReturnRequestStatus;
+      type: ReturnRequestType;
+      priority: string;
+      financialStatus?: ReturnFinancialStatus;
+      slaHours: number;
+    }>
+  ) {
+    return {
+      openCount: requests.filter((request) =>
+        [
+          ReturnRequestStatus.REQUESTED,
+          ReturnRequestStatus.APPROVED,
+          ReturnRequestStatus.RECEIVED
+        ].includes(request.status)
+      ).length,
+      criticalCount: requests.filter((request) => request.priority === "CRITICAL").length,
+      refundPendingCount: requests.filter(
+        (request) =>
+          request.type === ReturnRequestType.REFUND &&
+          request.financialStatus === ReturnFinancialStatus.PENDING
+      ).length,
+      awaitingReceiptCount: requests.filter(
+        (request) => request.status === ReturnRequestStatus.APPROVED
+      ).length,
+      overdueCount: requests.filter((request) => request.slaHours < 0).length
+    };
+  }
+
   private enrichAdminReturnRequest(
     request: Prisma.ReturnRequestGetPayload<{
       include: {
@@ -1482,6 +1536,20 @@ export class OrdersService {
     }
 
     return "MEDIUM";
+  }
+
+  private getReturnRequestPriorityScore(priority: string) {
+    switch (priority) {
+      case "CRITICAL":
+        return 4;
+      case "HIGH":
+        return 3;
+      case "MEDIUM":
+        return 2;
+      case "LOW":
+      default:
+        return 1;
+    }
   }
 
   private resolveReturnRequestSla(request: {

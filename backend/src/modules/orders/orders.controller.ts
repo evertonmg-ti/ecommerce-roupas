@@ -8,7 +8,7 @@ import {
   Query,
   UseGuards
 } from "@nestjs/common";
-import { OrderStatus, Role } from "@prisma/client";
+import { OrderStatus, ReturnFinancialStatus, Role } from "@prisma/client";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { RateLimit } from "../../common/decorators/rate-limit.decorator";
 import { Roles } from "../../common/decorators/roles.decorator";
@@ -101,6 +101,7 @@ export class OrdersController {
   listAdminReturnRequests(
     @Query("status") status?: string,
     @Query("type") type?: string,
+    @Query("financialStatus") financialStatus?: ReturnFinancialStatus,
     @Query("priority") priority?: string,
     @Query("search") search?: string,
     @Query("page") page?: string,
@@ -109,6 +110,7 @@ export class OrdersController {
     return this.ordersService.listAdminReturnRequests({
       status,
       type,
+      financialStatus,
       priority,
       search,
       page,

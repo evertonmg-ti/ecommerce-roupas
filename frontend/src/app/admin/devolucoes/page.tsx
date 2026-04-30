@@ -70,6 +70,10 @@ export default async function AdminReturnsPage({
       : undefined;
   const activeType =
     typeof params?.type === "string" && params.type !== "ALL" ? params.type : undefined;
+  const activeFinancialStatus =
+    typeof params?.financialStatus === "string" && params.financialStatus !== "ALL"
+      ? params.financialStatus
+      : undefined;
   const activePriority =
     typeof params?.priority === "string" && params.priority !== "ALL"
       ? params.priority
@@ -86,6 +90,7 @@ export default async function AdminReturnsPage({
   const list = await getAdminReturnRequests({
     status: activeStatus,
     type: activeType,
+    financialStatus: activeFinancialStatus,
     priority: activePriority,
     search,
     page,
@@ -101,6 +106,10 @@ export default async function AdminReturnsPage({
 
   if (activeType) {
     baseParams.set("type", activeType);
+  }
+
+  if (activeFinancialStatus) {
+    baseParams.set("financialStatus", activeFinancialStatus);
   }
 
   if (activePriority) {
@@ -128,8 +137,38 @@ export default async function AdminReturnsPage({
 
       <AdminFeedback searchParams={params} />
 
+      {list ? (
+        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+          <article className="rounded-[1.5rem] border border-espresso/10 bg-white/80 p-5 shadow-soft">
+            <p className="text-sm text-espresso/55">Em andamento</p>
+            <p className="mt-2 font-display text-4xl">{list.summary.openCount}</p>
+            <p className="mt-2 text-sm text-moss">Fila operacional aberta</p>
+          </article>
+          <article className="rounded-[1.5rem] border border-espresso/10 bg-white/80 p-5 shadow-soft">
+            <p className="text-sm text-espresso/55">Criticas</p>
+            <p className="mt-2 font-display text-4xl">{list.summary.criticalCount}</p>
+            <p className="mt-2 text-sm text-terracotta">Prioridade maxima</p>
+          </article>
+          <article className="rounded-[1.5rem] border border-espresso/10 bg-white/80 p-5 shadow-soft">
+            <p className="text-sm text-espresso/55">Reembolso pendente</p>
+            <p className="mt-2 font-display text-4xl">{list.summary.refundPendingCount}</p>
+            <p className="mt-2 text-sm text-espresso/65">Aguardando decisao financeira</p>
+          </article>
+          <article className="rounded-[1.5rem] border border-espresso/10 bg-white/80 p-5 shadow-soft">
+            <p className="text-sm text-espresso/55">Aguardando recebimento</p>
+            <p className="mt-2 font-display text-4xl">{list.summary.awaitingReceiptCount}</p>
+            <p className="mt-2 text-sm text-espresso/65">Logistica reversa em curso</p>
+          </article>
+          <article className="rounded-[1.5rem] border border-espresso/10 bg-white/80 p-5 shadow-soft">
+            <p className="text-sm text-espresso/55">Fora do prazo</p>
+            <p className="mt-2 font-display text-4xl">{list.summary.overdueCount}</p>
+            <p className="mt-2 text-sm text-terracotta">Casos com SLA estourado</p>
+          </article>
+        </section>
+      ) : null}
+
       <section className="rounded-[2rem] border border-espresso/10 bg-white/80 p-6 shadow-soft">
-        <form className="grid gap-4 xl:grid-cols-[1.4fr_0.7fr_0.7fr_0.7fr_auto] xl:items-end">
+        <form className="grid gap-4 xl:grid-cols-[1.35fr_0.68fr_0.68fr_0.82fr_0.68fr_auto] xl:items-end">
           <label className="space-y-2 text-sm">
             <span>Buscar por cliente, email, pedido ou motivo</span>
             <input
@@ -183,6 +222,20 @@ export default async function AdminReturnsPage({
               <option value="LOW">Baixa</option>
             </select>
           </label>
+          <label className="space-y-2 text-sm">
+            <span>Financeiro</span>
+            <select
+              name="financialStatus"
+              defaultValue={activeFinancialStatus ?? "ALL"}
+              className="w-full rounded-2xl border border-espresso/15 bg-sand px-4 py-3 outline-none"
+            >
+              <option value="ALL">Todos</option>
+              <option value="NOT_APPLICABLE">Nao se aplica</option>
+              <option value="PENDING">Pendente</option>
+              <option value="REFUNDED">Reembolsado</option>
+              <option value="STORE_CREDIT_ISSUED">Vale-troca emitido</option>
+            </select>
+          </label>
           <button className="rounded-full bg-espresso px-5 py-3 text-sand">
             Filtrar
           </button>
@@ -220,6 +273,14 @@ export default async function AdminReturnsPage({
                       Pedido {request.orderId} - {request.orderStatus} - criada em{" "}
                       {request.createdAt}
                     </p>
+                    <div className="mt-3 flex flex-wrap gap-3 text-xs">
+                      <a
+                        href={`/admin/pedidos?search=${encodeURIComponent(request.orderId)}`}
+                        className="rounded-full border border-espresso/15 px-3 py-1"
+                      >
+                        Ver pedido
+                      </a>
+                    </div>
                   </div>
                   <div className="flex flex-col gap-2 lg:items-end">
                     <span className="rounded-full bg-moss/10 px-3 py-1 text-xs text-moss">
