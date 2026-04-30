@@ -14,6 +14,7 @@ import { Roles } from "../../common/decorators/roles.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { RolesGuard } from "../../common/guards/roles.guard";
 import { CreateUserDto } from "./dto/create-user.dto";
+import { AdjustCustomerCreditDto } from "./dto/adjust-customer-credit.dto";
 import { SaveCurrentUserCartDto } from "./dto/save-current-user-cart.dto";
 import { SaveCurrentUserWishlistDto } from "./dto/save-current-user-wishlist.dto";
 import { SaveCustomerAddressDto } from "./dto/save-customer-address.dto";
@@ -37,6 +38,13 @@ export class UsersController {
   @Roles(Role.ADMIN)
   create(@Body() payload: CreateUserDto) {
     return this.usersService.create(payload);
+  }
+
+  @Get("customer-credits")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  listCustomerCredits() {
+    return this.usersService.listCustomerCredits();
   }
 
   @Get("me")
@@ -142,5 +150,16 @@ export class UsersController {
   @Roles(Role.ADMIN)
   remove(@Param("id") id: string) {
     return this.usersService.remove(id);
+  }
+
+  @Post(":id/credits/manual")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  adjustCustomerCredit(
+    @Param("id") id: string,
+    @CurrentUser() user: { id: string },
+    @Body() payload: AdjustCustomerCreditDto
+  ) {
+    return this.usersService.adjustCustomerCredit(id, payload, user.id);
   }
 }

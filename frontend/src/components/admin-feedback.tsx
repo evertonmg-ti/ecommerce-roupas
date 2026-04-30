@@ -16,6 +16,7 @@ const messages: Record<string, string> = {
   user_created: "Usuario criado com sucesso.",
   user_updated: "Usuario atualizado com sucesso.",
   user_deleted: "Usuario excluido com sucesso.",
+  credit_adjusted: "Ajuste financeiro aplicado com sucesso.",
   settings_updated: "Configuracoes atualizadas com sucesso.",
   test_email_sent: "Email de teste enviado com sucesso.",
   order_updated: "Status do pedido atualizado com sucesso.",
@@ -37,6 +38,8 @@ const messages: Record<string, string> = {
     "A transicao escolhida nao e valida para o status atual da solicitacao.",
   return_request_rejection_note_required:
     "Informe uma observacao para registrar o motivo da rejeicao.",
+  credit_balance_negative:
+    "O ajuste informado deixaria o saldo de credito do cliente negativo.",
   resource_not_found: "O registro informado nao foi encontrado.",
   generic_error: "Nao foi possivel concluir a operacao. Revise os dados e tente novamente."
 };

@@ -105,6 +105,14 @@ export default async function AdminUsersPage({
                 <div>
                   <p className="font-medium">{user.name}</p>
                   <p className="text-sm text-espresso/60">{user.email}</p>
+                  {user.role === "CUSTOMER" ? (
+                    <p className="mt-1 text-sm text-moss">
+                      Saldo em carteira: {user.walletBalance.toLocaleString("pt-BR", {
+                        style: "currency",
+                        currency: "BRL"
+                      })}
+                    </p>
+                  ) : null}
                 </div>
                 <span className="rounded-full bg-moss/10 px-3 py-1 text-xs text-moss">
                   {user.role}

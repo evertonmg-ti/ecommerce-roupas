@@ -1,12 +1,14 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException
 } from "@nestjs/common";
-import { ProductStatus, Role } from "@prisma/client";
+import { CustomerCreditTransactionType, ProductStatus, Role } from "@prisma/client";
 import * as bcrypt from "bcryptjs";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreateUserDto } from "./dto/create-user.dto";
+import { AdjustCustomerCreditDto } from "./dto/adjust-customer-credit.dto";
 import { SaveCurrentUserCartDto } from "./dto/save-current-user-cart.dto";
 import { SaveCurrentUserWishlistDto } from "./dto/save-current-user-wishlist.dto";
 import { SaveCustomerAddressDto } from "./dto/save-customer-address.dto";
@@ -24,9 +26,41 @@ export class UsersService {
         name: true,
         email: true,
         role: true,
+        walletBalance: true,
         createdAt: true
       },
       orderBy: { createdAt: "desc" }
+    });
+  }
+
+  listCustomerCredits() {
+    return this.prisma.user.findMany({
+      where: {
+        role: Role.CUSTOMER
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        walletBalance: true,
+        createdAt: true,
+        creditTransactions: {
+          take: 12,
+          orderBy: { createdAt: "desc" },
+          select: {
+            id: true,
+            type: true,
+            amount: true,
+            balanceBefore: true,
+            balanceAfter: true,
+            description: true,
+            createdAt: true,
+            orderId: true,
+            returnRequestId: true
+          }
+        }
+      },
+      orderBy: [{ walletBalance: "desc" }, { updatedAt: "desc" }]
     });
   }
 
@@ -525,6 +559,80 @@ export class UsersService {
 
     return this.prisma.user.delete({
       where: { id }
+    });
+  }
+
+  async adjustCustomerCredit(
+    id: string,
+    payload: AdjustCustomerCreditDto,
+    actorUserId?: string
+  ) {
+    const user = await this.prisma.user.findUnique({
+      where: { id }
+    });
+
+    if (!user) {
+      throw new NotFoundException("Usuario nao encontrado.");
+    }
+
+    if (user.role !== Role.CUSTOMER) {
+      throw new BadRequestException(
+        "Ajustes de credito estao disponiveis apenas para contas de cliente."
+      );
+    }
+
+    const amount = Number(payload.amount);
+
+    if (!Number.isFinite(amount) || amount === 0) {
+      throw new BadRequestException("Informe um valor valido para ajuste.");
+    }
+
+    const nextBalance = Number(user.walletBalance) + amount;
+
+    if (nextBalance < 0) {
+      throw new BadRequestException(
+        "O ajuste informado deixa o saldo de credito do cliente negativo."
+      );
+    }
+
+    const description =
+      payload.description?.trim() ||
+      (amount > 0 ? "Credito manual adicionado pela operacao." : "Debito manual realizado pela operacao.");
+
+    return this.prisma.$transaction(async (tx) => {
+      const current = await tx.user.findUniqueOrThrow({
+        where: { id },
+        select: { walletBalance: true }
+      });
+      const balanceBefore = current.walletBalance;
+      const balanceAfter = current.walletBalance.plus(amount);
+
+      const updatedUser = await tx.user.update({
+        where: { id },
+        data: {
+          walletBalance: balanceAfter
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          walletBalance: true
+        }
+      });
+
+      await tx.customerCreditTransaction.create({
+        data: {
+          userId: id,
+          type: CustomerCreditTransactionType.MANUAL_CREDIT,
+          amount: Math.abs(amount),
+          balanceBefore,
+          balanceAfter,
+          description,
+          metadata: actorUserId ? { actorUserId } : undefined
+        }
+      });
+
+      return updatedUser;
     });
   }
 

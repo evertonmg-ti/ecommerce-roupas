@@ -384,7 +384,27 @@ type UserResponse = {
   name: string;
   email: string;
   role: string;
+  walletBalance?: number | string;
   createdAt: string;
+};
+
+type CustomerCreditAdminResponse = {
+  id: string;
+  name: string;
+  email: string;
+  walletBalance: number | string;
+  createdAt: string;
+  creditTransactions: Array<{
+    id: string;
+    type: string;
+    amount: number | string;
+    balanceBefore: number | string;
+    balanceAfter: number | string;
+    description: string;
+    createdAt: string;
+    orderId?: string | null;
+    returnRequestId?: string | null;
+  }>;
 };
 
 type SettingsResponse = {
@@ -964,7 +984,27 @@ export type AdminUser = {
   email: string;
   role: string;
   status: string;
+  walletBalance: number;
   createdAt: string;
+};
+
+export type AdminCustomerCreditAccount = {
+  id: string;
+  name: string;
+  email: string;
+  walletBalance: number;
+  createdAt: string;
+  creditTransactions: Array<{
+    id: string;
+    type: string;
+    amount: number;
+    balanceBefore: number;
+    balanceAfter: number;
+    description: string;
+    createdAt: string;
+    orderId?: string;
+    returnRequestId?: string;
+  }>;
 };
 
 export type AdminSettings = {
@@ -1336,6 +1376,10 @@ function mapAdminErrorCode(message?: string) {
 
   if (message.includes("motivo da rejeicao")) {
     return "return_request_rejection_note_required";
+  }
+
+  if (message.includes("saldo de credito") && message.includes("negativo")) {
+    return "credit_balance_negative";
   }
 
   if (message.includes("nao encontrada") || message.includes("nao encontrado")) {
@@ -1912,7 +1956,31 @@ export async function getAdminUsers(): Promise<AdminUser[]> {
     email: user.email,
     role: user.role,
     status: "Ativo",
+    walletBalance: toNumber(user.walletBalance ?? 0),
     createdAt: formatDate(user.createdAt)
+  }));
+}
+
+export async function getAdminCustomerCredits(): Promise<AdminCustomerCreditAccount[]> {
+  const users = await fetchAdmin<CustomerCreditAdminResponse[]>("/users/customer-credits");
+
+  return users.map((user) => ({
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    walletBalance: toNumber(user.walletBalance),
+    createdAt: formatDate(user.createdAt),
+    creditTransactions: user.creditTransactions.map((transaction) => ({
+      id: transaction.id,
+      type: transaction.type,
+      amount: toNumber(transaction.amount),
+      balanceBefore: toNumber(transaction.balanceBefore),
+      balanceAfter: toNumber(transaction.balanceAfter),
+      description: transaction.description,
+      createdAt: formatDateTime(transaction.createdAt),
+      orderId: transaction.orderId ?? undefined,
+      returnRequestId: transaction.returnRequestId ?? undefined
+    }))
   }));
 }
 
@@ -2329,6 +2397,13 @@ export async function updateAdminUser(id: string, payload: SaveUserInput) {
 
 export async function deleteAdminUser(id: string) {
   return mutateAdmin(`/users/${id}`, "DELETE");
+}
+
+export async function adjustAdminCustomerCredit(
+  id: string,
+  payload: { amount: number; description?: string }
+) {
+  return mutateAdmin(`/users/${id}/credits/manual`, "POST", payload);
 }
 
 export type SaveProductInput = {
