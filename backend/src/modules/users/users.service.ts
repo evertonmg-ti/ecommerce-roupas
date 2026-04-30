@@ -40,9 +40,25 @@ export class UsersService {
         role: true,
         preferredPaymentMethod: true,
         preferredShippingMethod: true,
+        walletBalance: true,
         createdAt: true,
         addresses: {
           orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }]
+        },
+        creditTransactions: {
+          take: 20,
+          orderBy: { createdAt: "desc" },
+          select: {
+            id: true,
+            type: true,
+            amount: true,
+            balanceBefore: true,
+            balanceAfter: true,
+            description: true,
+            createdAt: true,
+            orderId: true,
+            returnRequestId: true
+          }
         }
       }
     });
@@ -94,6 +110,7 @@ export class UsersService {
         role: true,
         preferredPaymentMethod: true,
         preferredShippingMethod: true,
+        walletBalance: true,
         createdAt: true
       }
     });

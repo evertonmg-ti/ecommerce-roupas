@@ -4,6 +4,7 @@ import {
   NotFoundException
 } from "@nestjs/common";
 import {
+  CustomerCreditTransactionType,
   EventLevel,
   InventoryMovementType,
   OrderStatus,
@@ -154,6 +155,20 @@ export class OrdersService {
   }
 
   async create(payload: CreateOrderDto) {
+    if ((payload.useStoreCreditAmount ?? 0) > 0) {
+      throw new BadRequestException(
+        "Faca login na conta do cliente para usar credito no checkout."
+      );
+    }
+
+    return this.createInternal(payload);
+  }
+
+  async createForAuthenticatedCustomer(userId: string, payload: CreateOrderDto) {
+    return this.createInternal(payload, userId);
+  }
+
+  private async createInternal(payload: CreateOrderDto, authenticatedUserId?: string) {
     const customerDocument = this.sanitizeDigits(payload.customerDocument);
     const customerPhone = this.sanitizeDigits(payload.customerPhone);
     const shippingPostalCode = this.sanitizePostalCode(payload.shippingPostalCode);
@@ -220,17 +235,30 @@ export class OrdersService {
       subtotal
     );
     const discountAmount = couponApplication?.discountAmount ?? new Prisma.Decimal(0);
-    const total = Prisma.Decimal.max(
+    const totalBeforeStoreCredit = Prisma.Decimal.max(
       new Prisma.Decimal(0),
       subtotal.minus(discountAmount).plus(shippingCost)
     );
 
     const order = await this.prisma.$transaction(async (tx) => {
-      const customer = await this.findOrCreateCustomer(
-        tx,
-        payload.customerEmail,
-        payload.customerName
+      const customer = authenticatedUserId
+        ? await this.findAuthenticatedCustomerForCheckout(
+            tx,
+            authenticatedUserId,
+            payload.customerEmail,
+            payload.customerName
+          )
+        : await this.findOrCreateCustomer(tx, payload.customerEmail, payload.customerName);
+      const storeCreditApplied = this.resolveStoreCreditAmount(
+        payload.useStoreCreditAmount,
+        customer.walletBalance,
+        totalBeforeStoreCredit
       );
+      const total = Prisma.Decimal.max(
+        new Prisma.Decimal(0),
+        totalBeforeStoreCredit.minus(storeCreditApplied)
+      );
+      const autoPaidByCredit = total.lte(new Prisma.Decimal(0));
 
       const order = await tx.order.create({
         data: {
@@ -238,9 +266,12 @@ export class OrdersService {
           couponId: couponApplication?.couponId,
           couponCode: couponApplication?.couponCode,
           discountAmount,
+          storeCreditApplied,
           subtotal,
           shippingCost,
           total,
+          status: autoPaidByCredit ? OrderStatus.PAID : OrderStatus.PENDING,
+          paidAt: autoPaidByCredit ? new Date() : undefined,
           paymentMethod: payload.paymentMethod as PaymentMethod,
           shippingMethod: payload.shippingMethod as ShippingMethod,
           recipientName: payload.recipientName.trim(),
@@ -276,6 +307,16 @@ export class OrdersService {
           }
         }
       });
+
+      if (storeCreditApplied.gt(0)) {
+        await this.applyCustomerStoreCredit(tx, {
+          userId: customer.id,
+          orderId: order.id,
+          amount: storeCreditApplied,
+          currentBalance: customer.walletBalance,
+          description: `Uso de credito na finalizacao do pedido ${order.id}.`
+        });
+      }
 
       await Promise.all(
         items.map((item) =>
@@ -336,7 +377,8 @@ export class OrdersService {
       metadata: {
         orderId: order.id,
         customerEmail: order.user.email,
-        total: Number(order.total)
+        total: Number(order.total),
+        storeCreditApplied: Number(order.storeCreditApplied ?? 0)
       }
     });
 
@@ -567,6 +609,8 @@ export class OrdersService {
 
     const updatedRequest = await this.prisma.$transaction(async (tx) => {
       let restockedAt = request.restockedAt;
+      let creditIssuedAt = request.creditIssuedAt;
+      let refundRecordedAt = request.refundRecordedAt;
 
       if (
         payload.status === ReturnRequestStatus.RECEIVED &&
@@ -575,6 +619,72 @@ export class OrdersService {
       ) {
         await this.restockReturnRequestItems(tx, request, actorUserId, restockNote);
         restockedAt = new Date();
+      }
+
+      if (
+        payload.status === ReturnRequestStatus.COMPLETED &&
+        nextFinancialStatus === ReturnFinancialStatus.STORE_CREDIT_ISSUED &&
+        storeCreditAmount.gt(0) &&
+        !request.creditIssuedAt
+      ) {
+        const currentUser = await tx.user.findUniqueOrThrow({
+          where: { id: request.userId },
+          select: { walletBalance: true }
+        });
+        const issuedAt = new Date();
+
+        await this.createCustomerCreditTransaction(tx, {
+          userId: request.userId,
+          orderId: request.orderId,
+          returnRequestId: request.id,
+          type: CustomerCreditTransactionType.RETURN_STORE_CREDIT,
+          amount: storeCreditAmount,
+          balanceBefore: currentUser.walletBalance,
+          balanceAfter: currentUser.walletBalance.plus(storeCreditAmount),
+          description: `Vale-troca emitido pela solicitacao ${request.id} do pedido ${request.orderId}.`,
+          metadata: {
+            returnRequestId: request.id,
+            orderId: request.orderId
+          }
+        });
+        await tx.user.update({
+          where: { id: request.userId },
+          data: {
+            walletBalance: {
+              increment: storeCreditAmount
+            }
+          }
+        });
+        creditIssuedAt = issuedAt;
+      }
+
+      if (
+        payload.status === ReturnRequestStatus.COMPLETED &&
+        nextFinancialStatus === ReturnFinancialStatus.REFUNDED &&
+        refundAmount.gt(0) &&
+        !request.refundRecordedAt
+      ) {
+        const currentUser = await tx.user.findUniqueOrThrow({
+          where: { id: request.userId },
+          select: { walletBalance: true }
+        });
+        const recordedAt = new Date();
+
+        await this.createCustomerCreditTransaction(tx, {
+          userId: request.userId,
+          orderId: request.orderId,
+          returnRequestId: request.id,
+          type: CustomerCreditTransactionType.RETURN_REFUND_RECORDED,
+          amount: refundAmount,
+          balanceBefore: currentUser.walletBalance,
+          balanceAfter: currentUser.walletBalance,
+          description: `Reembolso financeiro registrado para a solicitacao ${request.id} do pedido ${request.orderId}.`,
+          metadata: {
+            returnRequestId: request.id,
+            orderId: request.orderId
+          }
+        });
+        refundRecordedAt = recordedAt;
       }
 
       return tx.returnRequest.update({
@@ -592,6 +702,8 @@ export class OrdersService {
           financialStatus: nextFinancialStatus,
           refundAmount,
           storeCreditAmount,
+          creditIssuedAt,
+          refundRecordedAt,
           restockItems,
           restockNote,
           receivedAt:
@@ -936,6 +1048,39 @@ export class OrdersService {
     });
   }
 
+  private async findAuthenticatedCustomerForCheckout(
+    tx: Prisma.TransactionClient,
+    userId: string,
+    email: string,
+    name: string
+  ) {
+    const user = await tx.user.findUnique({
+      where: { id: userId }
+    });
+
+    if (!user || user.role !== Role.CUSTOMER) {
+      throw new BadRequestException("Sessao de cliente invalida para este checkout.");
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedName = name.trim();
+
+    if (user.email !== normalizedEmail) {
+      throw new BadRequestException(
+        "O email informado no checkout nao corresponde a conta autenticada."
+      );
+    }
+
+    if (user.name !== normalizedName) {
+      return tx.user.update({
+        where: { id: user.id },
+        data: { name: normalizedName }
+      });
+    }
+
+    return user;
+  }
+
   private attachMockPayment<T extends Order & { createdAt: Date; status: OrderStatus }>(
     order: T
   ) {
@@ -1188,6 +1333,34 @@ export class OrdersService {
             }
           });
         }
+
+        if (order.storeCreditApplied.gt(0)) {
+          const currentUser = await tx.user.findUniqueOrThrow({
+            where: { id: order.userId },
+            select: { walletBalance: true }
+          });
+
+          await this.createCustomerCreditTransaction(tx, {
+            userId: order.userId,
+            orderId: order.id,
+            type: CustomerCreditTransactionType.ORDER_CANCELLATION_REVERSAL,
+            amount: order.storeCreditApplied,
+            balanceBefore: currentUser.walletBalance,
+            balanceAfter: currentUser.walletBalance.plus(order.storeCreditApplied),
+            description: `Credito devolvido pelo cancelamento do pedido ${order.id}.`,
+            metadata: {
+              orderId: order.id
+            }
+          });
+          await tx.user.update({
+            where: { id: order.userId },
+            data: {
+              walletBalance: {
+                increment: order.storeCreditApplied
+              }
+            }
+          });
+        }
       }
 
       return this.attachMockPayment(updatedOrder);
@@ -1214,7 +1387,8 @@ export class OrdersService {
         orderId: result.id,
         previousStatus: order.status,
         nextStatus,
-        trackingCode: result.trackingCode ?? undefined
+        trackingCode: result.trackingCode ?? undefined,
+        storeCreditApplied: Number(result.storeCreditApplied ?? 0)
       }
     });
 
@@ -1229,6 +1403,7 @@ export class OrdersService {
         unitPrice: Prisma.Decimal;
         product: { name: string };
       }>;
+      storeCreditApplied?: Prisma.Decimal | null;
       recipientName?: string | null;
       customerDocument?: string | null;
       customerPhone?: string | null;
@@ -1245,6 +1420,7 @@ export class OrdersService {
       status: order.status,
       createdAt: order.createdAt,
       total: Number(order.total),
+      storeCreditApplied: Number(order.storeCreditApplied ?? 0),
       subtotal: Number(order.subtotal),
       shippingCost: Number(order.shippingCost),
       paymentMethod: order.paymentMethod,
@@ -1610,6 +1786,92 @@ export class OrdersService {
     }
 
     return ReturnFinancialStatus.PENDING;
+  }
+
+  private resolveStoreCreditAmount(
+    requestedAmount: number | undefined,
+    walletBalance: Prisma.Decimal,
+    totalBeforeStoreCredit: Prisma.Decimal
+  ) {
+    const requested = Math.max(0, Number(requestedAmount ?? 0));
+    const available = Math.max(0, Number(walletBalance));
+    const orderTotal = Math.max(0, Number(totalBeforeStoreCredit));
+    const applied = Math.min(requested, available, orderTotal);
+
+    return new Prisma.Decimal(applied.toFixed(2));
+  }
+
+  private async applyCustomerStoreCredit(
+    tx: Prisma.TransactionClient,
+    payload: {
+      userId: string;
+      orderId: string;
+      amount: Prisma.Decimal;
+      currentBalance: Prisma.Decimal;
+      description: string;
+    }
+  ) {
+    const result = await tx.user.updateMany({
+      where: {
+        id: payload.userId,
+        walletBalance: {
+          gte: payload.amount
+        }
+      },
+      data: {
+        walletBalance: {
+          decrement: payload.amount
+        }
+      }
+    });
+
+    if (result.count === 0) {
+      throw new BadRequestException(
+        "O saldo de credito da conta nao esta mais disponivel para esta compra."
+      );
+    }
+
+    await this.createCustomerCreditTransaction(tx, {
+      userId: payload.userId,
+      orderId: payload.orderId,
+      type: CustomerCreditTransactionType.ORDER_STORE_CREDIT_USAGE,
+      amount: payload.amount,
+      balanceBefore: payload.currentBalance,
+      balanceAfter: payload.currentBalance.minus(payload.amount),
+      description: payload.description,
+      metadata: {
+        orderId: payload.orderId
+      }
+    });
+  }
+
+  private async createCustomerCreditTransaction(
+    tx: Prisma.TransactionClient,
+    payload: {
+      userId: string;
+      orderId?: string;
+      returnRequestId?: string;
+      type: CustomerCreditTransactionType;
+      amount: Prisma.Decimal;
+      balanceBefore: Prisma.Decimal;
+      balanceAfter: Prisma.Decimal;
+      description: string;
+      metadata?: Prisma.InputJsonValue;
+    }
+  ) {
+    await tx.customerCreditTransaction.create({
+      data: {
+        userId: payload.userId,
+        orderId: payload.orderId,
+        returnRequestId: payload.returnRequestId,
+        type: payload.type,
+        amount: payload.amount,
+        balanceBefore: payload.balanceBefore,
+        balanceAfter: payload.balanceAfter,
+        description: payload.description,
+        metadata: payload.metadata
+      }
+    });
   }
 
   private parseReturnRequestSelectedItems(value: Prisma.JsonValue | null | undefined) {

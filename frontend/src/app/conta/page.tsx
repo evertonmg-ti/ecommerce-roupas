@@ -27,6 +27,14 @@ const returnFinancialStatusLabels: Record<string, string> = {
   STORE_CREDIT_ISSUED: "Vale-troca emitido"
 };
 
+const creditTransactionLabels: Record<string, string> = {
+  RETURN_STORE_CREDIT: "Vale-troca emitido",
+  ORDER_STORE_CREDIT_USAGE: "Uso de credito no checkout",
+  ORDER_CANCELLATION_REVERSAL: "Credito devolvido por cancelamento",
+  RETURN_REFUND_RECORDED: "Reembolso financeiro registrado",
+  MANUAL_CREDIT: "Ajuste manual"
+};
+
 function getParamValue(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
 }
@@ -150,6 +158,68 @@ export default async function CustomerAccountPage({
                   Salvar perfil
                 </button>
               </form>
+            </div>
+
+            <div className="rounded-[2rem] border border-espresso/10 bg-white/80 p-6 shadow-soft">
+              <p className="text-xs uppercase tracking-[0.25em] text-terracotta">
+                Carteira
+              </p>
+              <h2 className="mt-2 font-display text-3xl">Credito em conta</h2>
+              <p className="mt-3 text-sm text-espresso/65">
+                Use esse saldo no checkout e acompanhe a movimentacao financeira do seu
+                pos-venda.
+              </p>
+              <div className="mt-5 rounded-[1.5rem] border border-moss/20 bg-moss/10 p-5">
+                <p className="text-sm text-espresso/60">Saldo disponivel</p>
+                <p className="mt-2 font-display text-4xl text-moss">
+                  {currency(account.walletBalance)}
+                </p>
+              </div>
+              <div className="mt-5 space-y-3">
+                {account.creditTransactions.length === 0 ? (
+                  <div className="rounded-[1.25rem] border border-espresso/10 bg-sand/35 p-4 text-sm text-espresso/65">
+                    Nenhuma movimentacao financeira registrada ainda.
+                  </div>
+                ) : (
+                  account.creditTransactions.map((transaction) => (
+                    <div
+                      key={transaction.id}
+                      className="rounded-[1.25rem] border border-espresso/10 bg-sand/35 p-4"
+                    >
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <p className="font-medium">
+                            {creditTransactionLabels[transaction.type] ?? transaction.type}
+                          </p>
+                          <p className="mt-1 text-sm text-espresso/60">
+                            {transaction.description}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p
+                            className={`font-medium ${
+                              transaction.balanceAfter >= transaction.balanceBefore
+                                ? "text-moss"
+                                : "text-terracotta"
+                            }`}
+                          >
+                            {transaction.balanceAfter >= transaction.balanceBefore ? "+" : "-"}
+                            {currency(transaction.amount)}
+                          </p>
+                          <p className="mt-1 text-xs text-espresso/55">
+                            {transaction.createdAt}
+                          </p>
+                        </div>
+                      </div>
+                      <p className="mt-3 text-sm text-espresso/65">
+                        Saldo: {currency(transaction.balanceBefore)} para{" "}
+                        {currency(transaction.balanceAfter)}
+                        {transaction.orderId ? ` - pedido ${transaction.orderId}` : ""}
+                      </p>
+                    </div>
+                  ))
+                )}
+              </div>
             </div>
 
             <div className="rounded-[2rem] border border-espresso/10 bg-white/80 p-6 shadow-soft">
@@ -373,6 +443,11 @@ export default async function CustomerAccountPage({
                           <p className="mt-1 text-sm text-espresso/65">
                             {order.createdAt} - {order.paymentMethod} - {order.shippingMethod}
                           </p>
+                          {order.storeCreditApplied > 0 ? (
+                            <p className="mt-1 text-sm text-moss">
+                              Credito usado: {currency(order.storeCreditApplied)}
+                            </p>
+                          ) : null}
                           {order.trackingCode ? (
                             <p className="mt-1 text-sm text-espresso/65">
                               Rastreio: {order.trackingCode}

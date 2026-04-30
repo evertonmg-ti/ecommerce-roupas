@@ -215,6 +215,11 @@ export default async function AdminOrdersPage({
                     <p>
                       <strong>Pagamento:</strong> {order.paymentMethod}
                     </p>
+                    {order.storeCreditApplied > 0 ? (
+                      <p className="mt-2 text-moss">
+                        <strong>Credito aplicado:</strong> {currency(order.storeCreditApplied)}
+                      </p>
+                    ) : null}
                     {order.trackingCode ? (
                       <p className="mt-2">
                         <strong>Rastreio:</strong> {order.trackingCode}

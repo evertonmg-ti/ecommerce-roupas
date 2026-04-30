@@ -9,6 +9,7 @@ type OrderResponse = {
   total: number | string;
   subtotal: number | string;
   shippingCost: number | string;
+  storeCreditApplied?: number | string;
   status: string;
   paymentMethod: string;
   shippingMethod: string;
@@ -90,6 +91,18 @@ type CurrentUserResponse = {
   role: string;
   preferredPaymentMethod?: string | null;
   preferredShippingMethod?: string | null;
+  walletBalance: number | string;
+  creditTransactions?: Array<{
+    id: string;
+    type: string;
+    amount: number | string;
+    balanceBefore: number | string;
+    balanceAfter: number | string;
+    description: string;
+    createdAt: string;
+    orderId?: string | null;
+    returnRequestId?: string | null;
+  }>;
   createdAt: string;
   addresses?: AddressResponse[];
 };
@@ -101,6 +114,18 @@ export type CustomerAccount = {
   role: string;
   preferredPaymentMethod?: string;
   preferredShippingMethod?: string;
+  walletBalance: number;
+  creditTransactions: Array<{
+    id: string;
+    type: string;
+    amount: number;
+    balanceBefore: number;
+    balanceAfter: number;
+    description: string;
+    createdAt: string;
+    orderId?: string;
+    returnRequestId?: string;
+  }>;
   createdAt: string;
   addresses: CustomerAddress[];
 };
@@ -130,6 +155,7 @@ export type CustomerOrderSummary = {
   total: number;
   subtotal: number;
   shippingCost: number;
+  storeCreditApplied: number;
   status: string;
   paymentMethod: string;
   shippingMethod: string;
@@ -251,6 +277,19 @@ export async function getCurrentCustomerAccount(): Promise<CustomerAccount> {
     role: user.role,
     preferredPaymentMethod: user.preferredPaymentMethod ?? undefined,
     preferredShippingMethod: user.preferredShippingMethod ?? undefined,
+    walletBalance: toNumber(user.walletBalance),
+    creditTransactions:
+      user.creditTransactions?.map((transaction) => ({
+        id: transaction.id,
+        type: transaction.type,
+        amount: toNumber(transaction.amount),
+        balanceBefore: toNumber(transaction.balanceBefore),
+        balanceAfter: toNumber(transaction.balanceAfter),
+        description: transaction.description,
+        createdAt: formatDateTime(transaction.createdAt),
+        orderId: transaction.orderId ?? undefined,
+        returnRequestId: transaction.returnRequestId ?? undefined
+      })) ?? [],
     createdAt: formatDateTime(user.createdAt),
     addresses: (user.addresses ?? []).map(normalizeAddress)
   };
@@ -264,6 +303,7 @@ export async function getCurrentCustomerOrders(): Promise<CustomerOrderSummary[]
     total: toNumber(order.total),
     subtotal: toNumber(order.subtotal),
     shippingCost: toNumber(order.shippingCost),
+    storeCreditApplied: toNumber(order.storeCreditApplied ?? 0),
     status: order.status,
     paymentMethod: order.paymentMethod,
     shippingMethod: order.shippingMethod,

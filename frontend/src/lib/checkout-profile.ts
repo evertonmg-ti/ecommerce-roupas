@@ -13,6 +13,7 @@ export type CheckoutProfile = {
   shippingCity: string;
   shippingState: string;
   shippingPostalCode: string;
+  useStoreCreditAmount: string;
   notes: string;
 };
 
@@ -33,5 +34,6 @@ export const emptyCheckoutProfile: CheckoutProfile = {
   shippingCity: "",
   shippingState: "",
   shippingPostalCode: "",
+  useStoreCreditAmount: "",
   notes: ""
 };

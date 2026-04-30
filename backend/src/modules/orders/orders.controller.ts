@@ -34,6 +34,16 @@ export class OrdersController {
     return this.ordersService.create(payload);
   }
 
+  @Post("checkout/customer")
+  @UseGuards(JwtAuthGuard)
+  @RateLimit({ limit: 20, windowSec: 60, keyPrefix: "orders-checkout-customer" })
+  createAuthenticated(
+    @CurrentUser() user: { id: string },
+    @Body() payload: CreateOrderDto
+  ) {
+    return this.ordersService.createForAuthenticatedCustomer(user.id, payload);
+  }
+
   @Post("lookup")
   @RateLimit({ limit: 20, windowSec: 60, keyPrefix: "orders-lookup" })
   lookup(@Body() payload: LookupOrdersDto) {

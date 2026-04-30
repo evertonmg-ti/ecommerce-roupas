@@ -4,6 +4,7 @@ import {
   IsEmail,
   IsEnum,
   IsInt,
+  IsNumber,
   IsOptional,
   IsString,
   Matches,
@@ -97,6 +98,11 @@ export class CreateOrderDto {
   @IsOptional()
   @IsString()
   couponCode?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  useStoreCreditAmount?: number;
 
   @IsArray()
   @ArrayMinSize(1)

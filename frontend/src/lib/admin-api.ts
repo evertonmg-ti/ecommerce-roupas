@@ -495,6 +495,7 @@ type OrderResponse = {
   discountAmount: number | string;
   subtotal: number | string;
   shippingCost: number | string;
+  storeCreditApplied?: number | string;
   total: number | string;
   status: string;
   paymentMethod: string;
@@ -1075,6 +1076,7 @@ export type AdminOrder = {
   discountAmount: number;
   subtotal: number;
   shippingCost: number;
+  storeCreditApplied: number;
   total: number;
   status: string;
   paymentMethod: string;
@@ -2086,6 +2088,7 @@ function normalizeAdminOrder(order: OrderResponse): AdminOrder {
     discountAmount: toNumber(order.discountAmount),
     subtotal: toNumber(order.subtotal),
     shippingCost: toNumber(order.shippingCost),
+    storeCreditApplied: toNumber(order.storeCreditApplied ?? 0),
     total: toNumber(order.total),
     status: order.status,
     paymentMethod: order.paymentMethod,

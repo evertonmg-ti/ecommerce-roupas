@@ -62,6 +62,7 @@ type CheckoutClientProps = {
   initialCustomerData?: {
     name: string;
     email: string;
+    walletBalance?: number;
     preferredPaymentMethod?: string;
     preferredShippingMethod?: string;
     addresses?: Array<{
@@ -156,7 +157,20 @@ export function CheckoutClient({ initialCustomerData }: CheckoutClientProps) {
   });
   const [availabilityIssues, setAvailabilityIssues] = useState<CartAvailabilityIssue[]>([]);
   const shippingCost = shippingQuoteState.shippingCost;
-  const grandTotal = Math.max(0, totalPrice - couponState.discountAmount + shippingCost);
+  const walletBalanceAvailable = initialCustomerData?.walletBalance ?? 0;
+  const storeCreditRequested = Math.max(
+    0,
+    Number(profile.useStoreCreditAmount.replace(",", ".") || 0)
+  );
+  const storeCreditApplied = Math.min(
+    walletBalanceAvailable,
+    storeCreditRequested,
+    Math.max(0, totalPrice - couponState.discountAmount + shippingCost)
+  );
+  const grandTotal = Math.max(
+    0,
+    totalPrice - couponState.discountAmount + shippingCost - storeCreditApplied
+  );
   const snapshotKey = getCartSnapshotKey(items);
   const restoredToken = searchParams.get("cart");
   const lastAbandonedSyncRef = useRef<string | null>(null);
@@ -541,10 +555,15 @@ export function CheckoutClient({ initialCustomerData }: CheckoutClientProps) {
         shippingCity,
         shippingState,
         shippingPostalCode,
+        useStoreCreditAmount: profile.useStoreCreditAmount,
         notes
       });
 
-      const response = await fetch(`${API_URL}/orders/checkout`, {
+      const checkoutUrl = initialCustomerData
+        ? "/api/customer/checkout"
+        : `${API_URL}/orders/checkout`;
+
+      const response = await fetch(checkoutUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
@@ -564,6 +583,7 @@ export function CheckoutClient({ initialCustomerData }: CheckoutClientProps) {
           shippingCity,
           shippingState,
           shippingPostalCode: digitsOnly(shippingPostalCode),
+          useStoreCreditAmount: storeCreditApplied > 0 ? storeCreditApplied : undefined,
           notes: notes || undefined,
           couponCode: couponState.status === "applied" ? couponState.code : undefined,
           items: items.map((item) => ({
@@ -622,6 +642,7 @@ export function CheckoutClient({ initialCustomerData }: CheckoutClientProps) {
         shippingCity,
         shippingState,
         shippingPostalCode,
+        useStoreCreditAmount: profile.useStoreCreditAmount,
         notes
       });
       setShippingMethod(shippingMethodValue);
@@ -1055,6 +1076,35 @@ export function CheckoutClient({ initialCustomerData }: CheckoutClientProps) {
             </label>
           </div>
 
+          {walletBalanceAvailable > 0 ? (
+            <div className="grid gap-5 md:grid-cols-[1fr_auto] md:items-end">
+              <label className="space-y-2 text-sm">
+                <span className="text-espresso/70">Usar credito da conta</span>
+                <input
+                  name="useStoreCreditAmount"
+                  value={profile.useStoreCreditAmount}
+                  onChange={(event) =>
+                    updateProfile(
+                      "useStoreCreditAmount",
+                      event.target.value.replace(/[^\d,.-]/g, "")
+                    )
+                  }
+                  className="w-full rounded-[1.5rem] border border-espresso/15 bg-transparent px-4 py-3"
+                  placeholder={`Disponivel: ${currency(walletBalanceAvailable)}`}
+                />
+              </label>
+              <button
+                type="button"
+                onClick={() =>
+                  updateProfile("useStoreCreditAmount", walletBalanceAvailable.toFixed(2))
+                }
+                className="rounded-full border border-espresso/15 px-6 py-3 text-sm"
+              >
+                Usar saldo total
+              </button>
+            </div>
+          ) : null}
+
           <div className="grid gap-5 md:grid-cols-[1fr_auto] md:items-end">
             <label className="space-y-2 text-sm">
               <span className="text-espresso/70">Cupom de desconto</span>
@@ -1113,7 +1163,8 @@ export function CheckoutClient({ initialCustomerData }: CheckoutClientProps) {
 
           <div className="rounded-[1.5rem] border border-dashed border-espresso/15 bg-sand/35 p-4 text-sm text-espresso/65">
             O pagamento ainda esta em modo demonstracao, mas o pedido agora registra
-            entrega, frete calculado e forma de pagamento para preparar a operacao real.
+            entrega, frete calculado, uso de credito e forma de pagamento para preparar
+            a operacao real.
           </div>
 
           <button
@@ -1170,6 +1221,10 @@ export function CheckoutClient({ initialCustomerData }: CheckoutClientProps) {
                 ? "Calculando..."
                 : currency(shippingCost)}
             </span>
+          </div>
+          <div className="mb-4 flex items-center justify-between gap-4 text-sm text-espresso/70">
+            <span>Credito da conta</span>
+            <span>- {currency(storeCreditApplied)}</span>
           </div>
           <div className="flex items-end justify-between gap-4">
             <span className="text-sm text-espresso/70">Total</span>
