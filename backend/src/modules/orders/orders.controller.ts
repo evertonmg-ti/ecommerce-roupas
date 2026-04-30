@@ -108,8 +108,9 @@ export class OrdersController {
   updateReturnRequestStatus(
     @Param("orderId") orderId: string,
     @Param("requestId") requestId: string,
+    @CurrentUser() user: { id: string },
     @Body() payload: UpdateReturnRequestStatusDto
   ) {
-    return this.ordersService.updateReturnRequestStatus(orderId, requestId, payload);
+    return this.ordersService.updateReturnRequestStatus(orderId, requestId, payload, user.id);
   }
 }

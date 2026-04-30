@@ -11,6 +11,7 @@ import {
   PaymentMethod,
   Prisma,
   ProductStatus,
+  ReturnFinancialStatus,
   ReturnRequestStatus,
   Role,
   ShippingMethod
@@ -478,6 +479,10 @@ export class OrdersService {
         orderId: order.id,
         userId,
         type: payload.type,
+        financialStatus:
+          payload.type === "REFUND"
+            ? ReturnFinancialStatus.PENDING
+            : ReturnFinancialStatus.NOT_APPLICABLE,
         reason: payload.reason.trim(),
         details: payload.details?.trim() || undefined,
         selectedItems
@@ -503,7 +508,8 @@ export class OrdersService {
   async updateReturnRequestStatus(
     orderId: string,
     requestId: string,
-    payload: UpdateReturnRequestStatusDto
+    payload: UpdateReturnRequestStatusDto,
+    actorUserId?: string
   ) {
     const request = await this.prisma.returnRequest.findFirst({
       where: {
@@ -513,7 +519,8 @@ export class OrdersService {
       include: {
         order: {
           include: {
-            user: true
+            user: true,
+            items: true
           }
         }
       }
@@ -523,17 +530,33 @@ export class OrdersService {
       throw new NotFoundException("Solicitacao nao encontrada para este pedido.");
     }
 
-    if (request.status === payload.status) {
-      return request;
-    }
-
-    if (!this.isValidReturnRequestTransition(request.status, payload.status)) {
+    if (
+      request.status !== payload.status &&
+      !this.isValidReturnRequestTransition(request.status, payload.status)
+    ) {
       throw new BadRequestException(
         "A transicao informada nao e valida para o status atual da solicitacao."
       );
     }
 
     const resolutionNote = payload.resolutionNote?.trim() || undefined;
+    const reverseLogisticsCode = payload.reverseLogisticsCode?.trim() || undefined;
+    const reverseShippingLabel = payload.reverseShippingLabel?.trim() || undefined;
+    const returnDestinationAddress =
+      payload.returnDestinationAddress?.trim() || undefined;
+    const reverseInstructions = payload.reverseInstructions?.trim() || undefined;
+    const restockNote = payload.restockNote?.trim() || undefined;
+    const nextFinancialStatus =
+      payload.financialStatus ?? this.resolveReturnFinancialStatus(request, payload.status);
+    const refundAmount =
+      payload.refundAmount === undefined
+        ? request.refundAmount
+        : new Prisma.Decimal(payload.refundAmount);
+    const storeCreditAmount =
+      payload.storeCreditAmount === undefined
+        ? request.storeCreditAmount
+        : new Prisma.Decimal(payload.storeCreditAmount);
+    const restockItems = payload.restockItems ?? request.restockItems;
 
     if (payload.status === ReturnRequestStatus.REJECTED && !resolutionNote) {
       throw new BadRequestException(
@@ -541,12 +564,51 @@ export class OrdersService {
       );
     }
 
-    const updatedRequest = await this.prisma.returnRequest.update({
-      where: { id: request.id },
-      data: {
-        status: payload.status,
-        resolutionNote
+    const updatedRequest = await this.prisma.$transaction(async (tx) => {
+      let restockedAt = request.restockedAt;
+
+      if (
+        payload.status === ReturnRequestStatus.RECEIVED &&
+        restockItems &&
+        !request.restockedAt
+      ) {
+        await this.restockReturnRequestItems(tx, request, actorUserId, restockNote);
+        restockedAt = new Date();
       }
+
+      return tx.returnRequest.update({
+        where: { id: request.id },
+        data: {
+          status: payload.status,
+          resolutionNote,
+          reverseLogisticsCode,
+          reverseShippingLabel,
+          returnDestinationAddress,
+          reverseInstructions,
+          reverseDeadlineAt: payload.reverseDeadlineAt
+            ? new Date(payload.reverseDeadlineAt)
+            : request.reverseDeadlineAt,
+          financialStatus: nextFinancialStatus,
+          refundAmount,
+          storeCreditAmount,
+          restockItems,
+          restockNote,
+          receivedAt:
+            payload.status === ReturnRequestStatus.RECEIVED && !request.receivedAt
+              ? new Date()
+              : payload.status === ReturnRequestStatus.REQUESTED ||
+                  payload.status === ReturnRequestStatus.APPROVED
+                ? null
+                : request.receivedAt,
+          completedAt:
+            payload.status === ReturnRequestStatus.COMPLETED && !request.completedAt
+              ? new Date()
+              : payload.status !== ReturnRequestStatus.COMPLETED
+                ? null
+                : request.completedAt,
+          restockedAt
+        }
+      });
     });
 
     await this.observabilityService.logEvent({
@@ -562,8 +624,31 @@ export class OrdersService {
         returnRequestId: request.id,
         previousStatus: request.status,
         nextStatus: payload.status,
-        type: request.type
+        type: request.type,
+        financialStatus: nextFinancialStatus,
+        restockItems,
+        refundAmount: Number(refundAmount),
+        storeCreditAmount: Number(storeCreditAmount)
       }
+    });
+
+    await this.emailService.sendReturnRequestUpdated({
+      to: request.order.user.email,
+      customerName: request.order.user.name,
+      orderId: request.orderId,
+      type: request.type,
+      status: payload.status,
+      resolutionNote,
+      reverseLogisticsCode,
+      reverseShippingLabel,
+      returnDestinationAddress,
+      reverseInstructions,
+      reverseDeadlineAt: payload.reverseDeadlineAt
+        ? new Date(payload.reverseDeadlineAt)
+        : request.reverseDeadlineAt ?? undefined,
+      financialStatus: nextFinancialStatus,
+      refundAmount: Number(refundAmount),
+      storeCreditAmount: Number(storeCreditAmount)
     });
 
     return updatedRequest;
@@ -1100,6 +1185,69 @@ export class OrdersService {
     return Math.trunc(parsed);
   }
 
+  private async restockReturnRequestItems(
+    tx: Prisma.TransactionClient,
+    request: {
+      id: string;
+      selectedItems?: Prisma.JsonValue | null;
+      order: {
+        id: string;
+        items: Array<{
+          id: string;
+          productId: string;
+          variantId: string | null;
+          quantity: number;
+        }>;
+      };
+    },
+    actorUserId?: string,
+    restockNote?: string
+  ) {
+    const selectedItems = this.parseReturnRequestSelectedItems(request.selectedItems);
+    const orderItemsMap = new Map(request.order.items.map((item) => [item.id, item]));
+
+    for (const selectedItem of selectedItems) {
+      const orderItem = orderItemsMap.get(selectedItem.orderItemId);
+
+      if (!orderItem) {
+        continue;
+      }
+
+      if (selectedItem.variantId) {
+        await tx.productVariant.update({
+          where: { id: selectedItem.variantId },
+          data: {
+            stock: {
+              increment: selectedItem.quantity
+            }
+          }
+        });
+      }
+
+      const updatedProduct = await tx.product.update({
+        where: { id: selectedItem.productId },
+        data: {
+          stock: {
+            increment: selectedItem.quantity
+          }
+        }
+      });
+
+      await this.productsService.recordInventoryMovement(tx, {
+        productId: selectedItem.productId,
+        orderId: request.order.id,
+        actorUserId,
+        type: InventoryMovementType.RETURN_RESTOCK,
+        quantityDelta: selectedItem.quantity,
+        previousStock: updatedProduct.stock - selectedItem.quantity,
+        nextStock: updatedProduct.stock,
+        reason:
+          restockNote ||
+          `Reentrada de estoque pela solicitacao ${request.id} do pedido ${request.order.id}.`
+      });
+    }
+  }
+
   private isValidReturnRequestTransition(
     currentStatus: ReturnRequestStatus,
     nextStatus: ReturnRequestStatus
@@ -1119,5 +1267,70 @@ export class OrdersService {
     };
 
     return transitions[currentStatus].includes(nextStatus);
+  }
+
+  private resolveReturnFinancialStatus(
+    request: {
+      type: string;
+      financialStatus: ReturnFinancialStatus;
+    },
+    nextStatus: ReturnRequestStatus
+  ) {
+    if (request.type === "EXCHANGE") {
+      return ReturnFinancialStatus.NOT_APPLICABLE;
+    }
+
+    if (
+      request.financialStatus === ReturnFinancialStatus.REFUNDED ||
+      request.financialStatus === ReturnFinancialStatus.STORE_CREDIT_ISSUED
+    ) {
+      return request.financialStatus;
+    }
+
+    if (nextStatus === ReturnRequestStatus.REJECTED) {
+      return ReturnFinancialStatus.NOT_APPLICABLE;
+    }
+
+    return ReturnFinancialStatus.PENDING;
+  }
+
+  private parseReturnRequestSelectedItems(value: Prisma.JsonValue | null | undefined) {
+    if (!Array.isArray(value)) {
+      return [];
+    }
+
+    return value
+      .map((item) => {
+        if (!item || typeof item !== "object") {
+          return null;
+        }
+
+        const entry = item as Record<string, unknown>;
+        const orderItemId =
+          typeof entry.orderItemId === "string" ? entry.orderItemId : undefined;
+        const productId =
+          typeof entry.productId === "string" ? entry.productId : undefined;
+        const variantId =
+          typeof entry.variantId === "string" ? entry.variantId : undefined;
+        const variantLabel =
+          typeof entry.variantLabel === "string" ? entry.variantLabel : undefined;
+        const quantity =
+          typeof entry.quantity === "number"
+            ? entry.quantity
+            : Number(entry.quantity ?? 0);
+
+        if (!orderItemId || !productId || !Number.isFinite(quantity) || quantity < 1) {
+          return null;
+        }
+
+        return {
+          orderItemId,
+          productId,
+          variantId,
+          variantLabel,
+          quantity: Math.trunc(quantity)
+        };
+      })
+      .filter((item): item is NonNullable<typeof item> => item !== null);
   }
 }

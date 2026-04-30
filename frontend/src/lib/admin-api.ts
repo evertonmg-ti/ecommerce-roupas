@@ -504,9 +504,22 @@ type OrderResponse = {
     id: string;
     type: string;
     status: string;
+    financialStatus?: string;
     reason: string;
     details?: string | null;
     resolutionNote?: string | null;
+    reverseLogisticsCode?: string | null;
+    reverseShippingLabel?: string | null;
+    returnDestinationAddress?: string | null;
+    reverseInstructions?: string | null;
+    reverseDeadlineAt?: string | null;
+    refundAmount?: number | string;
+    storeCreditAmount?: number | string;
+    restockItems?: boolean;
+    restockNote?: string | null;
+    receivedAt?: string | null;
+    completedAt?: string | null;
+    restockedAt?: string | null;
     selectedItems?: Array<{
       orderItemId: string;
       productId: string;
@@ -990,9 +1003,22 @@ export type AdminOrder = {
     id: string;
     type: string;
     status: string;
+    financialStatus?: string;
     reason: string;
     details?: string;
     resolutionNote?: string;
+    reverseLogisticsCode?: string;
+    reverseShippingLabel?: string;
+    returnDestinationAddress?: string;
+    reverseInstructions?: string;
+    reverseDeadlineAt?: string;
+    refundAmount: number;
+    storeCreditAmount: number;
+    restockItems: boolean;
+    restockNote?: string;
+    receivedAt?: string;
+    completedAt?: string;
+    restockedAt?: string;
     selectedItems: Array<{
       orderItemId: string;
       productId: string;
@@ -1186,6 +1212,12 @@ function formatDateTime(value: string) {
     hour: "2-digit",
     minute: "2-digit"
   }).format(new Date(value));
+}
+
+function formatDateTimeInput(value: string) {
+  const date = new Date(value);
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
+  return local.toISOString().slice(0, 16);
 }
 
 export async function getAdminDashboardMetrics(): Promise<AdminDashboardData> {
@@ -1885,9 +1917,28 @@ function normalizeAdminOrder(order: OrderResponse): AdminOrder {
       id: request.id,
       type: request.type,
       status: request.status,
+      financialStatus: request.financialStatus ?? undefined,
       reason: request.reason,
       details: request.details ?? undefined,
       resolutionNote: request.resolutionNote ?? undefined,
+      reverseLogisticsCode: request.reverseLogisticsCode ?? undefined,
+      reverseShippingLabel: request.reverseShippingLabel ?? undefined,
+      returnDestinationAddress: request.returnDestinationAddress ?? undefined,
+      reverseInstructions: request.reverseInstructions ?? undefined,
+      reverseDeadlineAt: request.reverseDeadlineAt
+        ? formatDateTimeInput(request.reverseDeadlineAt)
+        : undefined,
+      refundAmount: toNumber(request.refundAmount),
+      storeCreditAmount: toNumber(request.storeCreditAmount),
+      restockItems: request.restockItems === true,
+      restockNote: request.restockNote ?? undefined,
+      receivedAt: request.receivedAt ? formatDateTime(request.receivedAt) : undefined,
+      completedAt: request.completedAt
+        ? formatDateTime(request.completedAt)
+        : undefined,
+      restockedAt: request.restockedAt
+        ? formatDateTime(request.restockedAt)
+        : undefined,
       selectedItems: (request.selectedItems ?? []).map((item) => ({
         orderItemId: item.orderItemId,
         productId: item.productId,
@@ -2094,11 +2145,33 @@ export async function updateAdminReturnRequestStatus(
   orderId: string,
   requestId: string,
   status: string,
-  resolutionNote?: string
+  payload?: {
+    resolutionNote?: string;
+    reverseLogisticsCode?: string;
+    reverseShippingLabel?: string;
+    returnDestinationAddress?: string;
+    reverseInstructions?: string;
+    reverseDeadlineAt?: string;
+    financialStatus?: string;
+    refundAmount?: number;
+    storeCreditAmount?: number;
+    restockItems?: boolean;
+    restockNote?: string;
+  }
 ) {
   return mutateAdmin(`/orders/${orderId}/return-requests/${requestId}`, "PATCH", {
     status,
-    resolutionNote: resolutionNote?.trim() || undefined
+    resolutionNote: payload?.resolutionNote?.trim() || undefined,
+    reverseLogisticsCode: payload?.reverseLogisticsCode?.trim() || undefined,
+    reverseShippingLabel: payload?.reverseShippingLabel?.trim() || undefined,
+    returnDestinationAddress: payload?.returnDestinationAddress?.trim() || undefined,
+    reverseInstructions: payload?.reverseInstructions?.trim() || undefined,
+    reverseDeadlineAt: payload?.reverseDeadlineAt?.trim() || undefined,
+    financialStatus: payload?.financialStatus?.trim() || undefined,
+    refundAmount: payload?.refundAmount,
+    storeCreditAmount: payload?.storeCreditAmount,
+    restockItems: payload?.restockItems,
+    restockNote: payload?.restockNote?.trim() || undefined
   });
 }
 

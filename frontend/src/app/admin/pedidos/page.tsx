@@ -27,22 +27,36 @@ const returnRequestTypeLabels: Record<string, string> = {
   REFUND: "Devolucao"
 };
 
+const returnFinancialStatusLabels: Record<string, string> = {
+  NOT_APPLICABLE: "Nao se aplica",
+  PENDING: "Pendente",
+  REFUNDED: "Reembolsado",
+  STORE_CREDIT_ISSUED: "Vale-troca emitido"
+};
+
 function getReturnRequestTransitionOptions(status: string) {
+  const keepCurrent = {
+    value: status,
+    label: "Salvar dados sem mudar status"
+  };
+
   switch (status) {
     case "REQUESTED":
       return [
+        keepCurrent,
         { value: "APPROVED", label: "Aprovar" },
         { value: "REJECTED", label: "Rejeitar" }
       ];
     case "APPROVED":
       return [
+        keepCurrent,
         { value: "RECEIVED", label: "Marcar recebimento" },
         { value: "REJECTED", label: "Rejeitar" }
       ];
     case "RECEIVED":
-      return [{ value: "COMPLETED", label: "Concluir" }];
+      return [keepCurrent, { value: "COMPLETED", label: "Concluir" }];
     default:
-      return [];
+      return [keepCurrent];
   }
 }
 
@@ -333,6 +347,77 @@ export default async function AdminOrdersPage({
                                       <strong>Detalhes:</strong> {request.details}
                                     </p>
                                   ) : null}
+                                  {request.reverseLogisticsCode ? (
+                                    <p>
+                                      <strong>Codigo de postagem:</strong>{" "}
+                                      {request.reverseLogisticsCode}
+                                    </p>
+                                  ) : null}
+                                  {request.reverseShippingLabel ? (
+                                    <p>
+                                      <strong>Etiqueta/Referencia:</strong>{" "}
+                                      {request.reverseShippingLabel}
+                                    </p>
+                                  ) : null}
+                                  {request.returnDestinationAddress ? (
+                                    <p>
+                                      <strong>Endereco de devolucao:</strong>{" "}
+                                      {request.returnDestinationAddress}
+                                    </p>
+                                  ) : null}
+                                  {request.reverseInstructions ? (
+                                    <p>
+                                      <strong>Instrucoes:</strong>{" "}
+                                      {request.reverseInstructions}
+                                    </p>
+                                  ) : null}
+                                  {request.reverseDeadlineAt ? (
+                                    <p>
+                                      <strong>Prazo logistica reversa:</strong>{" "}
+                                      {request.reverseDeadlineAt}
+                                    </p>
+                                  ) : null}
+                                  {request.financialStatus ? (
+                                    <p>
+                                      <strong>Status financeiro:</strong>{" "}
+                                      {returnFinancialStatusLabels[request.financialStatus] ??
+                                        request.financialStatus}
+                                    </p>
+                                  ) : null}
+                                  {request.refundAmount > 0 ? (
+                                    <p>
+                                      <strong>Reembolso:</strong>{" "}
+                                      {currency(request.refundAmount)}
+                                    </p>
+                                  ) : null}
+                                  {request.storeCreditAmount > 0 ? (
+                                    <p>
+                                      <strong>Vale-troca:</strong>{" "}
+                                      {currency(request.storeCreditAmount)}
+                                    </p>
+                                  ) : null}
+                                  {request.receivedAt ? (
+                                    <p>
+                                      <strong>Recebido em:</strong> {request.receivedAt}
+                                    </p>
+                                  ) : null}
+                                  {request.completedAt ? (
+                                    <p>
+                                      <strong>Concluido em:</strong> {request.completedAt}
+                                    </p>
+                                  ) : null}
+                                  {request.restockedAt ? (
+                                    <p>
+                                      <strong>Reentrada em estoque:</strong>{" "}
+                                      {request.restockedAt}
+                                    </p>
+                                  ) : null}
+                                  {request.restockNote ? (
+                                    <p>
+                                      <strong>Nota de reentrada:</strong>{" "}
+                                      {request.restockNote}
+                                    </p>
+                                  ) : null}
                                   {request.resolutionNote ? (
                                     <p>
                                       <strong>Observacao interna:</strong>{" "}
@@ -402,6 +487,115 @@ export default async function AdminOrdersPage({
                                         rows={3}
                                         defaultValue={request.resolutionNote ?? ""}
                                         placeholder="Ex.: item recebido no CD e validado pela operacao."
+                                        className="w-full rounded-2xl border border-espresso/15 bg-white px-4 py-3 outline-none"
+                                      />
+                                    </label>
+                                    <div className="grid gap-3 md:grid-cols-2">
+                                      <label className="space-y-2 text-sm">
+                                        <span>Codigo de postagem</span>
+                                        <input
+                                          name="reverseLogisticsCode"
+                                          defaultValue={request.reverseLogisticsCode ?? ""}
+                                          className="w-full rounded-2xl border border-espresso/15 bg-white px-4 py-3 outline-none"
+                                        />
+                                      </label>
+                                      <label className="space-y-2 text-sm">
+                                        <span>Etiqueta/Referencia</span>
+                                        <input
+                                          name="reverseShippingLabel"
+                                          defaultValue={request.reverseShippingLabel ?? ""}
+                                          className="w-full rounded-2xl border border-espresso/15 bg-white px-4 py-3 outline-none"
+                                        />
+                                      </label>
+                                    </div>
+                                    <label className="space-y-2 text-sm">
+                                      <span>Endereco de devolucao</span>
+                                      <textarea
+                                        name="returnDestinationAddress"
+                                        rows={2}
+                                        defaultValue={request.returnDestinationAddress ?? ""}
+                                        className="w-full rounded-2xl border border-espresso/15 bg-white px-4 py-3 outline-none"
+                                      />
+                                    </label>
+                                    <label className="space-y-2 text-sm">
+                                      <span>Instrucoes para o cliente</span>
+                                      <textarea
+                                        name="reverseInstructions"
+                                        rows={3}
+                                        defaultValue={request.reverseInstructions ?? ""}
+                                        className="w-full rounded-2xl border border-espresso/15 bg-white px-4 py-3 outline-none"
+                                      />
+                                    </label>
+                                    <div className="grid gap-3 md:grid-cols-2">
+                                      <label className="space-y-2 text-sm">
+                                        <span>Prazo da devolucao</span>
+                                        <input
+                                          type="datetime-local"
+                                          name="reverseDeadlineAt"
+                                          defaultValue={request.reverseDeadlineAt ?? ""}
+                                          className="w-full rounded-2xl border border-espresso/15 bg-white px-4 py-3 outline-none"
+                                        />
+                                      </label>
+                                      <label className="space-y-2 text-sm">
+                                        <span>Status financeiro</span>
+                                        <select
+                                          name="financialStatus"
+                                          defaultValue={
+                                            request.financialStatus ??
+                                            (request.type === "REFUND"
+                                              ? "PENDING"
+                                              : "NOT_APPLICABLE")
+                                          }
+                                          className="w-full rounded-2xl border border-espresso/15 bg-white px-4 py-3 outline-none"
+                                        >
+                                          <option value="NOT_APPLICABLE">Nao se aplica</option>
+                                          <option value="PENDING">Pendente</option>
+                                          <option value="REFUNDED">Reembolsado</option>
+                                          <option value="STORE_CREDIT_ISSUED">
+                                            Vale-troca emitido
+                                          </option>
+                                        </select>
+                                      </label>
+                                    </div>
+                                    <div className="grid gap-3 md:grid-cols-2">
+                                      <label className="space-y-2 text-sm">
+                                        <span>Valor de reembolso</span>
+                                        <input
+                                          type="number"
+                                          name="refundAmount"
+                                          step="0.01"
+                                          min="0"
+                                          defaultValue={request.refundAmount}
+                                          className="w-full rounded-2xl border border-espresso/15 bg-white px-4 py-3 outline-none"
+                                        />
+                                      </label>
+                                      <label className="space-y-2 text-sm">
+                                        <span>Valor de vale-troca</span>
+                                        <input
+                                          type="number"
+                                          name="storeCreditAmount"
+                                          step="0.01"
+                                          min="0"
+                                          defaultValue={request.storeCreditAmount}
+                                          className="w-full rounded-2xl border border-espresso/15 bg-white px-4 py-3 outline-none"
+                                        />
+                                      </label>
+                                    </div>
+                                    <label className="flex items-center gap-2 text-sm text-espresso/70">
+                                      <input
+                                        type="checkbox"
+                                        name="restockItems"
+                                        defaultChecked={request.restockItems}
+                                      />
+                                      Reintegrar item ao estoque ao marcar recebimento
+                                    </label>
+                                    <label className="space-y-2 text-sm">
+                                      <span>Nota de reentrada / descarte</span>
+                                      <textarea
+                                        name="restockNote"
+                                        rows={2}
+                                        defaultValue={request.restockNote ?? ""}
+                                        placeholder="Ex.: item conferido, sem avaria, reentrada liberada."
                                         className="w-full rounded-2xl border border-espresso/15 bg-white px-4 py-3 outline-none"
                                       />
                                     </label>

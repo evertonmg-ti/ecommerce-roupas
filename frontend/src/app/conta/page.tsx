@@ -20,6 +20,13 @@ type CustomerAccountPageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
 
+const returnFinancialStatusLabels: Record<string, string> = {
+  NOT_APPLICABLE: "Nao se aplica",
+  PENDING: "Pendente",
+  REFUNDED: "Reembolsado",
+  STORE_CREDIT_ISSUED: "Vale-troca emitido"
+};
+
 function getParamValue(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
 }
@@ -411,6 +418,60 @@ export default async function CustomerAccountPage({
                                 {request.details ? (
                                   <p className="mt-1">
                                     <strong>Detalhes:</strong> {request.details}
+                                  </p>
+                                ) : null}
+                                {request.reverseLogisticsCode ? (
+                                  <p className="mt-1">
+                                    <strong>Codigo de postagem:</strong>{" "}
+                                    {request.reverseLogisticsCode}
+                                  </p>
+                                ) : null}
+                                {request.reverseShippingLabel ? (
+                                  <p className="mt-1">
+                                    <strong>Etiqueta/Referencia:</strong>{" "}
+                                    {request.reverseShippingLabel}
+                                  </p>
+                                ) : null}
+                                {request.returnDestinationAddress ? (
+                                  <p className="mt-1">
+                                    <strong>Endereco de devolucao:</strong>{" "}
+                                    {request.returnDestinationAddress}
+                                  </p>
+                                ) : null}
+                                {request.reverseInstructions ? (
+                                  <p className="mt-1">
+                                    <strong>Instrucoes:</strong> {request.reverseInstructions}
+                                  </p>
+                                ) : null}
+                                {request.reverseDeadlineAt ? (
+                                  <p className="mt-1">
+                                    <strong>Prazo para envio:</strong>{" "}
+                                    {request.reverseDeadlineAt}
+                                  </p>
+                                ) : null}
+                                {request.financialStatus ? (
+                                  <p className="mt-1">
+                                    <strong>Status financeiro:</strong>{" "}
+                                    {returnFinancialStatusLabels[request.financialStatus] ??
+                                      request.financialStatus}
+                                  </p>
+                                ) : null}
+                                {request.refundAmount > 0 ? (
+                                  <p className="mt-1">
+                                    <strong>Reembolso previsto:</strong>{" "}
+                                    {currency(request.refundAmount)}
+                                  </p>
+                                ) : null}
+                                {request.storeCreditAmount > 0 ? (
+                                  <p className="mt-1">
+                                    <strong>Vale-troca previsto:</strong>{" "}
+                                    {currency(request.storeCreditAmount)}
+                                  </p>
+                                ) : null}
+                                {request.restockedAt ? (
+                                  <p className="mt-1">
+                                    <strong>Item reintegrado ao estoque em:</strong>{" "}
+                                    {request.restockedAt}
                                   </p>
                                 ) : null}
                                 {request.resolutionNote ? (

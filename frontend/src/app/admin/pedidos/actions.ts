@@ -42,7 +42,33 @@ export async function updateReturnRequestStatusAction(formData: FormData) {
     const requestId = String(formData.get("requestId") ?? "").trim();
     const status = String(formData.get("status") ?? "").trim();
     const resolutionNote = String(formData.get("resolutionNote") ?? "").trim();
-    await updateAdminReturnRequestStatus(orderId, requestId, status, resolutionNote);
+    const reverseLogisticsCode = String(formData.get("reverseLogisticsCode") ?? "").trim();
+    const reverseShippingLabel = String(formData.get("reverseShippingLabel") ?? "").trim();
+    const returnDestinationAddress = String(
+      formData.get("returnDestinationAddress") ?? ""
+    ).trim();
+    const reverseInstructions = String(formData.get("reverseInstructions") ?? "").trim();
+    const reverseDeadlineAt = String(formData.get("reverseDeadlineAt") ?? "").trim();
+    const financialStatus = String(formData.get("financialStatus") ?? "").trim();
+    const refundAmountValue = String(formData.get("refundAmount") ?? "").trim();
+    const storeCreditAmountValue = String(formData.get("storeCreditAmount") ?? "").trim();
+    const restockItems = formData.get("restockItems") === "on";
+    const restockNote = String(formData.get("restockNote") ?? "").trim();
+    await updateAdminReturnRequestStatus(orderId, requestId, status, {
+      resolutionNote,
+      reverseLogisticsCode,
+      reverseShippingLabel,
+      returnDestinationAddress,
+      reverseInstructions,
+      reverseDeadlineAt,
+      financialStatus,
+      refundAmount: refundAmountValue ? Number(refundAmountValue) : undefined,
+      storeCreditAmount: storeCreditAmountValue
+        ? Number(storeCreditAmountValue)
+        : undefined,
+      restockItems,
+      restockNote
+    });
     revalidatePath("/admin/pedidos");
     revalidatePath("/admin");
     revalidatePath("/conta");

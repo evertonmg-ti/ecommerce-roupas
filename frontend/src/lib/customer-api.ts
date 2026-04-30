@@ -18,9 +18,22 @@ type OrderResponse = {
     id: string;
     type: string;
     status: string;
+    financialStatus?: string | null;
     reason: string;
     details?: string | null;
     resolutionNote?: string | null;
+    reverseLogisticsCode?: string | null;
+    reverseShippingLabel?: string | null;
+    returnDestinationAddress?: string | null;
+    reverseInstructions?: string | null;
+    reverseDeadlineAt?: string | null;
+    refundAmount?: number | string;
+    storeCreditAmount?: number | string;
+    restockItems?: boolean | null;
+    restockNote?: string | null;
+    receivedAt?: string | null;
+    completedAt?: string | null;
+    restockedAt?: string | null;
     selectedItems?: Array<{
       orderItemId: string;
       productId: string;
@@ -126,9 +139,22 @@ export type CustomerOrderSummary = {
     id: string;
     type: string;
     status: string;
+    financialStatus?: string;
     reason: string;
     details?: string;
     resolutionNote?: string;
+    reverseLogisticsCode?: string;
+    reverseShippingLabel?: string;
+    returnDestinationAddress?: string;
+    reverseInstructions?: string;
+    reverseDeadlineAt?: string;
+    refundAmount: number;
+    storeCreditAmount: number;
+    restockItems: boolean;
+    restockNote?: string;
+    receivedAt?: string;
+    completedAt?: string;
+    restockedAt?: string;
     selectedItems: Array<{
       orderItemId: string;
       productId: string;
@@ -247,9 +273,28 @@ export async function getCurrentCustomerOrders(): Promise<CustomerOrderSummary[]
       id: request.id,
       type: request.type,
       status: request.status,
+      financialStatus: request.financialStatus ?? undefined,
       reason: request.reason,
       details: request.details ?? undefined,
       resolutionNote: request.resolutionNote ?? undefined,
+      reverseLogisticsCode: request.reverseLogisticsCode ?? undefined,
+      reverseShippingLabel: request.reverseShippingLabel ?? undefined,
+      returnDestinationAddress: request.returnDestinationAddress ?? undefined,
+      reverseInstructions: request.reverseInstructions ?? undefined,
+      reverseDeadlineAt: request.reverseDeadlineAt
+        ? formatDateTime(request.reverseDeadlineAt)
+        : undefined,
+      refundAmount: toNumber(request.refundAmount ?? 0),
+      storeCreditAmount: toNumber(request.storeCreditAmount ?? 0),
+      restockItems: request.restockItems === true,
+      restockNote: request.restockNote ?? undefined,
+      receivedAt: request.receivedAt ? formatDateTime(request.receivedAt) : undefined,
+      completedAt: request.completedAt
+        ? formatDateTime(request.completedAt)
+        : undefined,
+      restockedAt: request.restockedAt
+        ? formatDateTime(request.restockedAt)
+        : undefined,
       selectedItems:
         request.selectedItems?.map((item) => ({
           orderItemId: item.orderItemId,
