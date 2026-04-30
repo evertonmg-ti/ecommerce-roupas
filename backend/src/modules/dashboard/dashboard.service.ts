@@ -1,5 +1,10 @@
 import { Injectable } from "@nestjs/common";
-import { OrderStatus } from "@prisma/client";
+import {
+  OrderStatus,
+  ReturnFinancialStatus,
+  ReturnRequestStatus,
+  ReturnRequestType
+} from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { SettingsService } from "../settings/settings.service";
 
@@ -40,7 +45,9 @@ export class DashboardService {
       profitabilityItems,
       recentRevenueOrders,
       customerOrders,
-      stockForecastItems
+      stockForecastItems,
+      returnRequestsForSummary,
+      recentReturnRequestsRaw
     ] = await Promise.all([
       this.prisma.user.count(),
       this.prisma.product.count(),
@@ -220,6 +227,36 @@ export class DashboardService {
           },
           order: {
             select: {
+              createdAt: true
+            }
+          }
+        }
+      }),
+      this.prisma.returnRequest.findMany({
+        select: {
+          id: true,
+          status: true,
+          type: true,
+          financialStatus: true,
+          reverseDeadlineAt: true,
+          createdAt: true
+        }
+      }),
+      this.prisma.returnRequest.findMany({
+        take: 8,
+        orderBy: { createdAt: "desc" },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true
+            }
+          },
+          order: {
+            select: {
+              id: true,
+              status: true,
               createdAt: true
             }
           }
@@ -768,6 +805,42 @@ export class DashboardService {
         lastOrderAt: customer.lastOrderAt
       }));
     const cohortMonths = this.buildMonthlyCohorts(customers, now, 6);
+    const returnRequestsSummaryEnriched = returnRequestsForSummary.map((request) => ({
+      ...request,
+      priority: this.resolveReturnRequestPriority(request),
+      slaHours: this.resolveReturnRequestSla(request).hours
+    }));
+    const recentReturnRequests = recentReturnRequestsRaw
+      .map((request) => {
+        const priority = this.resolveReturnRequestPriority(request);
+        const sla = this.resolveReturnRequestSla(request);
+
+        return {
+          id: request.id,
+          status: request.status,
+          type: request.type,
+          financialStatus: request.financialStatus,
+          reason: request.reason,
+          createdAt: request.createdAt,
+          priority,
+          slaHours: sla.hours,
+          slaLabel: sla.label,
+          user: request.user,
+          order: request.order
+        };
+      })
+      .sort((left, right) => {
+        const priorityDelta =
+          this.getReturnRequestPriorityScore(right.priority) -
+          this.getReturnRequestPriorityScore(left.priority);
+
+        if (priorityDelta !== 0) {
+          return priorityDelta;
+        }
+
+        return new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime();
+      })
+      .slice(0, 5);
 
     return {
       users,
@@ -836,6 +909,8 @@ export class DashboardService {
       },
       customerCohorts: cohortMonths,
       topRecurringCustomers,
+      returnQueueSummary: this.buildReturnQueueSummary(returnRequestsSummaryEnriched),
+      recentReturnRequests,
       topProductsByProfit,
       topCategoriesByProfit,
       lowMarginProducts
@@ -931,5 +1006,135 @@ export class DashboardService {
             : 0
       };
     });
+  }
+
+  private buildReturnQueueSummary(
+    requests: Array<{
+      status: ReturnRequestStatus;
+      type: ReturnRequestType;
+      financialStatus: ReturnFinancialStatus;
+      priority: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+      slaHours: number;
+    }>
+  ) {
+    return {
+      openCount: requests.filter(
+        (request) =>
+          request.status === ReturnRequestStatus.REQUESTED ||
+          request.status === ReturnRequestStatus.APPROVED ||
+          request.status === ReturnRequestStatus.RECEIVED
+      ).length,
+      criticalCount: requests.filter((request) => request.priority === "CRITICAL").length,
+      refundPendingCount: requests.filter(
+        (request) =>
+          request.type === ReturnRequestType.REFUND &&
+          request.financialStatus === ReturnFinancialStatus.PENDING
+      ).length,
+      awaitingReceiptCount: requests.filter(
+        (request) => request.status === ReturnRequestStatus.APPROVED
+      ).length,
+      overdueCount: requests.filter((request) => request.slaHours < 0).length
+    };
+  }
+
+  private resolveReturnRequestPriority(request: {
+    status: ReturnRequestStatus;
+    reverseDeadlineAt: Date | null;
+    createdAt: Date;
+  }): "LOW" | "MEDIUM" | "HIGH" | "CRITICAL" {
+    if (
+      request.status === ReturnRequestStatus.REJECTED ||
+      request.status === ReturnRequestStatus.COMPLETED
+    ) {
+      return "LOW";
+    }
+
+    const now = Date.now();
+
+    if (request.reverseDeadlineAt) {
+      const diffHours = (request.reverseDeadlineAt.getTime() - now) / 3_600_000;
+
+      if (diffHours < 0) {
+        return "CRITICAL";
+      }
+
+      if (diffHours <= 24) {
+        return "HIGH";
+      }
+    }
+
+    const ageHours = (now - request.createdAt.getTime()) / 3_600_000;
+
+    if (request.status === ReturnRequestStatus.REQUESTED) {
+      if (ageHours >= 72) {
+        return "CRITICAL";
+      }
+
+      if (ageHours >= 24) {
+        return "HIGH";
+      }
+    }
+
+    if (request.status === ReturnRequestStatus.APPROVED) {
+      if (ageHours >= 120) {
+        return "CRITICAL";
+      }
+
+      if (ageHours >= 48) {
+        return "HIGH";
+      }
+    }
+
+    if (request.status === ReturnRequestStatus.RECEIVED && ageHours >= 72) {
+      return "HIGH";
+    }
+
+    return "MEDIUM";
+  }
+
+  private getReturnRequestPriorityScore(priority: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL") {
+    switch (priority) {
+      case "CRITICAL":
+        return 4;
+      case "HIGH":
+        return 3;
+      case "MEDIUM":
+        return 2;
+      case "LOW":
+      default:
+        return 1;
+    }
+  }
+
+  private resolveReturnRequestSla(request: {
+    status: ReturnRequestStatus;
+    createdAt: Date;
+    reverseDeadlineAt: Date | null;
+  }) {
+    const now = Date.now();
+
+    if (request.status === ReturnRequestStatus.COMPLETED) {
+      return { hours: 0, label: "Concluida" };
+    }
+
+    if (request.status === ReturnRequestStatus.REJECTED) {
+      return { hours: 0, label: "Encerrada" };
+    }
+
+    if (request.reverseDeadlineAt) {
+      const hours = Math.round((request.reverseDeadlineAt.getTime() - now) / 3_600_000);
+
+      return {
+        hours,
+        label: hours < 0 ? `Atrasada em ${Math.abs(hours)}h` : `Prazo em ${hours}h`
+      };
+    }
+
+    const ageHours = Math.round((now - request.createdAt.getTime()) / 3_600_000);
+
+    return {
+      hours: ageHours,
+      label: `${ageHours}h em andamento`
+    };
   }
 }

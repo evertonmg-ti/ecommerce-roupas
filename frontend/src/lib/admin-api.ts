@@ -218,6 +218,34 @@ type DashboardResponse = {
     repeatCustomers: number;
     retentionRate: number;
   }>;
+  returnQueueSummary: {
+    openCount: number;
+    criticalCount: number;
+    refundPendingCount: number;
+    awaitingReceiptCount: number;
+    overdueCount: number;
+  };
+  recentReturnRequests: Array<{
+    id: string;
+    status: string;
+    type: string;
+    financialStatus: string;
+    reason: string;
+    createdAt: string;
+    priority: string;
+    slaHours: number;
+    slaLabel: string;
+    user: {
+      id: string;
+      name: string;
+      email: string;
+    };
+    order: {
+      id: string;
+      status: string;
+      createdAt: string;
+    };
+  }>;
   topRecurringCustomers: Array<{
     userId: string;
     name: string;
@@ -661,6 +689,11 @@ export type AdminDashboardData = {
     value: string;
     detail: string;
   }>;
+  postSaleHighlights: Array<{
+    label: string;
+    value: string;
+    detail: string;
+  }>;
   revenueCurve: Array<{
     date: string;
     label: string;
@@ -770,6 +803,21 @@ export type AdminDashboardData = {
     acquiredCustomers: number;
     repeatCustomers: number;
     retentionRate: number;
+  }>;
+  recentReturnRequests: Array<{
+    id: string;
+    customerName: string;
+    customerEmail: string;
+    orderId: string;
+    orderStatus: string;
+    type: string;
+    status: string;
+    financialStatus: string;
+    reason: string;
+    priority: string;
+    slaHours: number;
+    slaLabel: string;
+    createdAt: string;
   }>;
   topRecurringCustomers: Array<{
     id: string;
@@ -1460,6 +1508,33 @@ export async function getAdminDashboardMetrics(): Promise<AdminDashboardData> {
             : "Ritmo atual abaixo da meta mensal"
       }
     ],
+    postSaleHighlights: [
+      {
+        label: "Solicitacoes abertas",
+        value: String(data.returnQueueSummary.openCount),
+        detail: "Casos ativos no pos-venda"
+      },
+      {
+        label: "Criticas",
+        value: String(data.returnQueueSummary.criticalCount),
+        detail: "Casos com acao imediata"
+      },
+      {
+        label: "Reembolso pendente",
+        value: String(data.returnQueueSummary.refundPendingCount),
+        detail: "Solicitacoes aguardando fechamento financeiro"
+      },
+      {
+        label: "Aguardando recebimento",
+        value: String(data.returnQueueSummary.awaitingReceiptCount),
+        detail: "Devolucoes aprovadas ainda nao conferidas"
+      },
+      {
+        label: "Fora do prazo",
+        value: String(data.returnQueueSummary.overdueCount),
+        detail: "Solicitacoes com SLA vencido"
+      }
+    ],
     revenueCurve: data.revenueCurve.map((point) => ({
       date: point.date,
       label: formatDate(point.date),
@@ -1586,6 +1661,21 @@ export async function getAdminDashboardMetrics(): Promise<AdminDashboardData> {
       acquiredCustomers: item.acquiredCustomers,
       repeatCustomers: item.repeatCustomers,
       retentionRate: item.retentionRate
+    })),
+    recentReturnRequests: data.recentReturnRequests.map((request) => ({
+      id: request.id,
+      customerName: request.user.name,
+      customerEmail: request.user.email,
+      orderId: request.order.id,
+      orderStatus: request.order.status,
+      type: request.type,
+      status: request.status,
+      financialStatus: request.financialStatus,
+      reason: request.reason,
+      priority: request.priority,
+      slaHours: request.slaHours,
+      slaLabel: request.slaLabel,
+      createdAt: formatDateTime(request.createdAt)
     })),
     topRecurringCustomers: data.topRecurringCustomers.map((customer) => ({
       id: customer.userId,

@@ -8,6 +8,7 @@ export default async function AdminDashboardPage() {
   const funnelHighlights = dashboard?.funnelHighlights ?? [];
   const targetHighlights = dashboard?.targetHighlights ?? [];
   const forecastHighlights = dashboard?.forecastHighlights ?? [];
+  const postSaleHighlights = dashboard?.postSaleHighlights ?? [];
   const revenueCurve = dashboard?.revenueCurve ?? [];
   const executiveAlerts = dashboard?.executiveAlerts ?? [];
   const predictiveAlerts = dashboard?.predictiveAlerts ?? [];
@@ -21,6 +22,7 @@ export default async function AdminDashboardPage() {
   const replenishmentSchedule = dashboard?.replenishmentSchedule ?? [];
   const customerHighlights = dashboard?.customerHighlights ?? [];
   const customerCohorts = dashboard?.customerCohorts ?? [];
+  const recentReturnRequests = dashboard?.recentReturnRequests ?? [];
   const topRecurringCustomers = dashboard?.topRecurringCustomers ?? [];
   const lowStockItems = dashboard?.lowStockItems ?? [];
   const inventoryHighlights = dashboard?.inventoryHighlights ?? [];
@@ -251,6 +253,80 @@ export default async function AdminDashboardPage() {
               ) : (
                 <div className="mt-6 rounded-[1.5rem] border border-espresso/10 bg-sand/35 p-4 text-sm text-espresso/70">
                   Ainda nao ha giro suficiente para prever cobertura de estoque.
+                </div>
+              )}
+            </section>
+          </div>
+
+          <div className="grid gap-5 lg:grid-cols-[0.95fr_1.05fr]">
+            <section className="rounded-[2rem] border border-espresso/10 bg-white/80 p-6 shadow-soft">
+              <p className="text-xs uppercase tracking-[0.3em] text-terracotta">
+                Pos-venda
+              </p>
+              <h2 className="mt-2 font-display text-3xl">Fila operacional</h2>
+
+              <div className="mt-6 grid gap-4 md:grid-cols-2">
+                {postSaleHighlights.map((item) => (
+                  <article
+                    key={item.label}
+                    className="rounded-[1.5rem] border border-espresso/10 bg-sand/35 p-4"
+                  >
+                    <p className="text-sm text-espresso/55">{item.label}</p>
+                    <p className="mt-2 font-display text-3xl">{item.value}</p>
+                    <p className="mt-2 text-sm text-moss">{item.detail}</p>
+                  </article>
+                ))}
+              </div>
+            </section>
+
+            <section className="rounded-[2rem] border border-espresso/10 bg-white/80 p-6 shadow-soft">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.3em] text-terracotta">
+                    Devolucoes
+                  </p>
+                  <h2 className="mt-2 font-display text-3xl">Casos que pedem acao</h2>
+                </div>
+                <a
+                  href="/admin/devolucoes"
+                  className="rounded-full border border-espresso/15 px-4 py-2 text-sm"
+                >
+                  Abrir fila
+                </a>
+              </div>
+
+              {recentReturnRequests.length > 0 ? (
+                <div className="mt-6 space-y-3">
+                  {recentReturnRequests.map((request) => (
+                    <div
+                      key={request.id}
+                      className="rounded-[1.5rem] border border-espresso/10 bg-sand/35 p-4"
+                    >
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <p className="font-medium">{request.customerName}</p>
+                          <p className="mt-1 text-sm text-espresso/60">
+                            {request.customerEmail} - pedido {request.orderId}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-medium text-terracotta">{request.priority}</p>
+                          <p className="mt-1 text-sm text-espresso/60">{request.slaLabel}</p>
+                        </div>
+                      </div>
+                      <p className="mt-3 text-sm text-espresso/65">
+                        {request.type} - {request.status} - financeiro {request.financialStatus}
+                      </p>
+                      <p className="mt-2 text-sm text-moss">{request.reason}</p>
+                      <p className="mt-2 text-sm text-espresso/60">
+                        Criada em {request.createdAt}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="mt-6 rounded-[1.5rem] border border-espresso/10 bg-sand/35 p-4 text-sm text-espresso/70">
+                  Nenhuma solicitacao recente no pos-venda exige atencao agora.
                 </div>
               )}
             </section>
