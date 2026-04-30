@@ -1334,12 +1334,11 @@ export class OrdersService {
     }>
   ) {
     return {
-      openCount: requests.filter((request) =>
-        [
-          ReturnRequestStatus.REQUESTED,
-          ReturnRequestStatus.APPROVED,
-          ReturnRequestStatus.RECEIVED
-        ].includes(request.status)
+      openCount: requests.filter(
+        (request) =>
+          request.status === ReturnRequestStatus.REQUESTED ||
+          request.status === ReturnRequestStatus.APPROVED ||
+          request.status === ReturnRequestStatus.RECEIVED
       ).length,
       criticalCount: requests.filter((request) => request.priority === "CRITICAL").length,
       refundPendingCount: requests.filter(
