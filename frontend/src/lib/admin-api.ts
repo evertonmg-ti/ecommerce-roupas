@@ -835,6 +835,19 @@ type PaginatedReturnRequestsResponse = {
   };
 };
 
+type CustomerSegmentsResponse = {
+  categories: Array<{
+    slug: string;
+    name: string;
+    customersCount: number;
+  }>;
+  summary: {
+    noOrdersCount: number;
+    recentBuyers30dCount: number;
+    inactive60dCount: number;
+  };
+};
+
 export type AdminMetric = {
   label: string;
   value: string;
@@ -1343,6 +1356,18 @@ export type AdminDormantWalletCustomer = {
     description: string;
     type: string;
   };
+};
+
+export type AdminCustomerSegmentSummary = {
+  noOrdersCount: number;
+  recentBuyers30dCount: number;
+  inactive60dCount: number;
+};
+
+export type AdminCategorySegment = {
+  slug: string;
+  name: string;
+  customersCount: number;
 };
 
 export type AdminOrder = {
@@ -2581,6 +2606,26 @@ export async function getAdminDormantWalletCustomers(): Promise<
   }));
 }
 
+export async function getAdminCustomerSegments(): Promise<{
+  categories: AdminCategorySegment[];
+  summary: AdminCustomerSegmentSummary;
+}> {
+  const data = await fetchAdmin<CustomerSegmentsResponse>("/engagement/admin/customer-segments");
+
+  return {
+    categories: data.categories.map((category) => ({
+      slug: category.slug,
+      name: category.name,
+      customersCount: category.customersCount
+    })),
+    summary: {
+      noOrdersCount: data.summary.noOrdersCount,
+      recentBuyers30dCount: data.summary.recentBuyers30dCount,
+      inactive60dCount: data.summary.inactive60dCount
+    }
+  };
+}
+
 function normalizeAdminOrder(order: OrderResponse): AdminOrder {
   return {
     id: order.id,
@@ -2925,6 +2970,15 @@ export async function triggerAdminWalletReminderCampaign(
   segment: "DORMANT_7_DAYS" | "DORMANT_30_DAYS"
 ) {
   return mutateAdmin(`/engagement/admin/wallet-reminders/campaigns/${segment}/send`, "POST");
+}
+
+export async function sendAdminSegmentCampaign(payload: {
+  segment: "CATEGORY" | "RECENT_BUYERS_30_DAYS" | "NO_ORDERS" | "INACTIVE_60_DAYS";
+  categorySlug?: string;
+  subject: string;
+  message: string;
+}) {
+  return mutateAdmin("/engagement/admin/customer-segments/send", "POST", payload);
 }
 
 export type SaveProductInput = {

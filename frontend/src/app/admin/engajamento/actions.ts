@@ -6,6 +6,7 @@ import {
   AdminAuthError,
   AdminRequestError,
   resendAdminAbandonedCartReminder,
+  sendAdminSegmentCampaign,
   sendAdminWalletBalanceReminder,
   triggerAdminAbandonedCartCampaign,
   triggerAdminWalletReminderCampaign
@@ -79,6 +80,41 @@ export async function triggerWalletReminderCampaignAction(formData: FormData) {
     await triggerAdminWalletReminderCampaign(
       segment === "DORMANT_30_DAYS" ? "DORMANT_30_DAYS" : "DORMANT_7_DAYS"
     );
+    revalidatePath("/admin/engajamento");
+  } catch (error) {
+    if (error instanceof AdminAuthError) {
+      redirect("/login");
+    }
+
+    if (error instanceof AdminRequestError) {
+      redirect(`/admin/engajamento?error=${error.code}`);
+    }
+
+    redirect("/admin/engajamento?error=generic_error");
+  }
+
+  redirect("/admin/engajamento?success=campaign_sent");
+}
+
+export async function sendSegmentCampaignAction(formData: FormData) {
+  try {
+    const segment = String(formData.get("segment") ?? "").trim();
+    const categorySlug = String(formData.get("categorySlug") ?? "").trim();
+    const subject = String(formData.get("subject") ?? "").trim();
+    const message = String(formData.get("message") ?? "").trim();
+
+    await sendAdminSegmentCampaign({
+      segment:
+        segment === "CATEGORY" ||
+        segment === "RECENT_BUYERS_30_DAYS" ||
+        segment === "NO_ORDERS" ||
+        segment === "INACTIVE_60_DAYS"
+          ? segment
+          : "RECENT_BUYERS_30_DAYS",
+      categorySlug: categorySlug || undefined,
+      subject,
+      message
+    });
     revalidatePath("/admin/engajamento");
   } catch (error) {
     if (error instanceof AdminAuthError) {

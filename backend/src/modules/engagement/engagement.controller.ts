@@ -5,6 +5,7 @@ import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { RolesGuard } from "../../common/guards/roles.guard";
 import { CreateBackInStockSubscriptionDto } from "./dto/create-back-in-stock-subscription.dto";
 import { SaveAbandonedCartDto } from "./dto/save-abandoned-cart.dto";
+import { SendSegmentCampaignDto } from "./dto/send-segment-campaign.dto";
 import { EngagementService } from "./engagement.service";
 
 @Controller("engagement")
@@ -72,6 +73,20 @@ export class EngagementController {
     return this.engagementService.triggerWalletReminderCampaign(
       segment === "DORMANT_30_DAYS" ? "DORMANT_30_DAYS" : "DORMANT_7_DAYS"
     );
+  }
+
+  @Get("admin/customer-segments")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  listCustomerSegments() {
+    return this.engagementService.listCustomerSegments();
+  }
+
+  @Post("admin/customer-segments/send")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  sendSegmentCampaign(@Body() payload: SendSegmentCampaignDto) {
+    return this.engagementService.sendSegmentCampaign(payload);
   }
 
   @Post("products/:productId/back-in-stock")

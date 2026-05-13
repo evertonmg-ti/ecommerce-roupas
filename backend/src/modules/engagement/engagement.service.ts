@@ -10,6 +10,7 @@ import { EmailService } from "../email/email.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreateBackInStockSubscriptionDto } from "./dto/create-back-in-stock-subscription.dto";
 import { SaveAbandonedCartDto } from "./dto/save-abandoned-cart.dto";
+import { SendSegmentCampaignDto } from "./dto/send-segment-campaign.dto";
 
 @Injectable()
 export class EngagementService {
@@ -575,6 +576,120 @@ export class EngagementService {
     }));
   }
 
+  async listCustomerSegments() {
+    const [categories, users] = await Promise.all([
+      this.prisma.category.findMany({
+        include: {
+          products: {
+            select: {
+              orderItems: {
+                select: {
+                  order: {
+                    select: {
+                      userId: true
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        orderBy: {
+          name: "asc"
+        }
+      }),
+      this.prisma.user.findMany({
+        where: {
+          role: Role.CUSTOMER
+        },
+        select: {
+          id: true,
+          createdAt: true,
+          orders: {
+            select: {
+              id: true,
+              createdAt: true
+            },
+            orderBy: {
+              createdAt: "desc"
+            }
+          }
+        }
+      })
+    ]);
+
+    const now = Date.now();
+    const recentThreshold = now - 1000 * 60 * 60 * 24 * 30;
+    const inactiveThreshold = now - 1000 * 60 * 60 * 24 * 60;
+
+    const categorySegments = categories
+      .map((category) => {
+        const userIds = new Set<string>();
+
+        for (const product of category.products) {
+          for (const item of product.orderItems) {
+            userIds.add(item.order.userId);
+          }
+        }
+
+        return {
+          slug: category.slug,
+          name: category.name,
+          customersCount: userIds.size
+        };
+      })
+      .filter((category) => category.customersCount > 0);
+
+    const noOrdersCount = users.filter((user) => user.orders.length === 0).length;
+    const recentBuyers30dCount = users.filter((user) =>
+      user.orders.some((order) => order.createdAt.getTime() >= recentThreshold)
+    ).length;
+    const inactive60dCount = users.filter((user) => {
+      const lastOrder = user.orders[0];
+
+      if (!lastOrder) {
+        return false;
+      }
+
+      return lastOrder.createdAt.getTime() < inactiveThreshold;
+    }).length;
+
+    return {
+      categories: categorySegments,
+      summary: {
+        noOrdersCount,
+        recentBuyers30dCount,
+        inactive60dCount
+      }
+    };
+  }
+
+  async sendSegmentCampaign(payload: SendSegmentCampaignDto) {
+    const recipients = await this.resolveSegmentRecipients(payload);
+
+    if (recipients.length === 0) {
+      throw new NotFoundException("Nenhum cliente elegivel foi encontrado para esta campanha.");
+    }
+
+    const ctaUrl = this.resolveCampaignUrl(payload);
+    const ctaLabel = payload.categorySlug ? "Ver colecao" : "Explorar agora";
+
+    for (const recipient of recipients) {
+      await this.emailService.sendSegmentCampaign({
+        to: recipient.email,
+        customerName: recipient.name,
+        subject: payload.subject,
+        message: payload.message,
+        ctaLabel,
+        ctaUrl
+      });
+    }
+
+    return {
+      sentCount: recipients.length
+    };
+  }
+
   private resolveCartRecoveryStage(cart: {
     reminderCount: number;
     recoveredAt: Date | null;
@@ -630,5 +745,97 @@ export class EngagementService {
       now - cart.updatedAt.getTime() >= 1000 * 60 * 60 * 24 * 3 &&
       now - cart.lastEmailSentAt.getTime() >= 1000 * 60 * 60 * 24
     );
+  }
+
+  private async resolveSegmentRecipients(payload: SendSegmentCampaignDto) {
+    const segment = payload.segment.trim().toUpperCase();
+
+    if (segment === "CATEGORY") {
+      if (!payload.categorySlug?.trim()) {
+        throw new BadRequestException("Selecione uma categoria para a campanha.");
+      }
+
+      const orders = await this.prisma.order.findMany({
+        where: {
+          items: {
+            some: {
+              product: {
+                category: {
+                  slug: payload.categorySlug.trim()
+                }
+              }
+            }
+          }
+        },
+        select: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true
+            }
+          }
+        }
+      });
+
+      return Array.from(
+        new Map(orders.map((order) => [order.user.id, order.user])).values()
+      );
+    }
+
+    const users = await this.prisma.user.findMany({
+      where: {
+        role: Role.CUSTOMER
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        orders: {
+          select: {
+            createdAt: true
+          },
+          orderBy: {
+            createdAt: "desc"
+          }
+        }
+      }
+    });
+
+    const now = Date.now();
+
+    if (segment === "NO_ORDERS") {
+      return users.filter((user) => user.orders.length === 0);
+    }
+
+    if (segment === "RECENT_BUYERS_30_DAYS") {
+      const threshold = now - 1000 * 60 * 60 * 24 * 30;
+      return users.filter((user) =>
+        user.orders.some((order) => order.createdAt.getTime() >= threshold)
+      );
+    }
+
+    if (segment === "INACTIVE_60_DAYS") {
+      const threshold = now - 1000 * 60 * 60 * 24 * 60;
+      return users.filter((user) => {
+        const lastOrder = user.orders[0];
+
+        if (!lastOrder) {
+          return false;
+        }
+
+        return lastOrder.createdAt.getTime() < threshold;
+      });
+    }
+
+    throw new BadRequestException("Segmento de campanha invalido.");
+  }
+
+  private resolveCampaignUrl(payload: SendSegmentCampaignDto) {
+    if (payload.categorySlug?.trim()) {
+      return `/colecao/${payload.categorySlug.trim()}`;
+    }
+
+    return "/produtos";
   }
 }

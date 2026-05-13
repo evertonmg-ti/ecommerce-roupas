@@ -3,14 +3,16 @@ import { AdminFeedback } from "@/components/admin-feedback";
 import {
   getAdminAbandonedCarts,
   getAdminBackInStockSubscriptions,
+  getAdminCustomerSegments,
   getAdminDormantWalletCustomers
 } from "@/lib/admin-api";
 import { currency } from "@/lib/utils";
 import {
   resendAbandonedCartReminderAction,
+  sendSegmentCampaignAction,
+  sendWalletReminderAction,
   triggerAbandonedCartCampaignAction,
-  triggerWalletReminderCampaignAction,
-  sendWalletReminderAction
+  triggerWalletReminderCampaignAction
 } from "./actions";
 
 type AdminEngagementPageProps = {
@@ -21,11 +23,20 @@ export default async function AdminEngagementPage({
   searchParams
 }: AdminEngagementPageProps) {
   const params = searchParams ? await searchParams : undefined;
-  const [abandonedCarts, subscriptions, dormantWalletCustomers] = await Promise.all([
-    getAdminAbandonedCarts().catch(() => []),
-    getAdminBackInStockSubscriptions().catch(() => []),
-    getAdminDormantWalletCustomers().catch(() => [])
-  ]);
+  const [abandonedCarts, subscriptions, dormantWalletCustomers, customerSegments] =
+    await Promise.all([
+      getAdminAbandonedCarts().catch(() => []),
+      getAdminBackInStockSubscriptions().catch(() => []),
+      getAdminDormantWalletCustomers().catch(() => []),
+      getAdminCustomerSegments().catch(() => ({
+        categories: [],
+        summary: {
+          noOrdersCount: 0,
+          recentBuyers30dCount: 0,
+          inactive60dCount: 0
+        }
+      }))
+    ]);
 
   const activeAbandonedCarts = abandonedCarts.filter((cart) => !cart.recoveredAt);
   const recoveredCarts = abandonedCarts.filter((cart) => cart.recoveredAt);
@@ -330,6 +341,103 @@ export default async function AdminEngagementPage({
             ))}
           </div>
         )}
+      </div>
+
+      <div className="rounded-[2rem] border border-espresso/10 bg-white/80 p-6 shadow-soft">
+        <p className="text-xs uppercase tracking-[0.25em] text-terracotta">
+          Campanhas segmentadas
+        </p>
+        <h2 className="mt-2 font-display text-3xl">CRM comercial</h2>
+        <p className="mt-3 max-w-3xl text-sm text-espresso/65">
+          Dispare campanhas manuais por comportamento ou por colecao comprada para
+          acelerar recompra e descoberta.
+        </p>
+
+        <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div className="rounded-[1.5rem] border border-espresso/10 bg-sand/35 p-4">
+            <p className="text-sm text-espresso/55">Sem pedidos</p>
+            <p className="mt-2 font-display text-3xl">
+              {customerSegments.summary.noOrdersCount}
+            </p>
+          </div>
+          <div className="rounded-[1.5rem] border border-espresso/10 bg-sand/35 p-4">
+            <p className="text-sm text-espresso/55">Compradores 30d</p>
+            <p className="mt-2 font-display text-3xl">
+              {customerSegments.summary.recentBuyers30dCount}
+            </p>
+          </div>
+          <div className="rounded-[1.5rem] border border-espresso/10 bg-sand/35 p-4">
+            <p className="text-sm text-espresso/55">Inativos 60d</p>
+            <p className="mt-2 font-display text-3xl">
+              {customerSegments.summary.inactive60dCount}
+            </p>
+          </div>
+          <div className="rounded-[1.5rem] border border-espresso/10 bg-sand/35 p-4">
+            <p className="text-sm text-espresso/55">Colecoes acionaveis</p>
+            <p className="mt-2 font-display text-3xl">{customerSegments.categories.length}</p>
+          </div>
+        </div>
+
+        <form action={sendSegmentCampaignAction} className="mt-6 grid gap-4 md:grid-cols-2">
+          <label className="space-y-2 text-sm">
+            <span>Segmento</span>
+            <select
+              name="segment"
+              defaultValue="RECENT_BUYERS_30_DAYS"
+              className="w-full rounded-2xl border border-espresso/15 bg-sand px-4 py-3 outline-none"
+            >
+              <option value="RECENT_BUYERS_30_DAYS">Compradores recentes 30d</option>
+              <option value="INACTIVE_60_DAYS">Clientes inativos 60d</option>
+              <option value="NO_ORDERS">Clientes sem pedidos</option>
+              <option value="CATEGORY">Clientes por colecao comprada</option>
+            </select>
+          </label>
+
+          <label className="space-y-2 text-sm">
+            <span>Colecao</span>
+            <select
+              name="categorySlug"
+              defaultValue=""
+              className="w-full rounded-2xl border border-espresso/15 bg-sand px-4 py-3 outline-none"
+            >
+              <option value="">Nao usar colecao</option>
+              {customerSegments.categories.map((category) => (
+                <option key={category.slug} value={category.slug}>
+                  {category.name} - {category.customersCount} clientes
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="space-y-2 text-sm md:col-span-2">
+            <span>Assunto</span>
+            <input
+              name="subject"
+              required
+              minLength={3}
+              className="w-full rounded-2xl border border-espresso/15 bg-sand px-4 py-3 outline-none"
+              placeholder="Novidades selecionadas para voce"
+            />
+          </label>
+
+          <label className="space-y-2 text-sm md:col-span-2">
+            <span>Mensagem</span>
+            <textarea
+              name="message"
+              required
+              minLength={10}
+              rows={5}
+              className="w-full rounded-2xl border border-espresso/15 bg-sand px-4 py-3 outline-none"
+              placeholder="Preparamos uma selecao com alto potencial de recompra e novidades para o seu perfil."
+            />
+          </label>
+
+          <div className="md:col-span-2">
+            <button className="rounded-full border border-espresso/15 px-5 py-3 text-sm">
+              Disparar campanha segmentada
+            </button>
+          </div>
+        </form>
       </div>
     </section>
   );

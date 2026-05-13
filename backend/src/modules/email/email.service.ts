@@ -179,6 +179,45 @@ export class EmailService {
     await this.safeSend(settings, payload.to, { subject, text, html });
   }
 
+  async sendSegmentCampaign(payload: {
+    to: string;
+    customerName: string;
+    subject: string;
+    message: string;
+    ctaLabel?: string;
+    ctaUrl?: string;
+  }) {
+    const settings = await this.settingsService.getSettings();
+    const accountUrl = `${settings.storeUrl.replace(/\/+$/, "")}/conta`;
+    const fallbackUrl = payload.ctaUrl
+      ? payload.ctaUrl.startsWith("http")
+        ? payload.ctaUrl
+        : `${settings.storeUrl.replace(/\/+$/, "")}${payload.ctaUrl.startsWith("/") ? "" : "/"}${payload.ctaUrl}`
+      : accountUrl;
+    const ctaLabel = payload.ctaLabel || "Ver novidades";
+    const text = [
+      `Ola, ${payload.customerName}.`,
+      "",
+      payload.message,
+      "",
+      `${ctaLabel}: ${fallbackUrl}`
+    ].join("\n");
+    const html = `
+      <div style="font-family:Arial,sans-serif;color:#2d241d;line-height:1.6;">
+        <h2>${payload.subject}</h2>
+        <p>Ola, <strong>${payload.customerName}</strong>.</p>
+        <p>${payload.message.replace(/\n/g, "<br />")}</p>
+        <p><a href="${fallbackUrl}">${ctaLabel}</a></p>
+      </div>
+    `;
+
+    await this.safeSend(settings, payload.to, {
+      subject: payload.subject,
+      text,
+      html
+    });
+  }
+
   async sendReturnRequestUpdated(payload: {
     to: string;
     customerName: string;
