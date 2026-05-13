@@ -1889,7 +1889,13 @@ export class OrdersService {
         timelineEvents: {
           include: {
             attachments: true;
-            actorUser: true;
+            actorUser: {
+              select: {
+                id: true;
+                name: true;
+                email: true;
+              };
+            };
           };
         };
         user: true;
