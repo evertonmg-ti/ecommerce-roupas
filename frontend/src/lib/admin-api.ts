@@ -520,6 +520,8 @@ type AbandonedCartResponse = {
   email: string;
   customerName?: string | null;
   token: string;
+  reminderCount: number;
+  recoveryStage: string;
   itemsCount: number;
   itemsQuantity: number;
   estimatedTotal: number | string;
@@ -554,6 +556,28 @@ type BackInStockSubscriptionResponse = {
     imageUrl?: string | null;
     categoryName: string;
   };
+};
+
+type DormantWalletReminderResponse = {
+  id: string;
+  name: string;
+  email: string;
+  walletBalance: number | string;
+  dormantDays: number;
+  lastInteractionAt: string;
+  lastWalletReminderSentAt?: string | null;
+  lastOrder?: {
+    id: string;
+    createdAt: string;
+    total: number | string;
+    status: string;
+  } | null;
+  lastCreditTransaction?: {
+    id: string;
+    createdAt: string;
+    description: string;
+    type: string;
+  } | null;
 };
 
 type PaginatedEventsResponse = {
@@ -1261,6 +1285,8 @@ export type AdminAbandonedCart = {
   email: string;
   customerName?: string;
   token: string;
+  reminderCount: number;
+  recoveryStage: string;
   itemsCount: number;
   itemsQuantity: number;
   estimatedTotal: number;
@@ -1294,6 +1320,28 @@ export type AdminBackInStockSubscription = {
     status: string;
     imageUrl?: string;
     categoryName: string;
+  };
+};
+
+export type AdminDormantWalletCustomer = {
+  id: string;
+  name: string;
+  email: string;
+  walletBalance: number;
+  dormantDays: number;
+  lastInteractionAt: string;
+  lastWalletReminderSentAt?: string;
+  lastOrder?: {
+    id: string;
+    createdAt: string;
+    total: number;
+    status: string;
+  };
+  lastCreditTransaction?: {
+    id: string;
+    createdAt: string;
+    description: string;
+    type: string;
   };
 };
 
@@ -2446,6 +2494,8 @@ export async function getAdminAbandonedCarts(): Promise<AdminAbandonedCart[]> {
     email: cart.email,
     customerName: cart.customerName ?? undefined,
     token: cart.token,
+    reminderCount: cart.reminderCount,
+    recoveryStage: cart.recoveryStage,
     itemsCount: cart.itemsCount,
     itemsQuantity: cart.itemsQuantity,
     estimatedTotal: toNumber(cart.estimatedTotal),
@@ -2492,6 +2542,42 @@ export async function getAdminBackInStockSubscriptions(): Promise<
       imageUrl: subscription.product.imageUrl ?? undefined,
       categoryName: subscription.product.categoryName
     }
+  }));
+}
+
+export async function getAdminDormantWalletCustomers(): Promise<
+  AdminDormantWalletCustomer[]
+> {
+  const customers = await fetchAdmin<DormantWalletReminderResponse[]>(
+    "/engagement/admin/wallet-reminders"
+  );
+
+  return customers.map((customer) => ({
+    id: customer.id,
+    name: customer.name,
+    email: customer.email,
+    walletBalance: toNumber(customer.walletBalance),
+    dormantDays: customer.dormantDays,
+    lastInteractionAt: formatDateTime(customer.lastInteractionAt),
+    lastWalletReminderSentAt: customer.lastWalletReminderSentAt
+      ? formatDateTime(customer.lastWalletReminderSentAt)
+      : undefined,
+    lastOrder: customer.lastOrder
+      ? {
+          id: customer.lastOrder.id,
+          createdAt: formatDateTime(customer.lastOrder.createdAt),
+          total: toNumber(customer.lastOrder.total),
+          status: customer.lastOrder.status
+        }
+      : undefined,
+    lastCreditTransaction: customer.lastCreditTransaction
+      ? {
+          id: customer.lastCreditTransaction.id,
+          createdAt: formatDateTime(customer.lastCreditTransaction.createdAt),
+          description: customer.lastCreditTransaction.description,
+          type: customer.lastCreditTransaction.type
+        }
+      : undefined
   }));
 }
 
@@ -2819,6 +2905,26 @@ export async function adjustAdminCustomerCredit(
   payload: { amount: number; description?: string }
 ) {
   return mutateAdmin(`/users/${id}/credits/manual`, "POST", payload);
+}
+
+export async function resendAdminAbandonedCartReminder(id: string) {
+  return mutateAdmin(`/engagement/admin/abandoned-carts/${id}/resend`, "POST");
+}
+
+export async function sendAdminWalletBalanceReminder(userId: string) {
+  return mutateAdmin(`/engagement/admin/wallet-reminders/${userId}/send`, "POST");
+}
+
+export async function triggerAdminAbandonedCartCampaign(
+  stage: "SECOND_TOUCH" | "THIRD_TOUCH"
+) {
+  return mutateAdmin(`/engagement/admin/abandoned-carts/campaigns/${stage}/send`, "POST");
+}
+
+export async function triggerAdminWalletReminderCampaign(
+  segment: "DORMANT_7_DAYS" | "DORMANT_30_DAYS"
+) {
+  return mutateAdmin(`/engagement/admin/wallet-reminders/campaigns/${segment}/send`, "POST");
 }
 
 export type SaveProductInput = {

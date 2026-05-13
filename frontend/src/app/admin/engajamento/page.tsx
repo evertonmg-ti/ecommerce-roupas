@@ -1,23 +1,44 @@
 import Link from "next/link";
+import { AdminFeedback } from "@/components/admin-feedback";
 import {
   getAdminAbandonedCarts,
-  getAdminBackInStockSubscriptions
+  getAdminBackInStockSubscriptions,
+  getAdminDormantWalletCustomers
 } from "@/lib/admin-api";
 import { currency } from "@/lib/utils";
+import {
+  resendAbandonedCartReminderAction,
+  triggerAbandonedCartCampaignAction,
+  triggerWalletReminderCampaignAction,
+  sendWalletReminderAction
+} from "./actions";
 
-export default async function AdminEngagementPage() {
-  const [abandonedCarts, subscriptions] = await Promise.all([
+type AdminEngagementPageProps = {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export default async function AdminEngagementPage({
+  searchParams
+}: AdminEngagementPageProps) {
+  const params = searchParams ? await searchParams : undefined;
+  const [abandonedCarts, subscriptions, dormantWalletCustomers] = await Promise.all([
     getAdminAbandonedCarts().catch(() => []),
-    getAdminBackInStockSubscriptions().catch(() => [])
+    getAdminBackInStockSubscriptions().catch(() => []),
+    getAdminDormantWalletCustomers().catch(() => [])
   ]);
 
   const activeAbandonedCarts = abandonedCarts.filter((cart) => !cart.recoveredAt);
   const recoveredCarts = abandonedCarts.filter((cart) => cart.recoveredAt);
   const activeSubscriptions = subscriptions.filter((subscription) => subscription.active);
   const notifiedSubscriptions = subscriptions.filter((subscription) => !subscription.active);
+  const dormantWalletTotal = dormantWalletCustomers.reduce(
+    (sum, customer) => sum + customer.walletBalance,
+    0
+  );
 
   return (
     <section className="space-y-6">
+      <AdminFeedback searchParams={params} />
       <div className="rounded-[2rem] border border-espresso/10 bg-white/80 p-8 shadow-soft">
         <p className="text-xs uppercase tracking-[0.3em] text-terracotta">Engajamento</p>
         <h1 className="mt-4 font-display text-5xl">Recuperacao e interesse</h1>
@@ -48,6 +69,13 @@ export default async function AdminEngagementPage() {
           <p className="mt-2 font-display text-3xl">{notifiedSubscriptions.length}</p>
           <p className="mt-2 text-sm text-espresso/65">Ja notificados por email</p>
         </div>
+        <div className="rounded-[1.5rem] border border-espresso/10 bg-white/75 p-5 shadow-soft">
+          <p className="text-sm text-espresso/55">Clientes com saldo parado</p>
+          <p className="mt-2 font-display text-3xl">{dormantWalletCustomers.length}</p>
+          <p className="mt-2 text-sm text-espresso/65">
+            {currency(dormantWalletTotal)} aguardando reativacao
+          </p>
+        </div>
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
@@ -58,6 +86,20 @@ export default async function AdminEngagementPage() {
                 Carrinhos abandonados
               </p>
               <h2 className="mt-2 font-display text-3xl">Recuperacao comercial</h2>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <form action={triggerAbandonedCartCampaignAction}>
+                <input type="hidden" name="stage" value="SECOND_TOUCH" />
+                <button className="rounded-full border border-espresso/15 px-4 py-2 text-sm">
+                  Disparar 2o toque
+                </button>
+              </form>
+              <form action={triggerAbandonedCartCampaignAction}>
+                <input type="hidden" name="stage" value="THIRD_TOUCH" />
+                <button className="rounded-full border border-espresso/15 px-4 py-2 text-sm">
+                  Disparar 3o toque
+                </button>
+              </form>
             </div>
           </div>
 
@@ -82,6 +124,9 @@ export default async function AdminEngagementPage() {
                       </p>
                       <p className="mt-1 text-sm text-espresso/65">
                         Atualizado em {cart.updatedAt}
+                      </p>
+                      <p className="mt-1 text-sm text-espresso/65">
+                        Toques enviados: {cart.reminderCount} - estagio {cart.recoveryStage}
                       </p>
                     </div>
                     <div className="text-right">
@@ -117,12 +162,22 @@ export default async function AdminEngagementPage() {
                     <span>
                       Ultimo email: {cart.lastEmailSentAt ?? "Ainda nao enviado"}
                     </span>
-                    <Link
-                      href={`/checkout?cart=${cart.token}`}
-                      className="rounded-full border border-espresso/15 px-4 py-2"
-                    >
-                      Link de recuperacao
-                    </Link>
+                    <div className="flex flex-wrap gap-2">
+                      <Link
+                        href={`/checkout?cart=${cart.token}`}
+                        className="rounded-full border border-espresso/15 px-4 py-2"
+                      >
+                        Link de recuperacao
+                      </Link>
+                      {!cart.recoveredAt ? (
+                        <form action={resendAbandonedCartReminderAction}>
+                          <input type="hidden" name="id" value={cart.id} />
+                          <button className="rounded-full border border-espresso/15 px-4 py-2">
+                            Reenviar email
+                          </button>
+                        </form>
+                      ) : null}
+                    </div>
                   </div>
                 </article>
               ))}
@@ -179,6 +234,102 @@ export default async function AdminEngagementPage() {
             </div>
           )}
         </div>
+      </div>
+
+      <div className="rounded-[2rem] border border-espresso/10 bg-white/80 p-6 shadow-soft">
+        <p className="text-xs uppercase tracking-[0.25em] text-terracotta">
+          Reativacao de credito
+        </p>
+        <h2 className="mt-2 font-display text-3xl">Clientes com saldo parado</h2>
+        <p className="mt-3 max-w-3xl text-sm text-espresso/65">
+          Reative clientes que ainda possuem credito em carteira, mas estao sem interacao
+          recente. O email leva o cliente de volta para a conta autenticada.
+        </p>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <form action={triggerWalletReminderCampaignAction}>
+            <input type="hidden" name="segment" value="DORMANT_7_DAYS" />
+            <button className="rounded-full border border-espresso/15 px-4 py-2 text-sm">
+              Campanha 7+ dias
+            </button>
+          </form>
+          <form action={triggerWalletReminderCampaignAction}>
+            <input type="hidden" name="segment" value="DORMANT_30_DAYS" />
+            <button className="rounded-full border border-espresso/15 px-4 py-2 text-sm">
+              Campanha 30+ dias
+            </button>
+          </form>
+        </div>
+
+        {dormantWalletCustomers.length === 0 ? (
+          <p className="mt-6 text-sm text-espresso/65">
+            Nenhum cliente com saldo parado foi identificado no momento.
+          </p>
+        ) : (
+          <div className="mt-6 space-y-4">
+            {dormantWalletCustomers.map((customer) => (
+              <article
+                key={customer.id}
+                className="rounded-[1.5rem] border border-espresso/10 bg-sand/35 p-4"
+              >
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="font-medium">
+                      {customer.name} - {customer.email}
+                    </p>
+                    <p className="mt-1 text-sm text-espresso/65">
+                      Sem interacao relevante ha {customer.dormantDays} dia(s)
+                    </p>
+                    <p className="mt-1 text-sm text-espresso/65">
+                      Ultima interacao: {customer.lastInteractionAt}
+                    </p>
+                    <p className="mt-1 text-sm text-espresso/65">
+                      Ultima campanha: {customer.lastWalletReminderSentAt ?? "Ainda nao enviada"}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-medium">{currency(customer.walletBalance)}</p>
+                    <p className="mt-1 text-xs text-espresso/55">Saldo em carteira</p>
+                  </div>
+                </div>
+                <div className="mt-4 grid gap-3 md:grid-cols-2 text-sm text-espresso/65">
+                  <div className="rounded-[1rem] border border-espresso/10 bg-white/60 p-3">
+                    <p className="font-medium text-espresso">Ultimo pedido</p>
+                    {customer.lastOrder ? (
+                      <>
+                        <p className="mt-1">{customer.lastOrder.id}</p>
+                        <p className="mt-1">
+                          {customer.lastOrder.createdAt} - {customer.lastOrder.status}
+                        </p>
+                        <p className="mt-1">{currency(customer.lastOrder.total)}</p>
+                      </>
+                    ) : (
+                      <p className="mt-1">Sem pedido recente registrado.</p>
+                    )}
+                  </div>
+                  <div className="rounded-[1rem] border border-espresso/10 bg-white/60 p-3">
+                    <p className="font-medium text-espresso">Ultimo movimento de credito</p>
+                    {customer.lastCreditTransaction ? (
+                      <>
+                        <p className="mt-1">{customer.lastCreditTransaction.createdAt}</p>
+                        <p className="mt-1">{customer.lastCreditTransaction.description}</p>
+                      </>
+                    ) : (
+                      <p className="mt-1">Sem movimentacao recente de credito.</p>
+                    )}
+                  </div>
+                </div>
+                <div className="mt-4">
+                  <form action={sendWalletReminderAction}>
+                    <input type="hidden" name="userId" value={customer.id} />
+                    <button className="rounded-full border border-espresso/15 px-4 py-2 text-sm">
+                      Enviar campanha de credito
+                    </button>
+                  </form>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
       </div>
     </section>
   );

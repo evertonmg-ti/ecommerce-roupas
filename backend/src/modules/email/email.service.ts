@@ -153,6 +153,32 @@ export class EmailService {
     await this.safeSend(settings, payload.to, { subject, text, html });
   }
 
+  async sendWalletBalanceReminder(payload: {
+    to: string;
+    customerName: string;
+    walletBalance: number;
+  }) {
+    const settings = await this.settingsService.getSettings();
+    const accountUrl = `${settings.storeUrl.replace(/\/+$/, "")}/conta`;
+    const subject = "Voce tem credito disponivel na sua conta";
+    const text = [
+      `Ola, ${payload.customerName}.`,
+      "",
+      `Ha ${payload.walletBalance.toFixed(2)} em credito disponivel para usar no checkout.`,
+      `Acesse sua conta: ${accountUrl}`
+    ].join("\n");
+    const html = `
+      <div style="font-family:Arial,sans-serif;color:#2d241d;line-height:1.6;">
+        <h2>Voce tem credito disponivel</h2>
+        <p>Ola, <strong>${payload.customerName}</strong>.</p>
+        <p>Ha <strong>R$ ${payload.walletBalance.toFixed(2)}</strong> em credito disponivel para usar no checkout.</p>
+        <p><a href="${accountUrl}">Acessar minha conta</a></p>
+      </div>
+    `;
+
+    await this.safeSend(settings, payload.to, { subject, text, html });
+  }
+
   async sendReturnRequestUpdated(payload: {
     to: string;
     customerName: string;

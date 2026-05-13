@@ -150,6 +150,7 @@ model User {
   preferredPaymentMethod PaymentMethod?
   preferredShippingMethod ShippingMethod?
   walletBalance Decimal @default(0) @db.Decimal(10, 2)
+  lastWalletReminderSentAt DateTime?
   orders       Order[]
   returnRequests ReturnRequest[]
   addresses    CustomerAddress[]
@@ -510,6 +511,7 @@ model AbandonedCart {
   customerName  String?
   token         String              @unique
   lastEmailSentAt DateTime?
+  reminderCount Int                 @default(0)
   recoveredAt   DateTime?
   items         AbandonedCartItem[]
   createdAt     DateTime            @default(now())

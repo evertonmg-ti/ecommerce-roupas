@@ -28,11 +28,50 @@ export class EngagementController {
     return this.engagementService.listAbandonedCarts();
   }
 
+  @Post("admin/abandoned-carts/:id/resend")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  resendAbandonedCartReminder(@Param("id") id: string) {
+    return this.engagementService.resendAbandonedCartReminder(id);
+  }
+
+  @Post("admin/abandoned-carts/campaigns/:stage/send")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  triggerAbandonedCartCampaign(@Param("stage") stage: string) {
+    return this.engagementService.triggerAbandonedCartCampaign(
+      stage === "THIRD_TOUCH" ? "THIRD_TOUCH" : "SECOND_TOUCH"
+    );
+  }
+
   @Get("admin/back-in-stock")
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN)
   listBackInStockSubscriptions() {
     return this.engagementService.listBackInStockSubscriptions();
+  }
+
+  @Get("admin/wallet-reminders")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  listDormantWalletCustomers() {
+    return this.engagementService.listDormantWalletCustomers();
+  }
+
+  @Post("admin/wallet-reminders/:userId/send")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  sendWalletBalanceReminder(@Param("userId") userId: string) {
+    return this.engagementService.sendWalletBalanceReminder(userId);
+  }
+
+  @Post("admin/wallet-reminders/campaigns/:segment/send")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  triggerWalletReminderCampaign(@Param("segment") segment: string) {
+    return this.engagementService.triggerWalletReminderCampaign(
+      segment === "DORMANT_30_DAYS" ? "DORMANT_30_DAYS" : "DORMANT_7_DAYS"
+    );
   }
 
   @Post("products/:productId/back-in-stock")
