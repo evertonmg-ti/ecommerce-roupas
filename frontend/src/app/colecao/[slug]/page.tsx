@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { CatalogSearchAutocomplete } from "@/components/catalog-search-autocomplete";
 import { ProductCard } from "@/components/product-card";
 import { fallbackProducts } from "@/lib/data";
 import {
@@ -59,6 +60,7 @@ export default async function CategoryCollectionPage({
 }: CategoryCollectionPageProps) {
   const { slug } = await params;
   const rawParams = searchParams ? await searchParams : undefined;
+  const search = getParamValue(rawParams?.search)?.trim();
   const sort = getParamValue(rawParams?.sort)?.trim() || "newest";
   const availability = getParamValue(rawParams?.availability)?.trim();
   const saleOnly = getParamValue(rawParams?.saleOnly)?.trim();
@@ -70,13 +72,21 @@ export default async function CategoryCollectionPage({
     getPublicCategories().catch(() => []),
     getPublicProducts({
       category: slug,
+      search,
       sort,
       availability,
       saleOnly,
       minPrice,
       maxPrice
     }).catch(() =>
-      fallbackProducts.filter((product) => product.categorySlug === slugify(slug))
+      fallbackProducts.filter((product) => {
+        const matchesCategory = product.categorySlug === slugify(slug);
+        const matchesSearch = search
+          ? `${product.name} ${product.description}`.toLowerCase().includes(search.toLowerCase())
+          : true;
+
+        return matchesCategory && matchesSearch;
+      })
     )
   ]);
 
@@ -85,6 +95,14 @@ export default async function CategoryCollectionPage({
   const description =
     activeCategory?.description ??
     "Selecao curada com foco em design, acabamento premium e compra mais objetiva.";
+  const searchSuggestions = Array.from(
+    new Set(
+      [
+        ...products.map((product) => product.name),
+        ...products.map((product) => product.category)
+      ].filter(Boolean)
+    )
+  ).slice(0, 12);
 
   return (
     <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
@@ -112,8 +130,15 @@ export default async function CategoryCollectionPage({
         </div>
       </div>
 
-      <form className="mt-8 grid gap-4 rounded-[2rem] border border-espresso/10 bg-white/75 p-5 shadow-soft md:grid-cols-2 xl:grid-cols-[0.8fr_0.8fr_0.9fr_0.9fr_0.8fr_auto] xl:items-end">
-        <input type="hidden" name="category" value={slug} />
+      <form className="mt-8 grid gap-4 rounded-[2rem] border border-espresso/10 bg-white/75 p-5 shadow-soft md:grid-cols-2 xl:grid-cols-[1.1fr_0.8fr_0.9fr_0.9fr_0.8fr_auto] xl:items-end">
+        <label className="space-y-2 text-sm">
+          <span className="text-espresso/70">Buscar nesta colecao</span>
+          <CatalogSearchAutocomplete
+            defaultValue={search ?? ""}
+            suggestions={searchSuggestions}
+            placeholder="Produto, tecido, modelagem..."
+          />
+        </label>
 
         <label className="space-y-2 text-sm">
           <span className="text-espresso/70">Ordenar</span>
@@ -127,6 +152,7 @@ export default async function CategoryCollectionPage({
                 {option.label}
               </option>
             ))}
+            <option value="discount_desc">Maior desconto</option>
           </select>
         </label>
 
@@ -186,7 +212,7 @@ export default async function CategoryCollectionPage({
         <p>
           {products.length} {products.length === 1 ? "produto nesta colecao" : "produtos nesta colecao"}
         </p>
-        {(sort !== "newest" || minPrice || maxPrice || availability === "in_stock" || saleOnly === "true") ? (
+        {(search || sort !== "newest" || minPrice || maxPrice || availability === "in_stock" || saleOnly === "true") ? (
           <a href={`/colecao/${slug}`} className="rounded-full border border-espresso/15 px-4 py-2">
             Limpar filtros
           </a>

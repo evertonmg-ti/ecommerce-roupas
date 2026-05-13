@@ -1292,7 +1292,9 @@ export class ProductsService {
     return parsed;
   }
 
-  private resolvePublicSort(sort?: string): Prisma.ProductOrderByWithRelationInput {
+  private resolvePublicSort(
+    sort?: string
+  ): Prisma.ProductOrderByWithRelationInput | Prisma.ProductOrderByWithRelationInput[] {
     switch (sort) {
       case "price_asc":
         return { price: "asc" };
@@ -1300,6 +1302,8 @@ export class ProductsService {
         return { price: "desc" };
       case "name_asc":
         return { name: "asc" };
+      case "discount_desc":
+        return [{ compareAt: "desc" }, { price: "asc" }];
       case "newest":
       default:
         return { createdAt: "desc" };

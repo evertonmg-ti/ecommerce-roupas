@@ -1,7 +1,12 @@
 import { ArrowRight, ShieldCheck, Sparkles, Truck } from "lucide-react";
+import { CatalogSearchAutocomplete } from "@/components/catalog-search-autocomplete";
 import { ProductCard } from "@/components/product-card";
 import { fallbackProducts } from "@/lib/data";
-import { getFeaturedProducts } from "@/lib/public-products";
+import {
+  getFeaturedProducts,
+  getPublicCategories,
+  getPublicProducts
+} from "@/lib/public-products";
 
 const pillars = [
   {
@@ -22,7 +27,29 @@ const pillars = [
 ];
 
 export default async function HomePage() {
-  const featuredProducts = await getFeaturedProducts().catch(() => fallbackProducts);
+  const [featuredProducts, categories, allProducts] = await Promise.all([
+    getFeaturedProducts().catch(() => fallbackProducts),
+    getPublicCategories().catch(() => []),
+    getPublicProducts({ sort: "discount_desc" }).catch(() => fallbackProducts)
+  ]);
+  const promoProducts = allProducts
+    .filter((product) => product.compareAt && product.compareAt > product.price)
+    .slice(0, 3);
+  const collectionHighlights = categories
+    .map((category) => ({
+      ...category,
+      count: allProducts.filter((product) => product.categorySlug === category.slug).length
+    }))
+    .filter((category) => category.count > 0)
+    .slice(0, 4);
+  const searchSuggestions = Array.from(
+    new Set(
+      [
+        ...allProducts.map((product) => product.name),
+        ...allProducts.map((product) => product.category)
+      ].filter(Boolean)
+    )
+  ).slice(0, 10);
 
   return (
     <div className="pb-16">
@@ -55,6 +82,37 @@ export default async function HomePage() {
               Acessar painel
             </a>
           </div>
+          <form
+            action="/produtos"
+            className="rounded-[2rem] border border-espresso/10 bg-white/70 p-5 shadow-soft"
+          >
+            <p className="text-xs uppercase tracking-[0.25em] text-terracotta">
+              Descobrir produtos
+            </p>
+            <div className="mt-4">
+              <CatalogSearchAutocomplete
+                suggestions={searchSuggestions}
+                placeholder="Busque por camisetas, vestidos, linho..."
+              />
+            </div>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {categories.slice(0, 5).map((category) => (
+                <a
+                  key={category.id}
+                  href={`/colecao/${category.slug}`}
+                  className="rounded-full border border-espresso/15 px-3 py-1 text-xs text-espresso/70"
+                >
+                  {category.name}
+                </a>
+              ))}
+              <a
+                href="/produtos?saleOnly=true"
+                className="rounded-full border border-terracotta/20 bg-terracotta/5 px-3 py-1 text-xs text-terracotta"
+              >
+                Promocoes
+              </a>
+            </div>
+          </form>
         </div>
         <div className="rounded-[2rem] border border-white/50 bg-[linear-gradient(145deg,#b85c38,#2b2118)] p-8 text-sand shadow-soft">
           <p className="text-sm uppercase tracking-[0.25em] text-sand/70">Destaques</p>
@@ -106,6 +164,59 @@ export default async function HomePage() {
           {featuredProducts.map((product) => (
             <ProductCard key={product.id} product={product} />
           ))}
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
+        <div className="flex items-end justify-between gap-4">
+          <div>
+            <p className="text-xs uppercase tracking-[0.3em] text-terracotta">
+              Navegue por colecao
+            </p>
+            <h2 className="mt-3 font-display text-4xl">Entradas comerciais</h2>
+          </div>
+        </div>
+        <div className="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+          {collectionHighlights.map((category) => (
+            <a
+              key={category.id}
+              href={`/colecao/${category.slug}`}
+              className="rounded-[2rem] border border-espresso/10 bg-white/75 p-6 shadow-soft"
+            >
+              <p className="text-xs uppercase tracking-[0.25em] text-terracotta">Colecao</p>
+              <h3 className="mt-3 font-display text-3xl">{category.name}</h3>
+              <p className="mt-3 text-sm text-espresso/70">
+                {category.count} {category.count === 1 ? "produto ativo" : "produtos ativos"}
+              </p>
+              <p className="mt-4 text-sm text-espresso/55">
+                {category.description ?? "Curadoria dedicada com foco em giro e conversao."}
+              </p>
+            </a>
+          ))}
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+        <div className="flex items-end justify-between gap-4">
+          <div>
+            <p className="text-xs uppercase tracking-[0.3em] text-terracotta">
+              Oportunidades
+            </p>
+            <h2 className="mt-3 font-display text-4xl">Promocoes em evidência</h2>
+          </div>
+          <a
+            href="/produtos?saleOnly=true&sort=discount_desc"
+            className="rounded-full border border-espresso/15 px-5 py-3 text-sm"
+          >
+            Ver todas
+          </a>
+        </div>
+        <div className="mt-8 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+          {(promoProducts.length > 0 ? promoProducts : featuredProducts.slice(0, 3)).map(
+            (product) => (
+              <ProductCard key={product.id} product={product} />
+            )
+          )}
         </div>
       </section>
     </div>

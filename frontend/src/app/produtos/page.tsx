@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { CatalogSearchAutocomplete } from "@/components/catalog-search-autocomplete";
 import { ProductCard } from "@/components/product-card";
 import { fallbackProducts } from "@/lib/data";
 import { getPublicCategories, getPublicProducts } from "@/lib/public-products";
@@ -104,6 +105,14 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
     getPublicProducts(filters).catch(() => filterFallbackProducts(filters)),
     getPublicCategories().catch(() => [])
   ]);
+  const searchSuggestions = Array.from(
+    new Set(
+      [
+        ...products.map((product) => product.name),
+        ...products.map((product) => product.category)
+      ].filter(Boolean)
+    )
+  ).slice(0, 12);
 
   return (
     <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
@@ -119,10 +128,9 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
       <form className="mt-8 grid gap-4 rounded-[2rem] border border-espresso/10 bg-white/75 p-5 shadow-soft md:grid-cols-2 xl:grid-cols-[1.3fr_0.9fr_0.7fr_0.7fr_0.8fr_auto] xl:items-end">
         <label className="space-y-2 text-sm">
           <span className="text-espresso/70">Buscar</span>
-          <input
-            name="search"
+          <CatalogSearchAutocomplete
             defaultValue={filters.search ?? ""}
-            className="w-full rounded-[1.5rem] border border-espresso/15 bg-sand px-4 py-3 outline-none"
+            suggestions={searchSuggestions}
             placeholder="camiseta, vestido, linho..."
           />
         </label>
@@ -155,6 +163,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
                 {option.label}
               </option>
             ))}
+            <option value="discount_desc">Maior desconto</option>
           </select>
         </label>
 
