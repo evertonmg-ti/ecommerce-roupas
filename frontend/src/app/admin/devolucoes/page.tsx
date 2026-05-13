@@ -1,4 +1,5 @@
 import { AdminFeedback } from "@/components/admin-feedback";
+import { TimelineCommentForm } from "@/components/timeline-comment-form";
 import { getAdminReturnRequests } from "@/lib/admin-api";
 import { currency } from "@/lib/utils";
 import { updateReturnRequestStatusAction } from "../pedidos/actions";
@@ -369,6 +370,43 @@ export default async function AdminReturnsPage({
                       </div>
                     </div>
 
+                    {request.attachments.length > 0 ? (
+                      <div className="rounded-[1.5rem] border border-espresso/10 bg-sand/35 p-4 text-sm text-espresso/70">
+                        <p className="text-xs uppercase tracking-[0.3em] text-terracotta">
+                          Anexos enviados
+                        </p>
+                        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                          {request.attachments.map((attachment) => (
+                            <div
+                              key={attachment.id}
+                              className="rounded-[1rem] border border-espresso/10 bg-white/60 p-3"
+                            >
+                              {attachment.mimeType.startsWith("image/") ? (
+                                <img
+                                  src={attachment.dataUrl}
+                                  alt={attachment.fileName}
+                                  className="mb-3 h-32 w-full rounded-xl object-cover"
+                                />
+                              ) : null}
+                              <p className="font-medium text-espresso">
+                                {attachment.fileName}
+                              </p>
+                              <p className="mt-1 text-xs text-espresso/55">
+                                {attachment.createdAt}
+                              </p>
+                              <a
+                                href={attachment.dataUrl}
+                                download={attachment.fileName}
+                                className="mt-3 inline-flex rounded-full border border-espresso/15 px-3 py-2 text-xs"
+                              >
+                                Baixar anexo
+                              </a>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+
                     <div className="rounded-[1.5rem] border border-espresso/10 bg-sand/35 p-4 text-sm text-espresso/70">
                       <p className="text-xs uppercase tracking-[0.3em] text-terracotta">
                         Logistica reversa
@@ -401,6 +439,88 @@ export default async function AdminReturnsPage({
                             <strong>Nota operacional:</strong> {request.restockNote}
                           </p>
                         ) : null}
+                      </div>
+                    </div>
+
+                    <div className="rounded-[1.5rem] border border-espresso/10 bg-sand/35 p-4">
+                      <p className="text-xs uppercase tracking-[0.3em] text-terracotta">
+                        Comentarios internos
+                      </p>
+                      <div className="mt-4 border-b border-espresso/10 pb-4">
+                        <TimelineCommentForm
+                          endpoint="/api/admin/return-request-internal-notes"
+                          payload={{ orderId: request.orderId, requestId: request.id }}
+                          label="Novo comentario"
+                          placeholder="Ex.: financeiro aguardando comprovante, item em triagem ou cliente respondeu ao suporte."
+                          submitLabel="Registrar comentario"
+                          successRedirect={`${basePath}${basePath.includes("?") ? "&" : "?"}page=${list?.page ?? 1}&success=internal_note_created`}
+                          errorRedirect={`${basePath}${basePath.includes("?") ? "&" : "?"}page=${list?.page ?? 1}&error=generic_error`}
+                        />
+                      </div>
+
+                      <div className="mt-4 space-y-3">
+                        <p className="text-xs uppercase tracking-[0.25em] text-terracotta">
+                          Timeline operacional
+                        </p>
+                        {request.timelineEvents.length > 0 ? (
+                          request.timelineEvents.map((event) => (
+                            <div
+                              key={event.id}
+                              className="rounded-[1rem] border border-espresso/10 bg-white/70 p-4"
+                            >
+                              <div className="flex flex-wrap items-start justify-between gap-3">
+                                <div>
+                                  <p className="font-medium">{event.title}</p>
+                                  {event.description ? (
+                                    <p className="mt-2 text-sm text-espresso/65">
+                                      {event.description}
+                                    </p>
+                                  ) : null}
+                                  {event.attachments.length > 0 ? (
+                                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                                      {event.attachments.map((attachment) => (
+                                        <div
+                                          key={attachment.id}
+                                          className="rounded-[1rem] border border-espresso/10 bg-white/70 p-3"
+                                        >
+                                          {attachment.mimeType.startsWith("image/") ? (
+                                            <img
+                                              src={attachment.dataUrl}
+                                              alt={attachment.fileName}
+                                              className="mb-3 h-24 w-full rounded-xl object-cover"
+                                            />
+                                          ) : null}
+                                          <p className="text-sm font-medium text-espresso">
+                                            {attachment.fileName}
+                                          </p>
+                                          <a
+                                            href={attachment.dataUrl}
+                                            download={attachment.fileName}
+                                            className="mt-3 inline-flex rounded-full border border-espresso/15 px-3 py-2 text-xs"
+                                          >
+                                            Baixar anexo
+                                          </a>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  ) : null}
+                                </div>
+                                <div className="text-right text-xs text-espresso/55">
+                                  <p>{event.createdAt}</p>
+                                  {event.actorName ? (
+                                    <p className="mt-1">{event.actorName}</p>
+                                  ) : (
+                                    <p className="mt-1">Sistema</p>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="rounded-[1rem] border border-espresso/10 bg-white/70 p-4 text-sm text-espresso/60">
+                            Ainda nao ha eventos internos registrados para esta solicitacao.
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>

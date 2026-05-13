@@ -154,6 +154,7 @@ model User {
   returnRequests ReturnRequest[]
   addresses    CustomerAddress[]
   creditTransactions CustomerCreditTransaction[]
+  authoredTimelineEvents OrderTimelineEvent[] @relation("OrderTimelineEventActor")
   savedCart    SavedCart?
   savedWishlist SavedWishlist?
   inventoryMovements InventoryMovement[]
@@ -354,6 +355,7 @@ model Order {
   items              OrderItem[]
   returnRequests     ReturnRequest[]
   creditTransactions CustomerCreditTransaction[]
+  timelineEvents     OrderTimelineEvent[]
   inventoryMovements InventoryMovement[]
   createdAt          DateTime       @default(now())
   updatedAt          DateTime       @updatedAt
@@ -389,11 +391,60 @@ model ReturnRequest {
   createdAt                DateTime              @default(now())
   updatedAt                DateTime              @updatedAt
   creditTransactions       CustomerCreditTransaction[]
+  timelineEvents           OrderTimelineEvent[]
+  attachments              ReturnRequestAttachment[]
 
   @@index([orderId, createdAt])
   @@index([userId, createdAt])
   @@index([status, createdAt])
   @@index([financialStatus, createdAt])
+}
+
+model ReturnRequestAttachment {
+  id              String        @id @default(cuid())
+  returnRequestId String
+  fileName        String
+  mimeType        String
+  sizeBytes       Int
+  dataUrl         String
+  returnRequest   ReturnRequest @relation(fields: [returnRequestId], references: [id], onDelete: Cascade)
+  createdAt       DateTime      @default(now())
+
+  @@index([returnRequestId, createdAt])
+}
+
+model OrderTimelineEvent {
+  id              String         @id @default(cuid())
+  orderId         String
+  returnRequestId String?
+  actorUserId     String?
+  type            String
+  title           String
+  description     String?
+  metadata        Json?
+  order           Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  returnRequest   ReturnRequest? @relation(fields: [returnRequestId], references: [id], onDelete: Cascade)
+  actorUser       User?          @relation("OrderTimelineEventActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+  attachments     OrderTimelineEventAttachment[]
+  createdAt       DateTime       @default(now())
+
+  @@index([orderId, createdAt])
+  @@index([returnRequestId, createdAt])
+  @@index([actorUserId])
+  @@index([type, createdAt])
+}
+
+model OrderTimelineEventAttachment {
+  id            String           @id @default(cuid())
+  eventId       String
+  fileName      String
+  mimeType      String
+  sizeBytes     Int
+  dataUrl       String
+  event         OrderTimelineEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  createdAt     DateTime         @default(now())
+
+  @@index([eventId, createdAt])
 }
 
 model CustomerCreditTransaction {

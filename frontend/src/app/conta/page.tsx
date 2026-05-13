@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { customerLogoutAction } from "@/app/entrar/actions";
+import { CustomerReturnRequestForm } from "@/components/customer-return-request-form";
 import { ReorderOrderButton } from "@/components/reorder-order-button";
+import { TimelineCommentForm } from "@/components/timeline-comment-form";
 import { requireCustomerSession } from "@/lib/auth";
 import {
   getCurrentCustomerAccount,
@@ -10,7 +12,6 @@ import {
 import { currency } from "@/lib/utils";
 import {
   createCustomerAddressAction,
-  createCustomerReturnRequestAction,
   deleteCustomerAddressAction,
   updateCustomerAddressAction,
   updateCustomerProfileAction
@@ -34,6 +35,8 @@ const creditTransactionLabels: Record<string, string> = {
   RETURN_REFUND_RECORDED: "Reembolso financeiro registrado",
   MANUAL_CREDIT: "Ajuste manual"
 };
+
+const activeReturnRequestStatuses = ["REQUESTED", "APPROVED", "RECEIVED"] as const;
 
 function getParamValue(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
@@ -76,6 +79,8 @@ export default async function CustomerAccountPage({
           <div className="rounded-[1.5rem] border border-moss/20 bg-moss/10 p-4 text-sm text-moss">
             {success === "return_request_created"
               ? "Solicitacao de devolucao/troca enviada com sucesso."
+              : success === "return_request_comment_created"
+                ? "Comentario enviado para a equipe com sucesso."
               : "Operacao concluida com sucesso."}
           </div>
         ) : null}
@@ -84,6 +89,8 @@ export default async function CustomerAccountPage({
           <div className="rounded-[1.5rem] border border-terracotta/20 bg-terracotta/10 p-4 text-sm text-terracotta">
             {error === "return_request_failed"
               ? "Nao foi possivel criar a solicitacao de devolucao/troca."
+              : error === "return_request_comment_failed"
+                ? "Nao foi possivel enviar seu comentario para a solicitacao."
               : "Nao foi possivel concluir a operacao solicitada."}
           </div>
         ) : null}
@@ -554,6 +561,115 @@ export default async function CustomerAccountPage({
                                     <strong>Resposta:</strong> {request.resolutionNote}
                                   </p>
                                 ) : null}
+                                {request.attachments.length > 0 ? (
+                                  <div className="mt-4 rounded-[0.9rem] border border-espresso/10 bg-white/60 p-3">
+                                    <p className="text-xs uppercase tracking-[0.22em] text-terracotta">
+                                      Anexos enviados
+                                    </p>
+                                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                                      {request.attachments.map((attachment) => (
+                                        <div
+                                          key={attachment.id}
+                                          className="rounded-[0.9rem] border border-espresso/10 bg-sand/35 p-3"
+                                        >
+                                          {attachment.mimeType.startsWith("image/") ? (
+                                            <img
+                                              src={attachment.dataUrl}
+                                              alt={attachment.fileName}
+                                              className="mb-3 h-32 w-full rounded-xl object-cover"
+                                            />
+                                          ) : null}
+                                          <p className="font-medium text-espresso">
+                                            {attachment.fileName}
+                                          </p>
+                                          <p className="mt-1 text-xs text-espresso/55">
+                                            {attachment.createdAt}
+                                          </p>
+                                          <a
+                                            href={attachment.dataUrl}
+                                            download={attachment.fileName}
+                                            className="mt-3 inline-flex rounded-full border border-espresso/15 px-3 py-2 text-xs"
+                                          >
+                                            Baixar anexo
+                                          </a>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                ) : null}
+                                {request.timelineEvents.length > 0 ? (
+                                  <div className="mt-4 rounded-[0.9rem] border border-espresso/10 bg-white/60 p-3">
+                                    <p className="text-xs uppercase tracking-[0.22em] text-terracotta">
+                                      Timeline da solicitacao
+                                    </p>
+                                    <div className="mt-3 space-y-3">
+                                      {request.timelineEvents.map((event) => (
+                                        <div
+                                          key={event.id}
+                                          className="border-l-2 border-espresso/10 pl-3"
+                                        >
+                                          <div className="flex flex-wrap items-center justify-between gap-2">
+                                            <p className="font-medium text-espresso">
+                                              {event.title}
+                                            </p>
+                                            <p className="text-xs text-espresso/55">
+                                              {event.createdAt}
+                                            </p>
+                                          </div>
+                                          {event.description ? (
+                                            <p className="mt-1 text-sm text-espresso/65">
+                                              {event.description}
+                                            </p>
+                                          ) : null}
+                                          {event.attachments.length > 0 ? (
+                                            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                                              {event.attachments.map((attachment) => (
+                                                <div
+                                                  key={attachment.id}
+                                                  className="rounded-[0.9rem] border border-espresso/10 bg-white/70 p-3"
+                                                >
+                                                  {attachment.mimeType.startsWith("image/") ? (
+                                                    <img
+                                                      src={attachment.dataUrl}
+                                                      alt={attachment.fileName}
+                                                      className="mb-3 h-24 w-full rounded-xl object-cover"
+                                                    />
+                                                  ) : null}
+                                                  <p className="text-sm font-medium text-espresso">
+                                                    {attachment.fileName}
+                                                  </p>
+                                                  <a
+                                                    href={attachment.dataUrl}
+                                                    download={attachment.fileName}
+                                                    className="mt-3 inline-flex rounded-full border border-espresso/15 px-3 py-2 text-xs"
+                                                  >
+                                                    Baixar anexo
+                                                  </a>
+                                                </div>
+                                              ))}
+                                            </div>
+                                          ) : null}
+                                          <p className="mt-1 text-xs text-espresso/55">
+                                            {event.actorName ?? event.actorEmail ?? "Sistema"}
+                                          </p>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                ) : null}
+                                {activeReturnRequestStatuses.includes(request.status as (typeof activeReturnRequestStatuses)[number]) ? (
+                                  <div className="mt-4 rounded-[0.9rem] border border-espresso/10 bg-white/60 p-3">
+                                    <TimelineCommentForm
+                                      endpoint="/api/customer/return-request-comments"
+                                      payload={{ orderId: order.id, requestId: request.id }}
+                                      label="Enviar comentario para a equipe"
+                                      placeholder="Adicione contexto, atualizacoes ou duvidas sobre esta solicitacao."
+                                      submitLabel="Enviar comentario"
+                                      successRedirect="/conta?success=return_request_comment_created"
+                                      errorRedirect="/conta?error=return_request_comment_failed"
+                                    />
+                                  </div>
+                                ) : null}
                                 <p className="mt-1 text-xs text-espresso/60">
                                   Atualizado em {request.updatedAt}
                                 </p>
@@ -564,60 +680,18 @@ export default async function CustomerAccountPage({
                       ) : null}
                       {order.status === "DELIVERED" &&
                       !order.returnRequests.some((request) =>
-                        ["REQUESTED", "APPROVED", "RECEIVED"].includes(request.status)
+                        activeReturnRequestStatuses.includes(
+                          request.status as (typeof activeReturnRequestStatuses)[number]
+                        )
                       ) ? (
-                        <form
-                          action={createCustomerReturnRequestAction}
-                          className="mt-4 rounded-[1.25rem] border border-espresso/10 bg-white/50 p-4"
-                        >
-                          <input type="hidden" name="orderId" value={order.id} />
-                          <p className="text-sm font-medium">Solicitar devolucao ou troca</p>
-                          <div className="mt-4 grid gap-3 md:grid-cols-2">
-                            <label className="space-y-2 text-sm">
-                              <span>Tipo</span>
-                              <select
-                                name="type"
-                                defaultValue="EXCHANGE"
-                                className="w-full rounded-2xl border border-espresso/15 bg-sand px-4 py-3"
-                              >
-                                <option value="EXCHANGE">Troca</option>
-                                <option value="REFUND">Devolucao</option>
-                              </select>
-                            </label>
-                            <label className="space-y-2 text-sm">
-                              <span>Motivo</span>
-                              <input
-                                name="reason"
-                                required
-                                minLength={5}
-                                className="w-full rounded-2xl border border-espresso/15 bg-sand px-4 py-3"
-                                placeholder="Ex.: tamanho incorreto"
-                              />
-                            </label>
-                          </div>
-                          <label className="mt-4 block space-y-2 text-sm">
-                            <span>Detalhes</span>
-                            <textarea
-                              name="details"
-                              rows={3}
-                              className="w-full rounded-2xl border border-espresso/15 bg-sand px-4 py-3"
-                              placeholder="Conte o que aconteceu e como prefere resolver."
-                            />
-                          </label>
-                          <div className="mt-4 space-y-2 text-sm">
-                            <p className="text-espresso/70">Itens da solicitacao</p>
-                            {order.items.map((item) => (
-                              <label key={item.id} className="flex items-center gap-2">
-                                <input type="checkbox" name="selectedItemIds" value={item.id} />
-                                {item.name}
-                                {item.variantLabel ? ` - ${item.variantLabel}` : ""}
-                              </label>
-                            ))}
-                          </div>
-                          <button className="mt-4 rounded-full bg-espresso px-5 py-3 text-sm text-sand">
-                            Enviar solicitacao
-                          </button>
-                        </form>
+                        <CustomerReturnRequestForm
+                          orderId={order.id}
+                          items={order.items.map((item) => ({
+                            id: item.id,
+                            name: item.name,
+                            variantLabel: item.variantLabel
+                          }))}
+                        />
                       ) : null}
                     </article>
                   ))

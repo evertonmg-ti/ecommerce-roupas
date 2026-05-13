@@ -30,6 +30,8 @@ import { CalculateShippingDto } from "./dto/calculate-shipping.dto";
 import { CancelOrderDto } from "./dto/cancel-order.dto";
 import { ConfirmMockPaymentDto } from "./dto/confirm-mock-payment.dto";
 import { CreateOrderDto } from "./dto/create-order.dto";
+import { CreateOrderInternalNoteDto } from "./dto/create-order-internal-note.dto";
+import { CreateReturnRequestCommentDto } from "./dto/create-return-request-comment.dto";
 import { CreateReturnRequestDto } from "./dto/create-return-request.dto";
 import { LookupOrdersDto } from "./dto/lookup-orders.dto";
 import { UpdateOrderStatusDto } from "./dto/update-order-status.dto";
@@ -63,7 +65,42 @@ export class OrdersService {
         include: {
           user: true,
           returnRequests: {
-            orderBy: { createdAt: "desc" }
+            orderBy: { createdAt: "desc" },
+            include: {
+              attachments: {
+                orderBy: { createdAt: "asc" }
+              },
+              timelineEvents: {
+                orderBy: { createdAt: "asc" },
+                include: {
+                  attachments: {
+                    orderBy: { createdAt: "asc" }
+                  },
+                  actorUser: {
+                    select: {
+                      id: true,
+                      name: true,
+                      email: true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          timelineEvents: {
+            orderBy: { createdAt: "asc" },
+            include: {
+              attachments: {
+                orderBy: { createdAt: "asc" }
+              },
+              actorUser: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true
+                }
+              }
+            }
           },
           items: {
             include: {
@@ -94,7 +131,27 @@ export class OrdersService {
         where: { userId },
         include: {
           returnRequests: {
-            orderBy: { createdAt: "desc" }
+            orderBy: { createdAt: "desc" },
+            include: {
+              attachments: {
+                orderBy: { createdAt: "asc" }
+              },
+              timelineEvents: {
+                orderBy: { createdAt: "asc" },
+                include: {
+                  attachments: {
+                    orderBy: { createdAt: "asc" }
+                  },
+                  actorUser: {
+                    select: {
+                      id: true,
+                      name: true,
+                      email: true
+                    }
+                  }
+                }
+              }
+            }
           },
           items: {
             include: {
@@ -120,7 +177,27 @@ export class OrdersService {
         include: {
           user: true,
           returnRequests: {
-            orderBy: { createdAt: "desc" }
+            orderBy: { createdAt: "desc" },
+            include: {
+              attachments: {
+                orderBy: { createdAt: "asc" }
+              },
+              timelineEvents: {
+                orderBy: { createdAt: "asc" },
+                include: {
+                  attachments: {
+                    orderBy: { createdAt: "asc" }
+                  },
+                  actorUser: {
+                    select: {
+                      id: true,
+                      name: true,
+                      email: true
+                    }
+                  }
+                }
+              }
+            }
           },
           items: {
             include: {
@@ -308,6 +385,15 @@ export class OrdersService {
         }
       });
 
+      await tx.orderTimelineEvent.create({
+        data: {
+          orderId: order.id,
+          type: "ORDER_CREATED",
+          title: "Pedido criado",
+          description: `Pedido aberto com status ${order.status}.`
+        }
+      });
+
       if (storeCreditApplied.gt(0)) {
         await this.applyCustomerStoreCredit(tx, {
           userId: customer.id,
@@ -385,11 +471,15 @@ export class OrdersService {
     return order;
   }
 
-  async updateStatus(id: string, payload: UpdateOrderStatusDto) {
+  async updateStatus(
+    id: string,
+    payload: UpdateOrderStatusDto,
+    actorUserId?: string
+  ) {
     return this.updateStatusWithSideEffects(id, {
       status: payload.status as OrderStatus,
       trackingCode: payload.trackingCode
-    });
+    }, actorUserId);
   }
 
   async confirmMockPayment(id: string, payload: ConfirmMockPaymentDto) {
@@ -421,6 +511,15 @@ export class OrdersService {
             }
           }
         }
+      }
+    });
+
+    await this.prisma.orderTimelineEvent.create({
+      data: {
+        orderId: paidOrder.id,
+        type: "ORDER_STATUS_UPDATED",
+        title: "Pagamento confirmado",
+        description: "Pedido marcado como pago pelo fluxo de pagamento mock."
       }
     });
 
@@ -495,6 +594,7 @@ export class OrdersService {
     }
 
     const orderItemsMap = new Map(order.items.map((item) => [item.id, item]));
+    const attachments = this.normalizeReturnRequestAttachments(payload.attachments);
     const selectedItems = payload.items.map((item) => {
       const orderItem = orderItemsMap.get(item.orderItemId);
 
@@ -528,7 +628,26 @@ export class OrdersService {
             : ReturnFinancialStatus.NOT_APPLICABLE,
         reason: payload.reason.trim(),
         details: payload.details?.trim() || undefined,
-        selectedItems
+        selectedItems,
+        attachments: attachments.length
+          ? {
+              create: attachments
+            }
+          : undefined
+      }
+    });
+
+    await this.prisma.orderTimelineEvent.create({
+      data: {
+        orderId: order.id,
+        returnRequestId: request.id,
+        type: "RETURN_REQUEST_CREATED",
+        title: "Solicitacao de pos-venda criada",
+        description:
+          `${payload.type === ReturnRequestType.REFUND ? "Devolucao" : "Troca"} solicitada pelo cliente.` +
+          (attachments.length > 0
+            ? ` ${attachments.length} anexo(s) enviado(s) pelo portal.`
+            : "")
       }
     });
 
@@ -546,6 +665,166 @@ export class OrdersService {
     });
 
     return request;
+  }
+
+  async createReturnRequestComment(
+    orderId: string,
+    requestId: string,
+    userId: string,
+    payload: CreateReturnRequestCommentDto
+  ) {
+    const attachments = this.normalizeTimelineAttachments(payload.attachments);
+    const request = await this.prisma.returnRequest.findFirst({
+      where: {
+        id: requestId,
+        orderId,
+        userId
+      },
+      select: {
+        id: true,
+        orderId: true,
+        userId: true,
+        status: true
+      }
+    });
+
+    if (!request) {
+      throw new NotFoundException("Solicitacao nao encontrada para esta conta.");
+    }
+
+    if (
+      request.status !== ReturnRequestStatus.REQUESTED &&
+      request.status !== ReturnRequestStatus.APPROVED &&
+      request.status !== ReturnRequestStatus.RECEIVED
+    ) {
+      throw new BadRequestException(
+        "Comentarios adicionais ficam disponiveis apenas para solicitacoes em andamento."
+      );
+    }
+
+    return this.prisma.orderTimelineEvent.create({
+      data: {
+        orderId,
+        returnRequestId: requestId,
+        actorUserId: userId,
+        type: "CUSTOMER_COMMENT",
+        title: "Cliente adicionou um comentario",
+        description: payload.message.trim(),
+        attachments: attachments.length
+          ? {
+              create: attachments
+            }
+          : undefined,
+        metadata: {
+          scope: "RETURN_REQUEST"
+        }
+      },
+      include: {
+        attachments: {
+          orderBy: { createdAt: "asc" }
+        },
+        actorUser: {
+          select: {
+            id: true,
+            name: true,
+            email: true
+          }
+        }
+      }
+    });
+  }
+
+  async createOrderInternalNote(
+    orderId: string,
+    payload: CreateOrderInternalNoteDto,
+    actorUserId: string
+  ) {
+    const attachments = this.normalizeTimelineAttachments(payload.attachments);
+    await this.getOrderDetailsOrThrow(orderId);
+
+    return this.prisma.orderTimelineEvent.create({
+      data: {
+        orderId,
+        actorUserId,
+        type: "ADMIN_NOTE",
+        title: "Comentario interno adicionado",
+        description: payload.message.trim(),
+        attachments: attachments.length
+          ? {
+              create: attachments
+            }
+          : undefined,
+        metadata: {
+          scope: "ORDER"
+        }
+      },
+      include: {
+        attachments: {
+          orderBy: { createdAt: "asc" }
+        },
+        actorUser: {
+          select: {
+            id: true,
+            name: true,
+            email: true
+          }
+        }
+      }
+    });
+  }
+
+  async createReturnRequestInternalNote(
+    orderId: string,
+    requestId: string,
+    payload: CreateOrderInternalNoteDto,
+    actorUserId: string
+  ) {
+    const attachments = this.normalizeTimelineAttachments(payload.attachments);
+    const request = await this.prisma.returnRequest.findFirst({
+      where: {
+        id: requestId,
+        orderId
+      },
+      select: {
+        id: true,
+        orderId: true
+      }
+    });
+
+    if (!request) {
+      throw new NotFoundException("Solicitacao nao encontrada para este pedido.");
+    }
+
+    return this.prisma.orderTimelineEvent.create({
+      data: {
+        orderId,
+        returnRequestId: requestId,
+        actorUserId,
+        type: "RETURN_ADMIN_NOTE",
+        title: "Comentario interno na solicitacao",
+        description: payload.message.trim(),
+        attachments: attachments.length
+          ? {
+              create: attachments
+            }
+          : undefined,
+        metadata: {
+          scope: "RETURN_REQUEST"
+        }
+      },
+      include: {
+        attachments: {
+          orderBy: { createdAt: "asc" }
+        },
+        actorUser: {
+          select: {
+            id: true,
+            name: true,
+            email: true
+          }
+        }
+      }
+    });
   }
 
   async updateReturnRequestStatus(
@@ -687,7 +966,7 @@ export class OrdersService {
         refundRecordedAt = recordedAt;
       }
 
-      return tx.returnRequest.update({
+      const updated = await tx.returnRequest.update({
         where: { id: request.id },
         data: {
           status: payload.status,
@@ -722,6 +1001,37 @@ export class OrdersService {
           restockedAt
         }
       });
+
+      const statusChanged = request.status !== payload.status;
+
+      await tx.orderTimelineEvent.create({
+        data: {
+          orderId: request.orderId,
+          returnRequestId: request.id,
+          actorUserId,
+          type: statusChanged
+            ? "RETURN_REQUEST_STATUS_UPDATED"
+            : "RETURN_REQUEST_DATA_UPDATED",
+          title: statusChanged
+            ? `Solicitacao atualizada para ${payload.status}`
+            : "Dados operacionais da solicitacao atualizados",
+          description:
+            resolutionNote ??
+            (statusChanged
+              ? `Transicao de ${request.status} para ${payload.status}.`
+              : "Campos logisticos, financeiros ou observacoes foram atualizados."),
+          metadata: {
+            previousStatus: request.status,
+            nextStatus: payload.status,
+            financialStatus: nextFinancialStatus,
+            refundAmount: Number(refundAmount),
+            storeCreditAmount: Number(storeCreditAmount),
+            restockItems
+          }
+        }
+      });
+
+      return updated;
     });
 
     await this.observabilityService.logEvent({
@@ -857,6 +1167,24 @@ export class OrdersService {
       },
       include: {
         user: true,
+        attachments: {
+          orderBy: { createdAt: "asc" }
+        },
+        timelineEvents: {
+          orderBy: { createdAt: "asc" },
+          include: {
+            attachments: {
+              orderBy: { createdAt: "asc" }
+            },
+            actorUser: {
+              select: {
+                id: true,
+                name: true,
+                email: true
+              }
+            }
+          }
+        },
         order: {
           include: {
             items: {
@@ -1195,7 +1523,8 @@ export class OrdersService {
 
   private async updateStatusWithSideEffects(
     id: string,
-    payload: { status: OrderStatus; trackingCode?: string }
+    payload: { status: OrderStatus; trackingCode?: string },
+    actorUserId?: string
   ) {
     const order = await this.getOrderDetailsOrThrow(id);
     const nextStatus = payload.status;
@@ -1271,6 +1600,30 @@ export class OrdersService {
                 include: { category: true }
               }
             }
+          }
+        }
+      });
+
+      await tx.orderTimelineEvent.create({
+        data: {
+          orderId: order.id,
+          actorUserId,
+          type:
+            order.status !== nextStatus ? "ORDER_STATUS_UPDATED" : "ORDER_DATA_UPDATED",
+          title:
+            order.status !== nextStatus
+              ? `Pedido atualizado para ${nextStatus}`
+              : "Dados operacionais do pedido atualizados",
+          description:
+            order.status !== nextStatus
+              ? `Transicao de ${order.status} para ${nextStatus}.`
+              : trackingCode
+                ? `Codigo de rastreio ajustado para ${trackingCode}.`
+                : "Atualizacao operacional registrada no pedido.",
+          metadata: {
+            previousStatus: order.status,
+            nextStatus,
+            trackingCode: trackingCode ?? undefined
           }
         }
       });
@@ -1532,6 +1885,13 @@ export class OrdersService {
   private enrichAdminReturnRequest(
     request: Prisma.ReturnRequestGetPayload<{
       include: {
+        attachments: true;
+        timelineEvents: {
+          include: {
+            attachments: true;
+            actorUser: true;
+          };
+        };
         user: true;
         order: {
           include: {
@@ -1871,6 +2231,96 @@ export class OrdersService {
         description: payload.description,
         metadata: payload.metadata
       }
+    });
+  }
+
+  private normalizeReturnRequestAttachments(attachments?: CreateReturnRequestDto["attachments"]) {
+    if (!attachments?.length) {
+      return [];
+    }
+
+    const maxSizeBytes = 2 * 1024 * 1024;
+
+    return attachments.map((attachment) => {
+      const fileName = attachment.fileName.trim();
+      const mimeType = attachment.mimeType.trim().toLowerCase();
+      const dataUrl = attachment.dataUrl.trim();
+      const sizeBytes = Math.trunc(Number(attachment.sizeBytes ?? 0));
+
+      if (!fileName || !mimeType || !dataUrl) {
+        throw new BadRequestException("Um dos anexos enviados e invalido.");
+      }
+
+      if (!mimeType.startsWith("image/") && mimeType !== "application/pdf") {
+        throw new BadRequestException(
+          "Os anexos devem ser imagens ou arquivos PDF."
+        );
+      }
+
+      if (!dataUrl.startsWith(`data:${mimeType};base64,`)) {
+        throw new BadRequestException("O formato de um dos anexos enviados e invalido.");
+      }
+
+      if (!Number.isFinite(sizeBytes) || sizeBytes < 1 || sizeBytes > maxSizeBytes) {
+        throw new BadRequestException(
+          "Cada anexo deve ter no maximo 2 MB."
+        );
+      }
+
+      return {
+        fileName,
+        mimeType,
+        sizeBytes,
+        dataUrl
+      };
+    });
+  }
+
+  private normalizeTimelineAttachments(
+    attachments?:
+      | CreateReturnRequestCommentDto["attachments"]
+      | CreateOrderInternalNoteDto["attachments"]
+  ) {
+    if (!attachments?.length) {
+      return [];
+    }
+
+    const maxSizeBytes = 2 * 1024 * 1024;
+
+    return attachments.map((attachment) => {
+      const fileName = attachment.fileName.trim();
+      const mimeType = attachment.mimeType.trim().toLowerCase();
+      const dataUrl = attachment.dataUrl.trim();
+      const sizeBytes = Math.trunc(Number(attachment.sizeBytes ?? 0));
+
+      if (!fileName || !mimeType || !dataUrl) {
+        throw new BadRequestException("Um dos anexos do comentario e invalido.");
+      }
+
+      if (!mimeType.startsWith("image/") && mimeType !== "application/pdf") {
+        throw new BadRequestException(
+          "Os anexos do comentario devem ser imagens ou arquivos PDF."
+        );
+      }
+
+      if (!dataUrl.startsWith(`data:${mimeType};base64,`)) {
+        throw new BadRequestException(
+          "O formato de um dos anexos do comentario e invalido."
+        );
+      }
+
+      if (!Number.isFinite(sizeBytes) || sizeBytes < 1 || sizeBytes > maxSizeBytes) {
+        throw new BadRequestException(
+          "Cada anexo do comentario deve ter no maximo 2 MB."
+        );
+      }
+
+      return {
+        fileName,
+        mimeType,
+        sizeBytes,
+        dataUrl
+      };
     });
   }
 

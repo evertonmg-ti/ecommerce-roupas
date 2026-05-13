@@ -246,6 +246,69 @@ type DashboardResponse = {
       createdAt: string;
     };
   }>;
+  financialSummary: {
+    walletBalanceTotal: number | string | null;
+    totalIssuedStoreCredit: number | string | null;
+    totalConsumedStoreCredit: number | string | null;
+    totalCancellationReversals: number | string | null;
+    totalRefundsRecorded: number | string | null;
+    totalManualCredits: number | string | null;
+    manualAdjustmentsCount: number;
+    pendingRefundAmount: number | string | null;
+    pendingStoreCreditAmount: number | string | null;
+    unreconciledReturnCount: number;
+    expectedWalletBalance: number | string | null;
+    walletReconciliationDelta: number;
+  };
+  financialAlerts: Array<{
+    type: string;
+    level: string;
+    message: string;
+    detail: string;
+  }>;
+  recentFinancialTransactions: Array<{
+    id: string;
+    type: string;
+    amount: number | string;
+    balanceBefore: number | string;
+    balanceAfter: number | string;
+    description: string;
+    createdAt: string;
+    user: {
+      id: string;
+      name: string;
+      email: string;
+    };
+    order?: {
+      id: string;
+      status: string;
+      createdAt: string;
+    } | null;
+    returnRequest?: {
+      id: string;
+      type: string;
+      status: string;
+      financialStatus: string;
+    } | null;
+  }>;
+  pendingFinancialCases: Array<{
+    id: string;
+    orderId: string;
+    orderStatus: string;
+    customerName: string;
+    customerEmail: string;
+    type: string;
+    status: string;
+    financialStatus: string;
+    reason: string;
+    financialAmount: number | string;
+    priority: string;
+    slaHours: number;
+    slaLabel: string;
+    createdAt: string;
+    completedAt?: string | null;
+    updatedAt: string;
+  }>;
   topRecurringCustomers: Array<{
     userId: string;
     name: string;
@@ -549,6 +612,26 @@ type OrderResponse = {
     installments?: string | null;
   } | null;
   createdAt: string;
+  timelineEvents?: Array<{
+    id: string;
+    type: string;
+    title: string;
+    description?: string | null;
+    attachments?: Array<{
+      id: string;
+      fileName: string;
+      mimeType: string;
+      sizeBytes: number;
+      dataUrl: string;
+      createdAt: string;
+    }>;
+    createdAt: string;
+    actorUser?: {
+      id: string;
+      name: string;
+      email: string;
+    } | null;
+  }>;
   returnRequests?: Array<{
     id: string;
     type: string;
@@ -576,8 +659,36 @@ type OrderResponse = {
       variantLabel?: string | null;
       quantity: number;
     }> | null;
+    attachments?: Array<{
+      id: string;
+      fileName: string;
+      mimeType: string;
+      sizeBytes: number;
+      dataUrl: string;
+      createdAt: string;
+    }>;
     createdAt: string;
     updatedAt: string;
+    timelineEvents?: Array<{
+      id: string;
+      type: string;
+      title: string;
+      description?: string | null;
+      attachments?: Array<{
+        id: string;
+        fileName: string;
+        mimeType: string;
+        sizeBytes: number;
+        dataUrl: string;
+        createdAt: string;
+      }>;
+      createdAt: string;
+      actorUser?: {
+        id: string;
+        name: string;
+        email: string;
+      } | null;
+    }>;
   }>;
   user: {
     id: string;
@@ -658,6 +769,34 @@ type PaginatedReturnRequestsResponse = {
       productName: string;
       categoryName: string;
     }>;
+    attachments?: Array<{
+      id: string;
+      fileName: string;
+      mimeType: string;
+      sizeBytes: number;
+      dataUrl: string;
+      createdAt: string;
+    }>;
+    timelineEvents?: Array<{
+      id: string;
+      type: string;
+      title: string;
+      description?: string | null;
+      attachments?: Array<{
+        id: string;
+        fileName: string;
+        mimeType: string;
+        sizeBytes: number;
+        dataUrl: string;
+        createdAt: string;
+      }>;
+      createdAt: string;
+      actorUser?: {
+        id: string;
+        name: string;
+        email: string;
+      } | null;
+    }>;
   }>;
   total: number;
   page: number;
@@ -710,6 +849,16 @@ export type AdminDashboardData = {
     value: string;
     detail: string;
   }>;
+  financialHighlights: Array<{
+    label: string;
+    value: string;
+    detail: string;
+  }>;
+  creditReconciliation: Array<{
+    label: string;
+    value: string;
+    detail: string;
+  }>;
   postSaleHighlights: Array<{
     label: string;
     value: string;
@@ -727,6 +876,12 @@ export type AdminDashboardData = {
     detail: string;
   }>;
   predictiveAlerts: Array<{
+    type: string;
+    level: string;
+    message: string;
+    detail: string;
+  }>;
+  financialAlerts: Array<{
     type: string;
     level: string;
     message: string;
@@ -839,6 +994,40 @@ export type AdminDashboardData = {
     slaHours: number;
     slaLabel: string;
     createdAt: string;
+  }>;
+  recentFinancialTransactions: Array<{
+    id: string;
+    type: string;
+    amount: number;
+    balanceBefore: number;
+    balanceAfter: number;
+    description: string;
+    createdAt: string;
+    customerName: string;
+    customerEmail: string;
+    orderId?: string;
+    orderStatus?: string;
+    returnRequestId?: string;
+    returnRequestStatus?: string;
+    returnRequestType?: string;
+  }>;
+  pendingFinancialCases: Array<{
+    id: string;
+    orderId: string;
+    orderStatus: string;
+    customerName: string;
+    customerEmail: string;
+    type: string;
+    status: string;
+    financialStatus: string;
+    reason: string;
+    financialAmount: number;
+    priority: string;
+    slaHours: number;
+    slaLabel: string;
+    createdAt: string;
+    completedAt?: string;
+    updatedAt: string;
   }>;
   topRecurringCustomers: Array<{
     id: string;
@@ -1150,6 +1339,23 @@ export type AdminOrder = {
     installments?: string;
   };
   createdAt: string;
+  timelineEvents: Array<{
+    id: string;
+    type: string;
+    title: string;
+    description?: string;
+    attachments: Array<{
+      id: string;
+      fileName: string;
+      mimeType: string;
+      sizeBytes: number;
+      dataUrl: string;
+      createdAt: string;
+    }>;
+    createdAt: string;
+    actorName?: string;
+    actorEmail?: string;
+  }>;
   returnRequests: Array<{
     id: string;
     type: string;
@@ -1177,8 +1383,33 @@ export type AdminOrder = {
       variantLabel?: string;
       quantity: number;
     }>;
+    attachments: Array<{
+      id: string;
+      fileName: string;
+      mimeType: string;
+      sizeBytes: number;
+      dataUrl: string;
+      createdAt: string;
+    }>;
     createdAt: string;
     updatedAt: string;
+    timelineEvents: Array<{
+      id: string;
+      type: string;
+      title: string;
+      description?: string;
+      attachments: Array<{
+        id: string;
+        fileName: string;
+        mimeType: string;
+        sizeBytes: number;
+        dataUrl: string;
+        createdAt: string;
+      }>;
+      createdAt: string;
+      actorName?: string;
+      actorEmail?: string;
+    }>;
   }>;
   items: Array<{
     id: string;
@@ -1234,6 +1465,23 @@ export type AdminReturnRequest = {
   slaLabel: string;
   createdAt: string;
   updatedAt: string;
+  timelineEvents: Array<{
+    id: string;
+    type: string;
+    title: string;
+    description?: string;
+    attachments: Array<{
+      id: string;
+      fileName: string;
+      mimeType: string;
+      sizeBytes: number;
+      dataUrl: string;
+      createdAt: string;
+    }>;
+    createdAt: string;
+    actorName?: string;
+    actorEmail?: string;
+  }>;
   selectedItems: Array<{
     orderItemId: string;
     productId: string;
@@ -1242,6 +1490,14 @@ export type AdminReturnRequest = {
     quantity: number;
     productName: string;
     categoryName: string;
+  }>;
+  attachments: Array<{
+    id: string;
+    fileName: string;
+    mimeType: string;
+    sizeBytes: number;
+    dataUrl: string;
+    createdAt: string;
   }>;
 };
 
@@ -1554,6 +1810,63 @@ export async function getAdminDashboardMetrics(): Promise<AdminDashboardData> {
             : "Ritmo atual abaixo da meta mensal"
       }
     ],
+    financialHighlights: [
+      {
+        label: "Passivo em carteira",
+        value: formatCurrency(toNumber(data.financialSummary.walletBalanceTotal)),
+        detail: "Saldo total disponivel nas contas de cliente"
+      },
+      {
+        label: "Vale-troca emitido",
+        value: formatCurrency(toNumber(data.financialSummary.totalIssuedStoreCredit)),
+        detail: "Credito ja concedido pelo pos-venda"
+      },
+      {
+        label: "Credito consumido",
+        value: formatCurrency(toNumber(data.financialSummary.totalConsumedStoreCredit)),
+        detail: "Saldo ja reutilizado em checkout"
+      },
+      {
+        label: "Reembolsos registrados",
+        value: formatCurrency(toNumber(data.financialSummary.totalRefundsRecorded)),
+        detail: "Saidas financeiras registradas nas devolucoes"
+      }
+    ],
+    creditReconciliation: [
+      {
+        label: "Reembolso pendente",
+        value: formatCurrency(toNumber(data.financialSummary.pendingRefundAmount)),
+        detail: "Valor ainda aguardando conciliacao financeira"
+      },
+      {
+        label: "Vale-troca pendente",
+        value: formatCurrency(toNumber(data.financialSummary.pendingStoreCreditAmount)),
+        detail: "Credito prometido e ainda nao emitido"
+      },
+      {
+        label: "Casos nao conciliados",
+        value: String(data.financialSummary.unreconciledReturnCount),
+        detail: "Solicitacoes concluidas ou abertas com financeiro em aberto"
+      },
+      {
+        label: "Delta da carteira",
+        value: formatCurrency(Math.abs(toNumber(data.financialSummary.walletReconciliationDelta))),
+        detail:
+          Math.abs(toNumber(data.financialSummary.walletReconciliationDelta)) < 0.01
+            ? "Saldo conciliado com o razao financeiro"
+            : "Existe divergencia entre carteira e movimentacoes"
+      },
+      {
+        label: "Saldo esperado",
+        value: formatCurrency(toNumber(data.financialSummary.expectedWalletBalance)),
+        detail: "Resultado do razao de creditos menos consumo"
+      },
+      {
+        label: "Ajustes manuais",
+        value: String(data.financialSummary.manualAdjustmentsCount),
+        detail: "Intervencoes feitas pela operacao na carteira"
+      }
+    ],
     postSaleHighlights: [
       {
         label: "Solicitacoes abertas",
@@ -1588,6 +1901,7 @@ export async function getAdminDashboardMetrics(): Promise<AdminDashboardData> {
     })),
     executiveAlerts: data.executiveAlerts,
     predictiveAlerts: data.predictiveAlerts,
+    financialAlerts: data.financialAlerts,
     stockCoverage: data.stockCoverage.map((item) => ({
       id: item.productId,
       name: item.productName,
@@ -1722,6 +2036,40 @@ export async function getAdminDashboardMetrics(): Promise<AdminDashboardData> {
       slaHours: request.slaHours,
       slaLabel: request.slaLabel,
       createdAt: formatDateTime(request.createdAt)
+    })),
+    recentFinancialTransactions: data.recentFinancialTransactions.map((transaction) => ({
+      id: transaction.id,
+      type: transaction.type,
+      amount: toNumber(transaction.amount),
+      balanceBefore: toNumber(transaction.balanceBefore),
+      balanceAfter: toNumber(transaction.balanceAfter),
+      description: transaction.description,
+      createdAt: formatDateTime(transaction.createdAt),
+      customerName: transaction.user.name,
+      customerEmail: transaction.user.email,
+      orderId: transaction.order?.id ?? undefined,
+      orderStatus: transaction.order?.status ?? undefined,
+      returnRequestId: transaction.returnRequest?.id ?? undefined,
+      returnRequestStatus: transaction.returnRequest?.status ?? undefined,
+      returnRequestType: transaction.returnRequest?.type ?? undefined
+    })),
+    pendingFinancialCases: data.pendingFinancialCases.map((request) => ({
+      id: request.id,
+      orderId: request.orderId,
+      orderStatus: request.orderStatus,
+      customerName: request.customerName,
+      customerEmail: request.customerEmail,
+      type: request.type,
+      status: request.status,
+      financialStatus: request.financialStatus,
+      reason: request.reason,
+      financialAmount: toNumber(request.financialAmount),
+      priority: request.priority,
+      slaHours: request.slaHours,
+      slaLabel: request.slaLabel,
+      createdAt: formatDateTime(request.createdAt),
+      completedAt: request.completedAt ? formatDateTime(request.completedAt) : undefined,
+      updatedAt: formatDateTime(request.updatedAt)
     })),
     topRecurringCustomers: data.topRecurringCustomers.map((customer) => ({
       id: customer.userId,
@@ -2192,6 +2540,23 @@ function normalizeAdminOrder(order: OrderResponse): AdminOrder {
         }
       : undefined,
     createdAt: formatDate(order.createdAt),
+    timelineEvents: (order.timelineEvents ?? []).map((event) => ({
+      id: event.id,
+      type: event.type,
+      title: event.title,
+      description: event.description ?? undefined,
+      attachments: (event.attachments ?? []).map((attachment) => ({
+        id: attachment.id,
+        fileName: attachment.fileName,
+        mimeType: attachment.mimeType,
+        sizeBytes: attachment.sizeBytes,
+        dataUrl: attachment.dataUrl,
+        createdAt: formatDateTime(attachment.createdAt)
+      })),
+      createdAt: formatDateTime(event.createdAt),
+      actorName: event.actorUser?.name ?? undefined,
+      actorEmail: event.actorUser?.email ?? undefined
+    })),
     returnRequests: (order.returnRequests ?? []).map((request) => ({
       id: request.id,
       type: request.type,
@@ -2225,8 +2590,33 @@ function normalizeAdminOrder(order: OrderResponse): AdminOrder {
         variantLabel: item.variantLabel ?? undefined,
         quantity: item.quantity
       })),
+      attachments: (request.attachments ?? []).map((attachment) => ({
+        id: attachment.id,
+        fileName: attachment.fileName,
+        mimeType: attachment.mimeType,
+        sizeBytes: attachment.sizeBytes,
+        dataUrl: attachment.dataUrl,
+        createdAt: formatDateTime(attachment.createdAt)
+      })),
       createdAt: formatDateTime(request.createdAt),
-      updatedAt: formatDateTime(request.updatedAt)
+      updatedAt: formatDateTime(request.updatedAt),
+      timelineEvents: (request.timelineEvents ?? []).map((event) => ({
+        id: event.id,
+        type: event.type,
+        title: event.title,
+        description: event.description ?? undefined,
+        attachments: (event.attachments ?? []).map((attachment) => ({
+          id: attachment.id,
+          fileName: attachment.fileName,
+          mimeType: attachment.mimeType,
+          sizeBytes: attachment.sizeBytes,
+          dataUrl: attachment.dataUrl,
+          createdAt: formatDateTime(attachment.createdAt)
+        })),
+        createdAt: formatDateTime(event.createdAt),
+        actorName: event.actorUser?.name ?? undefined,
+        actorEmail: event.actorUser?.email ?? undefined
+      }))
     })),
     items: order.items.map((item) => ({
       id: item.id,
@@ -2362,6 +2752,23 @@ export async function getAdminReturnRequests(filters?: {
       slaLabel: request.slaLabel,
       createdAt: formatDateTime(request.createdAt),
       updatedAt: formatDateTime(request.updatedAt),
+      timelineEvents: (request.timelineEvents ?? []).map((event) => ({
+        id: event.id,
+        type: event.type,
+        title: event.title,
+        description: event.description ?? undefined,
+        attachments: (event.attachments ?? []).map((attachment) => ({
+          id: attachment.id,
+          fileName: attachment.fileName,
+          mimeType: attachment.mimeType,
+          sizeBytes: attachment.sizeBytes,
+          dataUrl: attachment.dataUrl,
+          createdAt: formatDateTime(attachment.createdAt)
+        })),
+        createdAt: formatDateTime(event.createdAt),
+        actorName: event.actorUser?.name ?? undefined,
+        actorEmail: event.actorUser?.email ?? undefined
+      })),
       selectedItems: request.selectedItemsDetailed.map((item) => ({
         orderItemId: item.orderItemId,
         productId: item.productId,
@@ -2370,6 +2777,14 @@ export async function getAdminReturnRequests(filters?: {
         quantity: item.quantity,
         productName: item.productName,
         categoryName: item.categoryName
+      })),
+      attachments: (request.attachments ?? []).map((attachment) => ({
+        id: attachment.id,
+        fileName: attachment.fileName,
+        mimeType: attachment.mimeType,
+        sizeBytes: attachment.sizeBytes,
+        dataUrl: attachment.dataUrl,
+        createdAt: formatDateTime(attachment.createdAt)
       }))
     })),
     summary: response.summary,
@@ -2527,6 +2942,12 @@ export async function updateAdminOrderStatus(
   });
 }
 
+export async function createAdminOrderInternalNote(id: string, message: string) {
+  return mutateAdmin(`/orders/${id}/internal-notes`, "POST", {
+    message: message.trim()
+  });
+}
+
 export async function updateAdminReturnRequestStatus(
   orderId: string,
   requestId: string,
@@ -2558,6 +2979,16 @@ export async function updateAdminReturnRequestStatus(
     storeCreditAmount: payload?.storeCreditAmount,
     restockItems: payload?.restockItems,
     restockNote: payload?.restockNote?.trim() || undefined
+  });
+}
+
+export async function createAdminReturnRequestInternalNote(
+  orderId: string,
+  requestId: string,
+  message: string
+) {
+  return mutateAdmin(`/orders/${orderId}/return-requests/${requestId}/internal-notes`, "POST", {
+    message: message.trim()
   });
 }
 

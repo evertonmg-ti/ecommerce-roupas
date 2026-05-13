@@ -8,10 +8,13 @@ export default async function AdminDashboardPage() {
   const funnelHighlights = dashboard?.funnelHighlights ?? [];
   const targetHighlights = dashboard?.targetHighlights ?? [];
   const forecastHighlights = dashboard?.forecastHighlights ?? [];
+  const financialHighlights = dashboard?.financialHighlights ?? [];
+  const creditReconciliation = dashboard?.creditReconciliation ?? [];
   const postSaleHighlights = dashboard?.postSaleHighlights ?? [];
   const revenueCurve = dashboard?.revenueCurve ?? [];
   const executiveAlerts = dashboard?.executiveAlerts ?? [];
   const predictiveAlerts = dashboard?.predictiveAlerts ?? [];
+  const financialAlerts = dashboard?.financialAlerts ?? [];
   const stockCoverage = dashboard?.stockCoverage ?? [];
   const replenishmentByCategory = dashboard?.replenishmentByCategory ?? [];
   const purchaseSuggestions = dashboard?.purchaseSuggestions ?? [];
@@ -23,6 +26,8 @@ export default async function AdminDashboardPage() {
   const customerHighlights = dashboard?.customerHighlights ?? [];
   const customerCohorts = dashboard?.customerCohorts ?? [];
   const recentReturnRequests = dashboard?.recentReturnRequests ?? [];
+  const recentFinancialTransactions = dashboard?.recentFinancialTransactions ?? [];
+  const pendingFinancialCases = dashboard?.pendingFinancialCases ?? [];
   const topRecurringCustomers = dashboard?.topRecurringCustomers ?? [];
   const lowStockItems = dashboard?.lowStockItems ?? [];
   const inventoryHighlights = dashboard?.inventoryHighlights ?? [];
@@ -331,6 +336,206 @@ export default async function AdminDashboardPage() {
               )}
             </section>
           </div>
+
+          <div className="grid gap-5 lg:grid-cols-[0.95fr_1.05fr]">
+            <section className="rounded-[2rem] border border-espresso/10 bg-white/80 p-6 shadow-soft">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.3em] text-terracotta">
+                    Financeiro
+                  </p>
+                  <h2 className="mt-2 font-display text-3xl">Passivo e consumo</h2>
+                </div>
+                <a
+                  href="/admin/financeiro"
+                  className="rounded-full border border-espresso/15 px-4 py-2 text-sm"
+                >
+                  Abrir financeiro
+                </a>
+              </div>
+
+              <div className="mt-6 grid gap-4 md:grid-cols-2">
+                {financialHighlights.map((item) => (
+                  <article
+                    key={item.label}
+                    className="rounded-[1.5rem] border border-espresso/10 bg-sand/35 p-4"
+                  >
+                    <p className="text-sm text-espresso/55">{item.label}</p>
+                    <p className="mt-2 font-display text-3xl">{item.value}</p>
+                    <p className="mt-2 text-sm text-moss">{item.detail}</p>
+                  </article>
+                ))}
+              </div>
+            </section>
+
+            <section className="rounded-[2rem] border border-espresso/10 bg-white/80 p-6 shadow-soft">
+              <p className="text-xs uppercase tracking-[0.3em] text-terracotta">
+                Conciliacao
+              </p>
+              <h2 className="mt-2 font-display text-3xl">Creditos e reembolsos</h2>
+
+              <div className="mt-6 grid gap-4 md:grid-cols-2">
+                {creditReconciliation.map((item) => (
+                  <article
+                    key={item.label}
+                    className="rounded-[1.5rem] border border-espresso/10 bg-sand/35 p-4"
+                  >
+                    <p className="text-sm text-espresso/55">{item.label}</p>
+                    <p className="mt-2 font-display text-3xl">{item.value}</p>
+                    <p className="mt-2 text-sm text-moss">{item.detail}</p>
+                  </article>
+                ))}
+              </div>
+            </section>
+          </div>
+
+          <div className="grid gap-5 lg:grid-cols-[0.95fr_1.05fr]">
+            <section className="rounded-[2rem] border border-espresso/10 bg-white/80 p-6 shadow-soft">
+              <p className="text-xs uppercase tracking-[0.3em] text-terracotta">
+                Alertas financeiros
+              </p>
+              <h2 className="mt-2 font-display text-3xl">Acoes operacionais</h2>
+
+              {financialAlerts.length > 0 ? (
+                <div className="mt-6 space-y-3">
+                  {financialAlerts.map((alert, index) => (
+                    <article
+                      key={`${alert.type}-${index}`}
+                      className="rounded-[1.5rem] border border-espresso/10 bg-sand/35 p-4"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-medium">{alert.message}</p>
+                          <p className="mt-2 text-sm text-espresso/65">{alert.detail}</p>
+                        </div>
+                        <span className="rounded-full bg-terracotta/10 px-3 py-1 text-xs text-terracotta">
+                          {alert.level}
+                        </span>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <div className="mt-6 rounded-[1.5rem] border border-espresso/10 bg-sand/35 p-4 text-sm text-espresso/70">
+                  Nenhum alerta financeiro ativo neste momento.
+                </div>
+              )}
+            </section>
+
+            <section className="rounded-[2rem] border border-espresso/10 bg-white/80 p-6 shadow-soft">
+              <p className="text-xs uppercase tracking-[0.3em] text-terracotta">
+                Conciliacao pendente
+              </p>
+              <h2 className="mt-2 font-display text-3xl">Casos para fechar</h2>
+
+              {pendingFinancialCases.length > 0 ? (
+                <div className="mt-6 space-y-3">
+                  {pendingFinancialCases.map((request) => (
+                    <div
+                      key={request.id}
+                      className="rounded-[1.5rem] border border-espresso/10 bg-sand/35 p-4"
+                    >
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <p className="font-medium">{request.customerName}</p>
+                          <p className="mt-1 text-sm text-espresso/60">
+                            {request.customerEmail} - pedido {request.orderId}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-medium text-terracotta">{request.priority}</p>
+                          <p className="mt-1 text-sm text-espresso/60">{request.slaLabel}</p>
+                        </div>
+                      </div>
+                      <p className="mt-3 text-sm text-espresso/65">
+                        {request.type} - {request.status} - financeiro {request.financialStatus}
+                      </p>
+                      <p className="mt-2 text-sm text-moss">
+                        Valor envolvido de{" "}
+                        {request.financialAmount.toLocaleString("pt-BR", {
+                          style: "currency",
+                          currency: "BRL"
+                        })}
+                      </p>
+                      <p className="mt-2 text-sm text-espresso/60">{request.reason}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="mt-6 rounded-[1.5rem] border border-espresso/10 bg-sand/35 p-4 text-sm text-espresso/70">
+                  Nenhum caso financeiro pendente exige conciliacao agora.
+                </div>
+              )}
+            </section>
+          </div>
+
+          <section className="rounded-[2rem] border border-espresso/10 bg-white/80 p-6 shadow-soft">
+            <p className="text-xs uppercase tracking-[0.3em] text-terracotta">
+              Extrato operacional
+            </p>
+            <h2 className="mt-2 font-display text-3xl">Ultimas movimentacoes de credito</h2>
+
+            {recentFinancialTransactions.length > 0 ? (
+              <div className="mt-6 grid gap-4 lg:grid-cols-2">
+                {recentFinancialTransactions.map((transaction) => (
+                  <article
+                    key={transaction.id}
+                    className="rounded-[1.5rem] border border-espresso/10 bg-sand/35 p-4"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="font-medium">{transaction.customerName}</p>
+                        <p className="mt-1 text-sm text-espresso/60">
+                          {transaction.customerEmail}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p
+                          className={`font-medium ${
+                            transaction.balanceAfter >= transaction.balanceBefore
+                              ? "text-moss"
+                              : "text-terracotta"
+                          }`}
+                        >
+                          {transaction.balanceAfter >= transaction.balanceBefore ? "+" : "-"}
+                          {transaction.amount.toLocaleString("pt-BR", {
+                            style: "currency",
+                            currency: "BRL"
+                          })}
+                        </p>
+                        <p className="mt-1 text-sm text-espresso/60">
+                          {transaction.createdAt}
+                        </p>
+                      </div>
+                    </div>
+                    <p className="mt-3 text-sm text-espresso/65">{transaction.description}</p>
+                    <p className="mt-2 text-sm text-moss">
+                      Saldo de{" "}
+                      {transaction.balanceBefore.toLocaleString("pt-BR", {
+                        style: "currency",
+                        currency: "BRL"
+                      })}{" "}
+                      para{" "}
+                      {transaction.balanceAfter.toLocaleString("pt-BR", {
+                        style: "currency",
+                        currency: "BRL"
+                      })}
+                    </p>
+                    <p className="mt-2 text-sm text-espresso/60">
+                      {transaction.orderId ? `Pedido ${transaction.orderId}` : "Sem pedido vinculado"}
+                      {transaction.returnRequestId
+                        ? ` / Devolucao ${transaction.returnRequestId}`
+                        : ""}
+                    </p>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <div className="mt-6 rounded-[1.5rem] border border-espresso/10 bg-sand/35 p-4 text-sm text-espresso/70">
+                Ainda nao ha movimentacoes recentes suficientes para este extrato.
+              </div>
+            )}
+          </section>
 
           <section className="rounded-[2rem] border border-espresso/10 bg-white/80 p-6 shadow-soft">
             <p className="text-xs uppercase tracking-[0.3em] text-terracotta">

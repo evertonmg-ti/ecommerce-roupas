@@ -42,8 +42,36 @@ type OrderResponse = {
       variantLabel?: string | null;
       quantity: number;
     }> | null;
+    attachments?: Array<{
+      id: string;
+      fileName: string;
+      mimeType: string;
+      sizeBytes: number;
+      dataUrl: string;
+      createdAt: string;
+    }>;
     createdAt: string;
     updatedAt: string;
+    timelineEvents?: Array<{
+      id: string;
+      type: string;
+      title: string;
+      description?: string | null;
+      attachments?: Array<{
+        id: string;
+        fileName: string;
+        mimeType: string;
+        sizeBytes: number;
+        dataUrl: string;
+        createdAt: string;
+      }>;
+      createdAt: string;
+      actorUser?: {
+        id: string;
+        name: string;
+        email: string;
+      } | null;
+    }>;
   }>;
   items: Array<{
     id: string;
@@ -188,8 +216,33 @@ export type CustomerOrderSummary = {
       variantLabel?: string;
       quantity: number;
     }>;
+    attachments: Array<{
+      id: string;
+      fileName: string;
+      mimeType: string;
+      sizeBytes: number;
+      dataUrl: string;
+      createdAt: string;
+    }>;
     createdAt: string;
     updatedAt: string;
+    timelineEvents: Array<{
+      id: string;
+      type: string;
+      title: string;
+      description?: string;
+      attachments: Array<{
+        id: string;
+        fileName: string;
+        mimeType: string;
+        sizeBytes: number;
+        dataUrl: string;
+        createdAt: string;
+      }>;
+      createdAt: string;
+      actorName?: string;
+      actorEmail?: string;
+    }>;
   }>;
   items: Array<{
     id: string;
@@ -343,8 +396,34 @@ export async function getCurrentCustomerOrders(): Promise<CustomerOrderSummary[]
           variantLabel: item.variantLabel ?? undefined,
           quantity: item.quantity
         })) ?? [],
+      attachments:
+        (request.attachments ?? []).map((attachment) => ({
+          id: attachment.id,
+          fileName: attachment.fileName,
+          mimeType: attachment.mimeType,
+          sizeBytes: attachment.sizeBytes,
+          dataUrl: attachment.dataUrl,
+          createdAt: formatDateTime(attachment.createdAt)
+        })) ?? [],
       createdAt: formatDateTime(request.createdAt),
-      updatedAt: formatDateTime(request.updatedAt)
+      updatedAt: formatDateTime(request.updatedAt),
+      timelineEvents: (request.timelineEvents ?? []).map((event) => ({
+        id: event.id,
+        type: event.type,
+        title: event.title,
+        description: event.description ?? undefined,
+        attachments: (event.attachments ?? []).map((attachment) => ({
+          id: attachment.id,
+          fileName: attachment.fileName,
+          mimeType: attachment.mimeType,
+          sizeBytes: attachment.sizeBytes,
+          dataUrl: attachment.dataUrl,
+          createdAt: formatDateTime(attachment.createdAt)
+        })),
+        createdAt: formatDateTime(event.createdAt),
+        actorName: event.actorUser?.name ?? undefined,
+        actorEmail: event.actorUser?.email ?? undefined
+      }))
     })),
     items: order.items.map((item) => ({
       id: item.id,
@@ -440,10 +519,38 @@ export async function createCurrentCustomerReturnRequest(
       orderItemId: string;
       quantity: number;
     }>;
+    attachments?: Array<{
+      fileName: string;
+      mimeType: string;
+      sizeBytes: number;
+      dataUrl: string;
+    }>;
   }
 ) {
   return fetchCustomer(`/orders/${orderId}/return-requests`, {
     method: "POST",
     body: JSON.stringify(payload)
+  });
+}
+
+export async function createCurrentCustomerReturnRequestComment(
+  orderId: string,
+  requestId: string,
+  payload: {
+    message: string;
+    attachments?: Array<{
+      fileName: string;
+      mimeType: string;
+      sizeBytes: number;
+      dataUrl: string;
+    }>;
+  }
+) {
+  return fetchCustomer(`/orders/${orderId}/return-requests/${requestId}/comments`, {
+    method: "POST",
+    body: JSON.stringify({
+      message: payload.message.trim(),
+      attachments: payload.attachments ?? []
+    })
   });
 }

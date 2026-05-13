@@ -5,6 +5,8 @@ import { redirect } from "next/navigation";
 import {
   AdminAuthError,
   AdminRequestError,
+  createAdminOrderInternalNote,
+  createAdminReturnRequestInternalNote,
   updateAdminOrderStatus,
   updateAdminReturnRequestStatus
 } from "@/lib/admin-api";
@@ -70,6 +72,7 @@ export async function updateReturnRequestStatusAction(formData: FormData) {
       restockNote
     });
     revalidatePath("/admin/pedidos");
+    revalidatePath("/admin/devolucoes");
     revalidatePath("/admin");
     revalidatePath("/conta");
   } catch (error) {
@@ -85,6 +88,55 @@ export async function updateReturnRequestStatusAction(formData: FormData) {
   }
 
   redirect(appendQueryParam(returnTo, "success", "return_request_updated"));
+}
+
+export async function createOrderInternalNoteAction(formData: FormData) {
+  const returnTo = String(formData.get("returnTo") ?? "/admin/pedidos");
+
+  try {
+    const orderId = String(formData.get("orderId") ?? "").trim();
+    const message = String(formData.get("message") ?? "").trim();
+    await createAdminOrderInternalNote(orderId, message);
+    revalidatePath("/admin/pedidos");
+    revalidatePath("/admin/devolucoes");
+  } catch (error) {
+    if (error instanceof AdminAuthError) {
+      redirect("/login");
+    }
+
+    if (error instanceof AdminRequestError) {
+      redirect(appendQueryParam(returnTo, "error", error.code));
+    }
+
+    redirect(appendQueryParam(returnTo, "error", "generic_error"));
+  }
+
+  redirect(appendQueryParam(returnTo, "success", "internal_note_created"));
+}
+
+export async function createReturnRequestInternalNoteAction(formData: FormData) {
+  const returnTo = String(formData.get("returnTo") ?? "/admin/pedidos");
+
+  try {
+    const orderId = String(formData.get("orderId") ?? "").trim();
+    const requestId = String(formData.get("requestId") ?? "").trim();
+    const message = String(formData.get("message") ?? "").trim();
+    await createAdminReturnRequestInternalNote(orderId, requestId, message);
+    revalidatePath("/admin/pedidos");
+    revalidatePath("/admin/devolucoes");
+  } catch (error) {
+    if (error instanceof AdminAuthError) {
+      redirect("/login");
+    }
+
+    if (error instanceof AdminRequestError) {
+      redirect(appendQueryParam(returnTo, "error", error.code));
+    }
+
+    redirect(appendQueryParam(returnTo, "error", "generic_error"));
+  }
+
+  redirect(appendQueryParam(returnTo, "success", "internal_note_created"));
 }
 
 function appendQueryParam(path: string, key: string, value: string) {

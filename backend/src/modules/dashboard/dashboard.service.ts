@@ -1,9 +1,11 @@
 import { Injectable } from "@nestjs/common";
 import {
+  CustomerCreditTransactionType,
   OrderStatus,
   ReturnFinancialStatus,
   ReturnRequestStatus,
-  ReturnRequestType
+  ReturnRequestType,
+  Role
 } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { SettingsService } from "../settings/settings.service";
@@ -47,7 +49,11 @@ export class DashboardService {
       customerOrders,
       stockForecastItems,
       returnRequestsForSummary,
-      recentReturnRequestsRaw
+      recentReturnRequestsRaw,
+      customerWalletAggregate,
+      creditTransactionsByType,
+      recentCreditTransactionsRaw,
+      pendingFinancialCasesRaw
     ] = await Promise.all([
       this.prisma.user.count(),
       this.prisma.product.count(),
@@ -261,16 +267,204 @@ export class DashboardService {
             }
           }
         }
+      }),
+      this.prisma.user.aggregate({
+        where: {
+          role: Role.CUSTOMER
+        },
+        _sum: {
+          walletBalance: true
+        }
+      }),
+      this.prisma.customerCreditTransaction.groupBy({
+        by: ["type"],
+        _sum: {
+          amount: true
+        },
+        _count: {
+          _all: true
+        }
+      }),
+      this.prisma.customerCreditTransaction.findMany({
+        take: 8,
+        orderBy: { createdAt: "desc" },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true
+            }
+          },
+          order: {
+            select: {
+              id: true,
+              status: true,
+              createdAt: true
+            }
+          },
+          returnRequest: {
+            select: {
+              id: true,
+              type: true,
+              status: true,
+              financialStatus: true
+            }
+          }
+        }
+      }),
+      this.prisma.returnRequest.findMany({
+        where: {
+          OR: [
+            {
+              status: {
+                in: [
+                  ReturnRequestStatus.REQUESTED,
+                  ReturnRequestStatus.APPROVED,
+                  ReturnRequestStatus.RECEIVED,
+                  ReturnRequestStatus.COMPLETED
+                ]
+              },
+              financialStatus: ReturnFinancialStatus.PENDING
+            },
+            {
+              status: ReturnRequestStatus.COMPLETED,
+              financialStatus: ReturnFinancialStatus.REFUNDED,
+              refundAmount: {
+                gt: 0
+              },
+              refundRecordedAt: null
+            },
+            {
+              status: ReturnRequestStatus.COMPLETED,
+              financialStatus: ReturnFinancialStatus.STORE_CREDIT_ISSUED,
+              storeCreditAmount: {
+                gt: 0
+              },
+              creditIssuedAt: null
+            }
+          ]
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true
+            }
+          },
+          order: {
+            select: {
+              id: true,
+              status: true,
+              createdAt: true
+            }
+          }
+        },
+        orderBy: [{ completedAt: "asc" }, { updatedAt: "asc" }]
       })
     ]);
 
     const revenue = revenueAggregate._sum.total ?? 0;
     const recentRevenue = recentRevenueAggregate._sum.total ?? 0;
+    const walletBalanceTotal = Number(customerWalletAggregate._sum.walletBalance ?? 0);
     const inventoryUnits = inventoryAggregate._sum.stock ?? 0;
     const inventoryEstimatedValue = inventoryProducts.reduce(
       (sum, product) => sum + Number(product.price) * product.stock,
       0
     );
+    const creditTotals = this.buildCreditTransactionTotals(creditTransactionsByType);
+    const pendingFinancialCases = pendingFinancialCasesRaw.map((request) => {
+      const priority = this.resolveReturnRequestPriority(request);
+      const sla = this.resolveReturnRequestSla(request);
+      const financialAmount =
+        request.financialStatus === ReturnFinancialStatus.REFUNDED
+          ? Number(request.refundAmount)
+          : request.financialStatus === ReturnFinancialStatus.STORE_CREDIT_ISSUED
+            ? Number(request.storeCreditAmount)
+            : request.type === ReturnRequestType.REFUND
+              ? Number(request.refundAmount)
+              : Number(request.storeCreditAmount);
+
+      return {
+        id: request.id,
+        orderId: request.order.id,
+        orderStatus: request.order.status,
+        customerName: request.user.name,
+        customerEmail: request.user.email,
+        type: request.type,
+        status: request.status,
+        financialStatus: request.financialStatus,
+        reason: request.reason,
+        financialAmount,
+        priority,
+        slaHours: sla.hours,
+        slaLabel: sla.label,
+        createdAt: request.createdAt,
+        completedAt: request.completedAt,
+        updatedAt: request.updatedAt
+      };
+    });
+    const pendingRefundAmount = pendingFinancialCases
+      .filter(
+        (request) =>
+          request.type === ReturnRequestType.REFUND &&
+          request.financialStatus === ReturnFinancialStatus.PENDING
+      )
+      .reduce((sum, request) => sum + request.financialAmount, 0);
+    const pendingStoreCreditAmount = pendingFinancialCases
+      .filter(
+        (request) =>
+          request.type === ReturnRequestType.EXCHANGE &&
+          request.financialStatus === ReturnFinancialStatus.PENDING
+      )
+      .reduce((sum, request) => sum + request.financialAmount, 0);
+    const unreconciledReturnCount = pendingFinancialCases.filter((request) => {
+      if (
+        request.status === ReturnRequestStatus.COMPLETED &&
+        request.financialStatus === ReturnFinancialStatus.PENDING
+      ) {
+        return true;
+      }
+
+      return (
+        request.status === ReturnRequestStatus.COMPLETED &&
+        request.financialAmount > 0 &&
+        (request.financialStatus === ReturnFinancialStatus.REFUNDED ||
+          request.financialStatus === ReturnFinancialStatus.STORE_CREDIT_ISSUED)
+      );
+    }).length;
+    const walletReconciliationDelta = Number(
+      (
+        walletBalanceTotal -
+        (creditTotals.totalIssued +
+          creditTotals.totalManualCredits +
+          creditTotals.totalCancellationReversals -
+          creditTotals.totalConsumed)
+      ).toFixed(2)
+    );
+    const financialAlerts = this.buildFinancialAlerts({
+      walletBalanceTotal,
+      recentRevenue: Number(recentRevenue),
+      pendingRefundAmount,
+      pendingStoreCreditAmount,
+      unreconciledReturnCount,
+      walletReconciliationDelta,
+      manualAdjustmentsCount: creditTotals.manualAdjustmentsCount,
+      pendingFinancialCases
+    });
+    const recentFinancialTransactions = recentCreditTransactionsRaw.map((transaction) => ({
+      id: transaction.id,
+      type: transaction.type,
+      amount: Number(transaction.amount),
+      balanceBefore: Number(transaction.balanceBefore),
+      balanceAfter: Number(transaction.balanceAfter),
+      description: transaction.description,
+      createdAt: transaction.createdAt,
+      user: transaction.user,
+      order: transaction.order,
+      returnRequest: transaction.returnRequest
+    }));
     const productProfitMap = new Map<
       string,
       {
@@ -911,10 +1105,174 @@ export class DashboardService {
       topRecurringCustomers,
       returnQueueSummary: this.buildReturnQueueSummary(returnRequestsSummaryEnriched),
       recentReturnRequests,
+      financialSummary: {
+        walletBalanceTotal,
+        totalIssuedStoreCredit: creditTotals.totalIssued,
+        totalConsumedStoreCredit: creditTotals.totalConsumed,
+        totalCancellationReversals: creditTotals.totalCancellationReversals,
+        totalRefundsRecorded: creditTotals.totalRefunded,
+        totalManualCredits: creditTotals.totalManualCredits,
+        manualAdjustmentsCount: creditTotals.manualAdjustmentsCount,
+        pendingRefundAmount,
+        pendingStoreCreditAmount,
+        unreconciledReturnCount,
+        expectedWalletBalance:
+          creditTotals.totalIssued +
+          creditTotals.totalManualCredits +
+          creditTotals.totalCancellationReversals -
+          creditTotals.totalConsumed,
+        walletReconciliationDelta
+      },
+      financialAlerts,
+      recentFinancialTransactions,
+      pendingFinancialCases: pendingFinancialCases
+        .sort((left, right) => {
+          const priorityDelta =
+            this.getReturnRequestPriorityScore(right.priority) -
+            this.getReturnRequestPriorityScore(left.priority);
+
+          if (priorityDelta !== 0) {
+            return priorityDelta;
+          }
+
+          return new Date(left.updatedAt).getTime() - new Date(right.updatedAt).getTime();
+        })
+        .slice(0, 6),
       topProductsByProfit,
       topCategoriesByProfit,
       lowMarginProducts
     };
+  }
+
+  private buildCreditTransactionTotals(
+    groups: Array<{
+      type: CustomerCreditTransactionType;
+      _sum: { amount: unknown };
+      _count: { _all: number };
+    }>
+  ) {
+    const totals = {
+      totalIssued: 0,
+      totalConsumed: 0,
+      totalCancellationReversals: 0,
+      totalRefunded: 0,
+      totalManualCredits: 0,
+      manualAdjustmentsCount: 0
+    };
+
+    for (const group of groups) {
+      const amount = Number(group._sum.amount ?? 0);
+
+      switch (group.type) {
+        case CustomerCreditTransactionType.RETURN_STORE_CREDIT:
+          totals.totalIssued += amount;
+          break;
+        case CustomerCreditTransactionType.ORDER_STORE_CREDIT_USAGE:
+          totals.totalConsumed += amount;
+          break;
+        case CustomerCreditTransactionType.ORDER_CANCELLATION_REVERSAL:
+          totals.totalCancellationReversals += amount;
+          break;
+        case CustomerCreditTransactionType.RETURN_REFUND_RECORDED:
+          totals.totalRefunded += amount;
+          break;
+        case CustomerCreditTransactionType.MANUAL_CREDIT:
+          totals.totalManualCredits += amount;
+          totals.manualAdjustmentsCount += group._count._all;
+          break;
+      }
+    }
+
+    return totals;
+  }
+
+  private buildFinancialAlerts(summary: {
+    walletBalanceTotal: number;
+    recentRevenue: number;
+    pendingRefundAmount: number;
+    pendingStoreCreditAmount: number;
+    unreconciledReturnCount: number;
+    walletReconciliationDelta: number;
+    manualAdjustmentsCount: number;
+    pendingFinancialCases: Array<{
+      financialStatus: ReturnFinancialStatus;
+      financialAmount: number;
+      priority: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+      status: ReturnRequestStatus;
+      completedAt: Date | null;
+    }>;
+  }) {
+    const alerts: Array<{
+      type: string;
+      level: string;
+      message: string;
+      detail: string;
+    }> = [];
+    const overdueCompletedCases = summary.pendingFinancialCases.filter(
+      (request) =>
+        request.status === ReturnRequestStatus.COMPLETED &&
+        request.financialStatus === ReturnFinancialStatus.PENDING
+    ).length;
+
+    if (summary.pendingRefundAmount > 0) {
+      alerts.push({
+        type: "refund_backlog",
+        level: summary.pendingRefundAmount >= 1000 ? "CRITICAL" : "WARN",
+        message: "Ha reembolsos aguardando conciliacao",
+        detail: `${this.formatCurrency(summary.pendingRefundAmount)} ainda aguardam fechamento financeiro.`
+      });
+    }
+
+    if (summary.pendingStoreCreditAmount > 0) {
+      alerts.push({
+        type: "store_credit_backlog",
+        level: summary.pendingStoreCreditAmount >= 1000 ? "CRITICAL" : "WARN",
+        message: "Ha vale-troca pendente de emissao",
+        detail: `${this.formatCurrency(summary.pendingStoreCreditAmount)} ainda precisam ser convertidos em credito para clientes.`
+      });
+    }
+
+    if (overdueCompletedCases > 0) {
+      alerts.push({
+        type: "completed_returns_pending_financial",
+        level: "CRITICAL",
+        message: "Existem devolucoes concluidas sem baixa financeira",
+        detail: `${overdueCompletedCases} casos concluidos continuam com financeiro pendente e precisam de conciliacao.`
+      });
+    }
+
+    if (Math.abs(summary.walletReconciliationDelta) >= 0.01) {
+      alerts.push({
+        type: "wallet_reconciliation_delta",
+        level: "ERROR",
+        message: "Saldo da carteira diverge do razao financeiro",
+        detail: `A diferenca atual e de ${this.formatCurrency(Math.abs(summary.walletReconciliationDelta))} entre saldo em carteira e movimentacoes registradas.`
+      });
+    }
+
+    if (
+      summary.walletBalanceTotal > 0 &&
+      summary.recentRevenue > 0 &&
+      summary.walletBalanceTotal / summary.recentRevenue >= 0.25
+    ) {
+      alerts.push({
+        type: "wallet_liability_high",
+        level: "WARN",
+        message: "Passivo em carteira esta relevante frente a receita recente",
+        detail: `${this.formatCurrency(summary.walletBalanceTotal)} em credito representa ${Math.round((summary.walletBalanceTotal / summary.recentRevenue) * 100)}% da receita dos ultimos 30 dias.`
+      });
+    }
+
+    if (summary.manualAdjustmentsCount >= 5) {
+      alerts.push({
+        type: "manual_adjustments_volume",
+        level: "WARN",
+        message: "Volume alto de ajustes manuais na carteira",
+        detail: `${summary.manualAdjustmentsCount} ajustes manuais ja foram registrados na carteira. Vale revisar se isso esta acima do normal da operacao.`
+      });
+    }
+
+    return alerts;
   }
 
   private formatCurrency(value: number) {

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
   createCurrentCustomerAddress,
+  createCurrentCustomerReturnRequestComment,
   createCurrentCustomerReturnRequest,
   deleteCurrentCustomerAddress,
   updateCurrentCustomerAddress,
@@ -13,6 +14,49 @@ import {
 function normalizeOptional(value: FormDataEntryValue | null) {
   const normalized = String(value ?? "").trim();
   return normalized || undefined;
+}
+
+function parseReturnRequestAttachments(rawValue: FormDataEntryValue | null) {
+  const value = String(rawValue ?? "").trim();
+
+  if (!value) {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(value) as Array<{
+      fileName?: unknown;
+      mimeType?: unknown;
+      sizeBytes?: unknown;
+      dataUrl?: unknown;
+    }>;
+
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
+    return parsed
+      .map((attachment) => ({
+        fileName:
+          typeof attachment.fileName === "string" ? attachment.fileName.trim() : "",
+        mimeType:
+          typeof attachment.mimeType === "string" ? attachment.mimeType.trim() : "",
+        sizeBytes:
+          typeof attachment.sizeBytes === "number"
+            ? attachment.sizeBytes
+            : Number(attachment.sizeBytes ?? 0),
+        dataUrl: typeof attachment.dataUrl === "string" ? attachment.dataUrl.trim() : ""
+      }))
+      .filter(
+        (attachment) =>
+          attachment.fileName &&
+          attachment.mimeType &&
+          attachment.sizeBytes > 0 &&
+          attachment.dataUrl
+      );
+  } catch {
+    return [];
+  }
 }
 
 export async function updateCustomerProfileAction(formData: FormData) {
@@ -100,6 +144,7 @@ export async function createCustomerReturnRequestAction(formData: FormData) {
   const type = String(formData.get("type") ?? "").trim();
   const reason = String(formData.get("reason") ?? "").trim();
   const details = normalizeOptional(formData.get("details"));
+  const attachments = parseReturnRequestAttachments(formData.get("attachmentsPayload"));
   const items = formData
     .getAll("selectedItemIds")
     .map((value) => String(value).trim())
@@ -118,7 +163,8 @@ export async function createCustomerReturnRequestAction(formData: FormData) {
       type,
       reason,
       details,
-      items
+      items,
+      attachments
     });
     revalidatePath("/conta");
   } catch {
@@ -126,4 +172,25 @@ export async function createCustomerReturnRequestAction(formData: FormData) {
   }
 
   redirect("/conta?success=return_request_created");
+}
+
+export async function createCustomerReturnRequestCommentAction(formData: FormData) {
+  const orderId = String(formData.get("orderId") ?? "").trim();
+  const requestId = String(formData.get("requestId") ?? "").trim();
+  const message = String(formData.get("message") ?? "").trim();
+
+  if (!orderId || !requestId || message.length < 3) {
+    redirect("/conta?error=return_request_comment_failed");
+  }
+
+  try {
+    await createCurrentCustomerReturnRequestComment(orderId, requestId, {
+      message
+    });
+    revalidatePath("/conta");
+  } catch {
+    redirect("/conta?error=return_request_comment_failed");
+  }
+
+  redirect("/conta?success=return_request_comment_created");
 }

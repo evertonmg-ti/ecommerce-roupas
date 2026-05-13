@@ -23,6 +23,8 @@ import { LookupOrdersDto } from "./dto/lookup-orders.dto";
 import { OrdersService } from "./orders.service";
 import { UpdateOrderStatusDto } from "./dto/update-order-status.dto";
 import { UpdateReturnRequestStatusDto } from "./dto/update-return-request-status.dto";
+import { CreateOrderInternalNoteDto } from "./dto/create-order-internal-note.dto";
+import { CreateReturnRequestCommentDto } from "./dto/create-return-request-comment.dto";
 
 @Controller("orders")
 export class OrdersController {
@@ -82,6 +84,18 @@ export class OrdersController {
     return this.ordersService.createReturnRequest(id, user.id, payload);
   }
 
+  @Post(":orderId/return-requests/:requestId/comments")
+  @UseGuards(JwtAuthGuard)
+  @RateLimit({ limit: 20, windowSec: 300, keyPrefix: "orders-return-comment" })
+  createReturnRequestComment(
+    @Param("orderId") orderId: string,
+    @Param("requestId") requestId: string,
+    @CurrentUser() user: { id: string },
+    @Body() payload: CreateReturnRequestCommentDto
+  ) {
+    return this.ordersService.createReturnRequestComment(orderId, requestId, user.id, payload);
+  }
+
   @Get("me")
   @UseGuards(JwtAuthGuard)
   listCurrentUser(@CurrentUser() user: { id: string }) {
@@ -131,8 +145,23 @@ export class OrdersController {
   @Patch(":id/status")
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN)
-  updateStatus(@Param("id") id: string, @Body() payload: UpdateOrderStatusDto) {
-    return this.ordersService.updateStatus(id, payload);
+  updateStatus(
+    @Param("id") id: string,
+    @CurrentUser() user: { id: string },
+    @Body() payload: UpdateOrderStatusDto
+  ) {
+    return this.ordersService.updateStatus(id, payload, user.id);
+  }
+
+  @Post(":id/internal-notes")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  createOrderInternalNote(
+    @Param("id") id: string,
+    @CurrentUser() user: { id: string },
+    @Body() payload: CreateOrderInternalNoteDto
+  ) {
+    return this.ordersService.createOrderInternalNote(id, payload, user.id);
   }
 
   @Patch(":orderId/return-requests/:requestId")
@@ -145,5 +174,22 @@ export class OrdersController {
     @Body() payload: UpdateReturnRequestStatusDto
   ) {
     return this.ordersService.updateReturnRequestStatus(orderId, requestId, payload, user.id);
+  }
+
+  @Post(":orderId/return-requests/:requestId/internal-notes")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  createReturnRequestInternalNote(
+    @Param("orderId") orderId: string,
+    @Param("requestId") requestId: string,
+    @CurrentUser() user: { id: string },
+    @Body() payload: CreateOrderInternalNoteDto
+  ) {
+    return this.ordersService.createReturnRequestInternalNote(
+      orderId,
+      requestId,
+      payload,
+      user.id
+    );
   }
 }

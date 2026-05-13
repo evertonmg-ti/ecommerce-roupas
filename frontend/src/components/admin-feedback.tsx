@@ -21,6 +21,7 @@ const messages: Record<string, string> = {
   test_email_sent: "Email de teste enviado com sucesso.",
   order_updated: "Status do pedido atualizado com sucesso.",
   return_request_updated: "Solicitacao de troca/devolucao atualizada com sucesso.",
+  internal_note_created: "Comentario interno registrado com sucesso.",
   slug_conflict: "Ja existe um cadastro com este slug. Escolha outro identificador.",
   email_conflict: "Ja existe um usuario com este email.",
   category_has_products:
