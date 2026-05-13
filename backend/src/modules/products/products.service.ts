@@ -5,6 +5,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { AdjustStockDto } from "./dto/adjust-stock.dto";
 import { CreateProductDto } from "./dto/create-product.dto";
 import { ImportProductsDto } from "./dto/import-products.dto";
+import { ImportStockDto } from "./dto/import-stock.dto";
 import { UpdateProductDto } from "./dto/update-product.dto";
 import { ValidateCartDto } from "./dto/validate-cart.dto";
 
@@ -503,6 +504,115 @@ export class ProductsService {
     };
   }
 
+  async exportStockCsv() {
+    const products = await this.prisma.product.findMany({
+      include: {
+        category: true,
+        variants: {
+          orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }]
+        }
+      },
+      orderBy: { createdAt: "desc" }
+    });
+
+    const header = [
+      "productSlug",
+      "productName",
+      "categoryName",
+      "variantSku",
+      "variantLabel",
+      "currentStock",
+      "newStock",
+      "quantityDelta",
+      "reason"
+    ];
+    const lines = [header.join(",")];
+
+    for (const product of products) {
+      if (product.variants.length === 0) {
+        lines.push(
+          this.toCsvLine([
+            product.slug,
+            product.name,
+            product.category.name,
+            "",
+            "",
+            String(product.stock),
+            "",
+            "",
+            ""
+          ])
+        );
+        continue;
+      }
+
+      for (const variant of product.variants) {
+        lines.push(
+          this.toCsvLine([
+            product.slug,
+            product.name,
+            product.category.name,
+            variant.sku,
+            variant.optionLabel,
+            String(variant.stock),
+            "",
+            "",
+            ""
+          ])
+        );
+      }
+    }
+
+    return {
+      filename: "estoque-produtos.csv",
+      content: lines.join("\n")
+    };
+  }
+
+  async importStockCsv(payload: ImportStockDto, actor?: AdminActor) {
+    const rows = this.parseCatalogCsv(payload.csvContent);
+
+    if (rows.length === 0) {
+      throw new BadRequestException("Nenhuma linha valida foi encontrada para importar estoque.");
+    }
+
+    const summary = {
+      updated: 0,
+      skipped: 0,
+      errors: [] as string[]
+    };
+
+    for (const row of rows) {
+      const productSlug = row.productSlug?.trim();
+      const variantSku = row.variantSku?.trim();
+      const reason = row.reason?.trim() || undefined;
+
+      try {
+        if (variantSku) {
+          await this.importVariantStockRow(variantSku, row, reason, actor);
+          summary.updated += 1;
+          continue;
+        }
+
+        if (!productSlug) {
+          summary.skipped += 1;
+          continue;
+        }
+
+        await this.importProductStockRow(productSlug, row, reason, actor);
+        summary.updated += 1;
+      } catch (error) {
+        summary.errors.push(
+          `${variantSku || productSlug || "linha"}: ${
+            error instanceof Error ? error.message : "erro desconhecido"
+          }`
+        );
+      }
+    }
+
+    return summary;
+  }
+
   async update(id: string, payload: UpdateProductDto, actor?: AdminActor) {
     const existing = await this.ensureExists(id);
 
@@ -874,6 +984,136 @@ export class ProductsService {
     return values;
   }
 
+  private async importProductStockRow(
+    productSlug: string,
+    row: Record<string, string>,
+    reason: string | undefined,
+    actor?: AdminActor
+  ) {
+    const product = await this.prisma.product.findUnique({
+      where: { slug: productSlug },
+      include: { variants: true }
+    });
+
+    if (!product) {
+      throw new NotFoundException("Produto nao encontrado para ajuste de estoque.");
+    }
+
+    if (product.variants.length > 0) {
+      throw new BadRequestException(
+        "Use variantSku para ajustar produtos com variacoes."
+      );
+    }
+
+    const nextStock = this.resolveImportedStockTarget(row, product.stock);
+
+    if (nextStock === product.stock) {
+      return;
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.product.update({
+        where: { id: product.id },
+        data: { stock: nextStock }
+      });
+
+      await this.recordInventoryMovement(tx, {
+        productId: product.id,
+        actorUserId: actor?.id,
+        type: InventoryMovementType.MANUAL_ADJUSTMENT,
+        quantityDelta: nextStock - product.stock,
+        previousStock: product.stock,
+        nextStock,
+        reason: reason || "Importacao em lote de estoque."
+      });
+    });
+
+    if (product.stock <= 0 && nextStock > 0) {
+      await this.engagementService.notifyBackInStockIfNeeded(product.id);
+    }
+  }
+
+  private async importVariantStockRow(
+    variantSku: string,
+    row: Record<string, string>,
+    reason: string | undefined,
+    actor?: AdminActor
+  ) {
+    const variant = await this.prisma.productVariant.findUnique({
+      where: { sku: variantSku },
+      include: {
+        product: true
+      }
+    });
+
+    if (!variant) {
+      throw new NotFoundException("Variacao nao encontrada para ajuste de estoque.");
+    }
+
+    const nextVariantStock = this.resolveImportedStockTarget(row, variant.stock);
+
+    if (nextVariantStock === variant.stock) {
+      return;
+    }
+
+    const previousProductStock = variant.product.stock;
+    const nextProductStock = previousProductStock - variant.stock + nextVariantStock;
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.productVariant.update({
+        where: { id: variant.id },
+        data: { stock: nextVariantStock }
+      });
+
+      await tx.product.update({
+        where: { id: variant.productId },
+        data: { stock: nextProductStock }
+      });
+
+      await this.recordInventoryMovement(tx, {
+        productId: variant.productId,
+        actorUserId: actor?.id,
+        type: InventoryMovementType.MANUAL_ADJUSTMENT,
+        quantityDelta: nextProductStock - previousProductStock,
+        previousStock: previousProductStock,
+        nextStock: nextProductStock,
+        reason:
+          reason ||
+          `Importacao em lote da variacao ${variant.sku} (${variant.optionLabel}).`
+      });
+    });
+
+    if (previousProductStock <= 0 && nextProductStock > 0) {
+      await this.engagementService.notifyBackInStockIfNeeded(variant.productId);
+    }
+  }
+
+  private resolveImportedStockTarget(row: Record<string, string>, currentStock: number) {
+    const hasNewStock = row.newStock?.trim();
+    const hasDelta = row.quantityDelta?.trim();
+
+    if (hasNewStock) {
+      return this.parseImportInteger(row.newStock, "newStock");
+    }
+
+    if (hasDelta) {
+      const delta = this.parseImportSignedInteger(row.quantityDelta, "quantityDelta");
+      const nextStock = currentStock + delta;
+
+      if (nextStock < 0) {
+        throw new BadRequestException(
+          "O ajuste importado deixaria o estoque negativo."
+        );
+      }
+
+      return nextStock;
+    }
+
+    throw new BadRequestException(
+      "Informe newStock ou quantityDelta na importacao de estoque."
+    );
+  }
+
   private normalizeImportedProductGroup(rows: Array<Record<string, string>>) {
     const first = rows[0];
     const slug = (first.slug || this.slugify(first.name)).trim();
@@ -952,6 +1192,16 @@ export class ProductsService {
     const parsed = Number(value);
 
     if (!Number.isInteger(parsed) || parsed < 0) {
+      throw new BadRequestException(`Campo ${field} invalido na importacao.`);
+    }
+
+    return parsed;
+  }
+
+  private parseImportSignedInteger(value: string, field: string) {
+    const parsed = Number(value);
+
+    if (!Number.isInteger(parsed)) {
       throw new BadRequestException(`Campo ${field} invalido na importacao.`);
     }
 

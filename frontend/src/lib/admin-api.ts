@@ -2977,6 +2977,12 @@ export async function importAdminProductsCatalog(payload: {
   return mutateAdmin("/products/admin/import", "POST", payload);
 }
 
+export async function importAdminStockCatalog(payload: {
+  csvContent: string;
+}) {
+  return mutateAdmin("/products/admin/stock-import", "POST", payload);
+}
+
 export type SaveCategoryInput = {
   name: string;
   slug: string;

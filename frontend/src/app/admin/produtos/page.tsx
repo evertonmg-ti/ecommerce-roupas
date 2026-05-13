@@ -6,6 +6,7 @@ import {
   createProductAction,
   deleteProductAction,
   importProductsCatalogAction,
+  importStockCatalogAction,
   updateProductAction
 } from "./actions";
 
@@ -118,6 +119,63 @@ export default async function AdminProductsPage({
           <div className="flex flex-wrap gap-3">
             <button className="rounded-full bg-espresso px-5 py-3 text-sand">
               Importar catalogo
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <section className="rounded-[2rem] border border-espresso/10 bg-white/80 p-6 shadow-soft">
+        <div className="flex flex-col gap-4 border-b border-espresso/10 pb-5 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <p className="text-xs uppercase tracking-[0.3em] text-terracotta">
+              Estoque em lote
+            </p>
+            <h2 className="mt-2 font-display text-3xl">Importar e exportar estoque</h2>
+            <p className="mt-3 max-w-3xl text-sm text-espresso/70">
+              Ajuste produtos simples por <span className="font-mono">productSlug</span> e
+              variacoes por <span className="font-mono">variantSku</span>. Informe
+              <span className="font-mono"> newStock</span> ou
+              <span className="font-mono"> quantityDelta</span>.
+            </p>
+          </div>
+          <a
+            href="/api/admin/products/stock-export"
+            className="inline-flex rounded-full border border-espresso/15 px-5 py-3 text-sm"
+          >
+            Baixar estoque atual
+          </a>
+        </div>
+
+        <form action={importStockCatalogAction} className="mt-5 space-y-4">
+          <label className="block space-y-2 text-sm">
+            <span>Conteudo CSV de estoque</span>
+            <textarea
+              name="csvContent"
+              required
+              minLength={10}
+              rows={8}
+              className="w-full rounded-[1.5rem] border border-espresso/15 bg-sand px-4 py-4 font-mono text-sm outline-none"
+              placeholder={'"productSlug","productName","categoryName","variantSku","variantLabel","currentStock","newStock","quantityDelta","reason"'}
+            />
+          </label>
+
+          <div className="rounded-[1.5rem] border border-espresso/10 bg-sand/40 p-4 text-xs text-espresso/70">
+            Exemplo para produto simples:
+            <br />
+            <span className="font-mono">
+              "camiseta-studio","","","","","12","20","","Inventario mensal"
+            </span>
+            <br />
+            Exemplo para variacao:
+            <br />
+            <span className="font-mono">
+              "camiseta-studio","","","CAMI-PRETA-M","","8","","-2","Avaria"
+            </span>
+          </div>
+
+          <div className="flex flex-wrap gap-3">
+            <button className="rounded-full bg-espresso px-5 py-3 text-sand">
+              Importar estoque
             </button>
           </div>
         </form>

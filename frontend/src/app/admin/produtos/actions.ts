@@ -9,6 +9,7 @@ import {
   createAdminProduct,
   deleteAdminProduct,
   importAdminProductsCatalog,
+  importAdminStockCatalog,
   updateAdminProduct
 } from "@/lib/admin-api";
 
@@ -229,4 +230,31 @@ export async function importProductsCatalogAction(formData: FormData) {
   }
 
   redirect("/admin/produtos?success=products_imported");
+}
+
+export async function importStockCatalogAction(formData: FormData) {
+  try {
+    const csvContent = String(formData.get("csvContent") ?? "").trim();
+
+    await importAdminStockCatalog({
+      csvContent
+    });
+    revalidatePath("/admin/produtos");
+    revalidatePath("/admin/estoque");
+    revalidatePath("/admin");
+    revalidatePath("/produtos");
+    revalidatePath("/");
+  } catch (error) {
+    if (error instanceof AdminAuthError) {
+      redirect("/login");
+    }
+
+    if (error instanceof AdminRequestError) {
+      redirect(`/admin/produtos?error=${error.code}`);
+    }
+
+    redirect("/admin/produtos?error=generic_error");
+  }
+
+  redirect("/admin/produtos?success=stock_imported");
 }
