@@ -5,6 +5,7 @@ import {
   adjustProductStockAction,
   createProductAction,
   deleteProductAction,
+  importProductsCatalogAction,
   updateProductAction
 } from "./actions";
 
@@ -68,6 +69,59 @@ export default async function AdminProductsPage({
       </div>
 
       <AdminFeedback searchParams={params} />
+
+      <section className="rounded-[2rem] border border-espresso/10 bg-white/80 p-6 shadow-soft">
+        <div className="flex flex-col gap-4 border-b border-espresso/10 pb-5 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <p className="text-xs uppercase tracking-[0.3em] text-terracotta">
+              Catalogo em lote
+            </p>
+            <h2 className="mt-2 font-display text-3xl">Importar e exportar CSV</h2>
+            <p className="mt-3 max-w-3xl text-sm text-espresso/70">
+              Use uma linha por produto ou por variacao. Cabecalho esperado:
+              <br />
+              <span className="font-mono text-xs">
+                name,slug,description,price,costPrice,compareAt,stock,status,categorySlug,categoryName,imageUrl,variantSku,variantColor,variantSize,variantLabel,variantPrice,variantCompareAt,variantStock,variantImage,variantIsDefault
+              </span>
+            </p>
+          </div>
+          <a
+            href="/api/admin/products/export"
+            className="inline-flex rounded-full border border-espresso/15 px-5 py-3 text-sm"
+          >
+            Baixar catalogo atual
+          </a>
+        </div>
+
+        <form action={importProductsCatalogAction} className="mt-5 space-y-4">
+          <label className="block space-y-2 text-sm">
+            <span>Conteudo CSV</span>
+            <textarea
+              name="csvContent"
+              required
+              minLength={10}
+              rows={10}
+              className="w-full rounded-[1.5rem] border border-espresso/15 bg-sand px-4 py-4 font-mono text-sm outline-none"
+              placeholder={'"name","slug","description","price","costPrice","compareAt","stock","status","categorySlug","categoryName","imageUrl","variantSku","variantColor","variantSize","variantLabel","variantPrice","variantCompareAt","variantStock","variantImage","variantIsDefault"'}
+            />
+          </label>
+
+          <label className="flex items-center gap-3 text-sm text-espresso/75">
+            <input
+              type="checkbox"
+              name="overwriteExisting"
+              className="h-4 w-4 rounded border border-espresso/20"
+            />
+            Sobrescrever produtos existentes quando o slug ja existir
+          </label>
+
+          <div className="flex flex-wrap gap-3">
+            <button className="rounded-full bg-espresso px-5 py-3 text-sand">
+              Importar catalogo
+            </button>
+          </div>
+        </form>
+      </section>
 
       <section className="rounded-[2rem] border border-espresso/10 bg-white/80 p-6 shadow-soft">
         <form className="flex flex-col gap-4 sm:flex-row sm:items-end">

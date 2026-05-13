@@ -16,6 +16,7 @@ import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { RolesGuard } from "../../common/guards/roles.guard";
 import { AdjustStockDto } from "./dto/adjust-stock.dto";
 import { CreateProductDto } from "./dto/create-product.dto";
+import { ImportProductsDto } from "./dto/import-products.dto";
 import { UpdateProductDto } from "./dto/update-product.dto";
 import { ValidateCartDto } from "./dto/validate-cart.dto";
 import { ProductsService } from "./products.service";
@@ -62,6 +63,13 @@ export class ProductsController {
     });
   }
 
+  @Get("admin/export")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  exportCatalog() {
+    return this.productsService.exportCatalogCsv();
+  }
+
   @Get(":slug")
   findBySlug(@Param("slug") slug: string) {
     return this.productsService.findBySlug(slug);
@@ -77,6 +85,13 @@ export class ProductsController {
   @Roles(Role.ADMIN)
   create(@Body() payload: CreateProductDto) {
     return this.productsService.create(payload);
+  }
+
+  @Post("admin/import")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  importCatalog(@Body() payload: ImportProductsDto) {
+    return this.productsService.importCatalog(payload);
   }
 
   @Patch(":id")

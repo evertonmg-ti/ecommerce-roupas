@@ -7,6 +7,7 @@ const messages: Record<string, string> = {
   product_updated: "Produto atualizado com sucesso.",
   product_deleted: "Produto excluido com sucesso.",
   stock_adjusted: "Estoque ajustado com sucesso.",
+  products_imported: "Catalogo importado com sucesso.",
   category_created: "Categoria criada com sucesso.",
   category_updated: "Categoria atualizada com sucesso.",
   category_deleted: "Categoria excluida com sucesso.",

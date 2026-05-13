@@ -2970,6 +2970,13 @@ export async function adjustAdminProductStock(
   return mutateAdmin(`/products/${id}/stock-adjustments`, "POST", payload);
 }
 
+export async function importAdminProductsCatalog(payload: {
+  csvContent: string;
+  overwriteExisting?: boolean;
+}) {
+  return mutateAdmin("/products/admin/import", "POST", payload);
+}
+
 export type SaveCategoryInput = {
   name: string;
   slug: string;

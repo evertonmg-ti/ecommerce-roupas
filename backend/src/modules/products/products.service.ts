@@ -4,6 +4,7 @@ import { EngagementService } from "../engagement/engagement.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { AdjustStockDto } from "./dto/adjust-stock.dto";
 import { CreateProductDto } from "./dto/create-product.dto";
+import { ImportProductsDto } from "./dto/import-products.dto";
 import { UpdateProductDto } from "./dto/update-product.dto";
 import { ValidateCartDto } from "./dto/validate-cart.dto";
 
@@ -329,6 +330,179 @@ export class ProductsService {
     });
   }
 
+  async importCatalog(payload: ImportProductsDto) {
+    const rows = this.parseCatalogCsv(payload.csvContent);
+
+    if (rows.length === 0) {
+      throw new BadRequestException("Nenhuma linha valida foi encontrada para importar.");
+    }
+
+    const grouped = new Map<string, (typeof rows)[number][]>();
+
+    for (const row of rows) {
+      const key = row.slug;
+      const current = grouped.get(key) ?? [];
+      current.push(row);
+      grouped.set(key, current);
+    }
+
+    const summary = {
+      created: 0,
+      updated: 0,
+      skipped: 0,
+      categoriesCreated: 0,
+      variantsImported: 0,
+      errors: [] as string[]
+    };
+
+    for (const [slug, groupRows] of grouped.entries()) {
+      try {
+        const normalized = this.normalizeImportedProductGroup(groupRows);
+        const categoryId = await this.resolveImportCategory(normalized, summary);
+        const existing = await this.prisma.product.findUnique({
+          where: { slug },
+          include: { variants: true }
+        });
+
+        if (existing && !payload.overwriteExisting) {
+          summary.skipped += 1;
+          continue;
+        }
+
+        const basePayload: CreateProductDto = {
+          name: normalized.name,
+          slug: normalized.slug,
+          description: normalized.description,
+          price: normalized.price,
+          costPrice: normalized.costPrice,
+          compareAt: normalized.compareAt,
+          stock: normalized.stock,
+          status: normalized.status,
+          imageUrl: normalized.imageUrl,
+          categoryId,
+          variants: normalized.variants
+        };
+
+        if (existing) {
+          await this.update(existing.id, basePayload);
+          summary.updated += 1;
+        } else {
+          await this.create(basePayload);
+          summary.created += 1;
+        }
+
+        summary.variantsImported += normalized.variants?.length ?? 0;
+      } catch (error) {
+        summary.errors.push(
+          `${slug}: ${error instanceof Error ? error.message : "erro desconhecido"}`
+        );
+      }
+    }
+
+    return summary;
+  }
+
+  async exportCatalogCsv() {
+    const products = await this.prisma.product.findMany({
+      include: {
+        category: true,
+        variants: {
+          orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }]
+        }
+      },
+      orderBy: { createdAt: "desc" }
+    });
+
+    const header = [
+      "name",
+      "slug",
+      "description",
+      "price",
+      "costPrice",
+      "compareAt",
+      "stock",
+      "status",
+      "categorySlug",
+      "categoryName",
+      "imageUrl",
+      "variantSku",
+      "variantColor",
+      "variantSize",
+      "variantLabel",
+      "variantPrice",
+      "variantCompareAt",
+      "variantStock",
+      "variantImage",
+      "variantIsDefault"
+    ];
+
+    const lines = [header.join(",")];
+
+    for (const product of products) {
+      if (product.variants.length === 0) {
+        lines.push(
+          this.toCsvLine([
+            product.name,
+            product.slug,
+            product.description,
+            Number(product.price).toFixed(2),
+            Number(product.costPrice).toFixed(2),
+            product.compareAt ? Number(product.compareAt).toFixed(2) : "",
+            String(product.stock),
+            product.status,
+            product.category.slug,
+            product.category.name,
+            product.imageUrl ?? "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            ""
+          ])
+        );
+        continue;
+      }
+
+      for (const variant of product.variants) {
+        lines.push(
+          this.toCsvLine([
+            product.name,
+            product.slug,
+            product.description,
+            Number(product.price).toFixed(2),
+            Number(product.costPrice).toFixed(2),
+            product.compareAt ? Number(product.compareAt).toFixed(2) : "",
+            String(product.stock),
+            product.status,
+            product.category.slug,
+            product.category.name,
+            product.imageUrl ?? "",
+            variant.sku,
+            variant.color ?? "",
+            variant.size ?? "",
+            variant.optionLabel,
+            variant.priceOverride ? Number(variant.priceOverride).toFixed(2) : "",
+            variant.compareAtOverride
+              ? Number(variant.compareAtOverride).toFixed(2)
+              : "",
+            String(variant.stock),
+            variant.imageUrl ?? "",
+            variant.isDefault ? "true" : "false"
+          ])
+        );
+      }
+    }
+
+    return {
+      filename: "catalogo-produtos.csv",
+      content: lines.join("\n")
+    };
+  }
+
   async update(id: string, payload: UpdateProductDto, actor?: AdminActor) {
     const existing = await this.ensureExists(id);
 
@@ -637,6 +811,189 @@ export class ProductsService {
           }
         : {})
     } satisfies Prisma.InventoryMovementWhereInput;
+  }
+
+  private parseCatalogCsv(csvContent: string) {
+    const lines = csvContent
+      .replace(/\r\n/g, "\n")
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean);
+
+    if (lines.length < 2) {
+      return [];
+    }
+
+    const headers = this.parseCsvLine(lines[0]).map((header) => header.trim());
+    const rows: Array<Record<string, string>> = [];
+
+    for (const line of lines.slice(1)) {
+      const values = this.parseCsvLine(line);
+      const row: Record<string, string> = {};
+
+      headers.forEach((header, index) => {
+        row[header] = values[index]?.trim() ?? "";
+      });
+
+      if (row.slug || row.name) {
+        rows.push(row);
+      }
+    }
+
+    return rows;
+  }
+
+  private parseCsvLine(line: string) {
+    const values: string[] = [];
+    let current = "";
+    let inQuotes = false;
+
+    for (let index = 0; index < line.length; index += 1) {
+      const char = line[index];
+
+      if (char === '"') {
+        if (inQuotes && line[index + 1] === '"') {
+          current += '"';
+          index += 1;
+        } else {
+          inQuotes = !inQuotes;
+        }
+        continue;
+      }
+
+      if (char === "," && !inQuotes) {
+        values.push(current);
+        current = "";
+        continue;
+      }
+
+      current += char;
+    }
+
+    values.push(current);
+    return values;
+  }
+
+  private normalizeImportedProductGroup(rows: Array<Record<string, string>>) {
+    const first = rows[0];
+    const slug = (first.slug || this.slugify(first.name)).trim();
+
+    if (!first.name?.trim() || !slug) {
+      throw new BadRequestException("Nome e slug sao obrigatorios na importacao.");
+    }
+
+    const variants = rows
+      .filter((row) => row.variantSku?.trim() || row.variantLabel?.trim())
+      .map((row, index) => ({
+        sku: row.variantSku.trim(),
+        color: row.variantColor?.trim() || undefined,
+        size: row.variantSize?.trim() || undefined,
+        optionLabel: (row.variantLabel || row.variantSku).trim(),
+        priceOverride: row.variantPrice
+          ? this.parseImportNumber(row.variantPrice, "variantPrice")
+          : undefined,
+        compareAtOverride: row.variantCompareAt
+          ? this.parseImportNumber(row.variantCompareAt, "variantCompareAt")
+          : undefined,
+        stock: this.parseImportInteger(row.variantStock || "0", "variantStock"),
+        imageUrl: row.variantImage?.trim() || undefined,
+        isDefault:
+          (row.variantIsDefault || "").toLowerCase() === "true" ||
+          (row.variantIsDefault || "").toLowerCase() === "sim" ||
+          index === 0
+      }))
+      .filter((variant) => variant.sku && variant.optionLabel);
+
+    return {
+      name: first.name.trim(),
+      slug,
+      description: first.description?.trim() || first.name.trim(),
+      price: this.parseImportNumber(first.price || "0", "price"),
+      costPrice: this.parseImportNumber(first.costPrice || "0", "costPrice"),
+      compareAt: first.compareAt
+        ? this.parseImportNumber(first.compareAt, "compareAt")
+        : undefined,
+      stock: variants.length
+        ? variants.reduce((sum, variant) => sum + variant.stock, 0)
+        : this.parseImportInteger(first.stock || "0", "stock"),
+      status: this.parseImportStatus(first.status),
+      imageUrl: first.imageUrl?.trim() || undefined,
+      categorySlug: first.categorySlug?.trim() || this.slugify(first.categoryName || "colecao"),
+      categoryName: first.categoryName?.trim() || "Colecao",
+      variants
+    };
+  }
+
+  private parseImportStatus(value?: string) {
+    const normalized = value?.trim().toUpperCase();
+
+    if (!normalized) {
+      return ProductStatus.DRAFT;
+    }
+
+    if (Object.values(ProductStatus).includes(normalized as ProductStatus)) {
+      return normalized as ProductStatus;
+    }
+
+    throw new BadRequestException(`Status invalido na importacao: ${value}.`);
+  }
+
+  private parseImportNumber(value: string, field: string) {
+    const parsed = Number(value.replace(",", "."));
+
+    if (!Number.isFinite(parsed) || parsed < 0) {
+      throw new BadRequestException(`Campo ${field} invalido na importacao.`);
+    }
+
+    return parsed;
+  }
+
+  private parseImportInteger(value: string, field: string) {
+    const parsed = Number(value);
+
+    if (!Number.isInteger(parsed) || parsed < 0) {
+      throw new BadRequestException(`Campo ${field} invalido na importacao.`);
+    }
+
+    return parsed;
+  }
+
+  private async resolveImportCategory(
+    product: { categorySlug: string; categoryName: string },
+    summary: { categoriesCreated: number }
+  ) {
+    const existing = await this.prisma.category.findUnique({
+      where: { slug: product.categorySlug }
+    });
+
+    if (existing) {
+      return existing.id;
+    }
+
+    const created = await this.prisma.category.create({
+      data: {
+        name: product.categoryName,
+        slug: product.categorySlug
+      }
+    });
+    summary.categoriesCreated += 1;
+    return created.id;
+  }
+
+  private slugify(value: string) {
+    return value
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+  }
+
+  private toCsvLine(values: string[]) {
+    return values
+      .map((value) => `"${String(value ?? "").replace(/"/g, '""')}"`)
+      .join(",");
   }
 
   private parsePositiveInteger(value: string | undefined, fallback: number) {

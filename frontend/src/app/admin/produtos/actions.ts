@@ -8,6 +8,7 @@ import {
   AdminRequestError,
   createAdminProduct,
   deleteAdminProduct,
+  importAdminProductsCatalog,
   updateAdminProduct
 } from "@/lib/admin-api";
 
@@ -201,4 +202,31 @@ export async function adjustProductStockAction(formData: FormData) {
   }
 
   redirect("/admin/produtos?success=stock_adjusted");
+}
+
+export async function importProductsCatalogAction(formData: FormData) {
+  try {
+    const csvContent = String(formData.get("csvContent") ?? "").trim();
+    const overwriteExisting = String(formData.get("overwriteExisting") ?? "") === "on";
+
+    await importAdminProductsCatalog({
+      csvContent,
+      overwriteExisting
+    });
+    revalidatePath("/admin/produtos");
+    revalidatePath("/produtos");
+    revalidatePath("/");
+  } catch (error) {
+    if (error instanceof AdminAuthError) {
+      redirect("/login");
+    }
+
+    if (error instanceof AdminRequestError) {
+      redirect(`/admin/produtos?error=${error.code}`);
+    }
+
+    redirect("/admin/produtos?error=generic_error");
+  }
+
+  redirect("/admin/produtos?success=products_imported");
 }
