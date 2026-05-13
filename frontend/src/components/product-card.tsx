@@ -16,6 +16,10 @@ export function ProductCard({ product }: ProductCardProps) {
     : 0;
   const unavailable = product.stock < 1;
   const lowStock = !unavailable && product.stock <= 5;
+  const variantCount = product.variants?.length ?? 0;
+  const hasVariantImages = Boolean(
+    product.variants?.some((variant) => Boolean(variant.imageUrl))
+  );
 
   return (
     <article className="overflow-hidden rounded-[2rem] border border-espresso/10 bg-white/75 shadow-soft">
@@ -41,6 +45,11 @@ export function ProductCard({ product }: ProductCardProps) {
               Ultimas {product.stock}
             </span>
           ) : null}
+          {variantCount > 0 ? (
+            <span className="rounded-full bg-white/90 px-3 py-1 text-xs text-espresso">
+              {variantCount} opcoes
+            </span>
+          ) : null}
         </div>
       </div>
       <div className="space-y-3 p-5">
@@ -61,6 +70,18 @@ export function ProductCard({ product }: ProductCardProps) {
           </div>
         </div>
         <p className="text-sm leading-6 text-espresso/70">{product.description}</p>
+        {variantCount > 0 ? (
+          <div className="flex flex-wrap gap-2 text-xs text-espresso/65">
+            <span className="rounded-full border border-espresso/10 px-3 py-1">
+              Variacoes de cor/tamanho
+            </span>
+            {hasVariantImages ? (
+              <span className="rounded-full border border-espresso/10 px-3 py-1">
+                Galeria por variacao
+              </span>
+            ) : null}
+          </div>
+        ) : null}
         <ProductCardActions
           product={{
             id: product.id,

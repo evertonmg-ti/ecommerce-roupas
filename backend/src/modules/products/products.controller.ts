@@ -30,9 +30,21 @@ export class ProductsController {
   listActive(
     @Query("search") search?: string,
     @Query("category") category?: string,
-    @Query("sort") sort?: string
+    @Query("sort") sort?: string,
+    @Query("minPrice") minPrice?: string,
+    @Query("maxPrice") maxPrice?: string,
+    @Query("availability") availability?: string,
+    @Query("saleOnly") saleOnly?: string
   ) {
-    return this.productsService.listActive({ search, category, sort });
+    return this.productsService.listActive({
+      search,
+      category,
+      sort,
+      minPrice,
+      maxPrice,
+      availability,
+      saleOnly
+    });
   }
 
   @Get("admin")

@@ -42,6 +42,10 @@ export type PublicProductFilters = {
   search?: string;
   category?: string;
   sort?: string;
+  minPrice?: string;
+  maxPrice?: string;
+  availability?: string;
+  saleOnly?: string;
 };
 
 function toNumber(value: number | string | null | undefined) {
@@ -97,6 +101,22 @@ function buildProductsPath(filters?: PublicProductFilters) {
 
   if (filters?.sort) {
     params.set("sort", filters.sort);
+  }
+
+  if (filters?.minPrice) {
+    params.set("minPrice", filters.minPrice);
+  }
+
+  if (filters?.maxPrice) {
+    params.set("maxPrice", filters.maxPrice);
+  }
+
+  if (filters?.availability) {
+    params.set("availability", filters.availability);
+  }
+
+  if (filters?.saleOnly) {
+    params.set("saleOnly", filters.saleOnly);
   }
 
   const query = params.toString();

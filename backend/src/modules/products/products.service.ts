@@ -23,11 +23,33 @@ export class ProductsService {
     private readonly engagementService: EngagementService
   ) {}
 
-  listActive(filters?: { search?: string; category?: string; sort?: string }) {
+  listActive(filters?: {
+    search?: string;
+    category?: string;
+    sort?: string;
+    minPrice?: string;
+    maxPrice?: string;
+    availability?: string;
+    saleOnly?: string;
+  }) {
     const search = filters?.search?.trim();
     const category = filters?.category?.trim();
+    const minPrice = this.parseOptionalNonNegativeNumber(filters?.minPrice);
+    const maxPrice = this.parseOptionalNonNegativeNumber(filters?.maxPrice);
+    const onlyAvailable = filters?.availability?.trim() === "in_stock";
+    const saleOnly = filters?.saleOnly?.trim() === "true";
     const where: Prisma.ProductWhereInput = {
       status: ProductStatus.ACTIVE,
+      ...(onlyAvailable ? { stock: { gt: 0 } } : {}),
+      ...(saleOnly ? { compareAt: { not: null } } : {}),
+      ...(minPrice !== undefined || maxPrice !== undefined
+        ? {
+            price: {
+              ...(minPrice !== undefined ? { gte: minPrice } : {}),
+              ...(maxPrice !== undefined ? { lte: maxPrice } : {})
+            }
+          }
+        : {}),
       ...(category
         ? {
             category: {
@@ -1254,6 +1276,20 @@ export class ProductsService {
     }
 
     return Math.trunc(parsed);
+  }
+
+  private parseOptionalNonNegativeNumber(value?: string) {
+    if (!value?.trim()) {
+      return undefined;
+    }
+
+    const parsed = Number(value.replace(",", "."));
+
+    if (!Number.isFinite(parsed) || parsed < 0) {
+      return undefined;
+    }
+
+    return parsed;
   }
 
   private resolvePublicSort(sort?: string): Prisma.ProductOrderByWithRelationInput {
