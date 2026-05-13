@@ -1,6 +1,13 @@
+import type { Metadata } from "next";
 import { ProductCard } from "@/components/product-card";
 import { fallbackProducts } from "@/lib/data";
 import { getPublicCategories, getPublicProducts } from "@/lib/public-products";
+
+export const metadata: Metadata = {
+  title: "Colecao | Maison Aurea",
+  description:
+    "Explore a colecao Maison Aurea com filtros por categoria, preco, promocao e disponibilidade."
+};
 
 const sortOptions = [
   { value: "newest", label: "Mais recentes" },

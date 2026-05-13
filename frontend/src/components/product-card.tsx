@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import { ProductCardActions } from "@/components/product-card-actions";
 import { Product } from "@/lib/data";
 import { currency } from "@/lib/utils";
@@ -55,9 +56,18 @@ export function ProductCard({ product }: ProductCardProps) {
       <div className="space-y-3 p-5">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-terracotta">
-              {product.category}
-            </p>
+            {product.categorySlug ? (
+              <Link
+                href={`/colecao/${product.categorySlug}`}
+                className="text-xs uppercase tracking-[0.2em] text-terracotta"
+              >
+                {product.category}
+              </Link>
+            ) : (
+              <p className="text-xs uppercase tracking-[0.2em] text-terracotta">
+                {product.category}
+              </p>
+            )}
             <h3 className="mt-2 font-display text-2xl">{product.name}</h3>
           </div>
           <div className="text-right">

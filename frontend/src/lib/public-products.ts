@@ -157,3 +157,8 @@ export async function getPublicCategories() {
     description: category.description ?? undefined
   }));
 }
+
+export async function getPublicCategoryBySlug(slug: string) {
+  const categories = await getPublicCategories();
+  return categories.find((category) => category.slug === slug) ?? null;
+}

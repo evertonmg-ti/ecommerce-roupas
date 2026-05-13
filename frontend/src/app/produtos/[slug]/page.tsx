@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { ProductBundleSuggestions } from "@/components/product-bundle-suggestions";
 import { ProductDetailExperience } from "@/components/product-detail-experience";
 import { ProductCard } from "@/components/product-card";
@@ -7,6 +8,32 @@ import { getPublicProductBySlug, getRelatedProducts } from "@/lib/public-product
 type ProductPageProps = {
   params: Promise<{ slug: string }>;
 };
+
+export async function generateMetadata({
+  params
+}: ProductPageProps): Promise<Metadata> {
+  const { slug } = await params;
+  const product =
+    (await getPublicProductBySlug(slug).catch(() => null)) ??
+    fallbackProducts.find((item) => item.slug === slug);
+
+  if (!product) {
+    return {
+      title: "Produto nao encontrado | Maison Aurea",
+      description: "O produto solicitado nao esta disponivel no momento."
+    };
+  }
+
+  return {
+    title: `${product.name} | Maison Aurea`,
+    description: product.description,
+    openGraph: {
+      title: `${product.name} | Maison Aurea`,
+      description: product.description,
+      images: product.imageUrl ? [{ url: product.imageUrl }] : undefined
+    }
+  };
+}
 
 export default async function ProductDetailsPage({ params }: ProductPageProps) {
   const { slug } = await params;
@@ -39,7 +66,7 @@ export default async function ProductDetailsPage({ params }: ProductPageProps) {
         .slice(0, 3)
     );
   const categoryHref = product.categorySlug
-    ? `/produtos?category=${product.categorySlug}`
+    ? `/colecao/${product.categorySlug}`
     : "/produtos";
 
   return (

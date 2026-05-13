@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export function Footer() {
   return (
     <footer className="border-t border-espresso/10 bg-white/40">
@@ -12,9 +14,15 @@ export function Footer() {
         <div>
           <p className="font-medium">Navegacao</p>
           <div className="mt-3 space-y-2 text-espresso/70">
-            <p>Catalogo</p>
-            <p>Pedidos</p>
-            <p>Administracao</p>
+            <p>
+              <Link href="/produtos">Catalogo</Link>
+            </p>
+            <p>
+              <Link href="/cliente">Cliente</Link>
+            </p>
+            <p>
+              <Link href="/admin">Administracao</Link>
+            </p>
           </div>
         </div>
         <div>
@@ -29,4 +37,3 @@ export function Footer() {
     </footer>
   );
 }
-
