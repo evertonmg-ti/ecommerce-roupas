@@ -5,6 +5,7 @@ type AdminFeedbackProps = {
 const messages: Record<string, string> = {
   product_created: "Produto criado com sucesso.",
   product_updated: "Produto atualizado com sucesso.",
+  product_duplicated: "Produto duplicado com sucesso.",
   product_deleted: "Produto excluido com sucesso.",
   stock_adjusted: "Estoque ajustado com sucesso.",
   product_status_bulk_updated: "Status dos produtos atualizados com sucesso.",

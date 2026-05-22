@@ -6,6 +6,7 @@ import {
   adjustProductStockAction,
   bulkUpdateProductStatusAction,
   createProductAction,
+  duplicateProductAction,
   deleteProductAction,
   importProductsCatalogAction,
   importStockCatalogAction,
@@ -514,12 +515,23 @@ export default async function AdminProductsPage({
                         </div>
                       </form>
 
-                      <form action={deleteProductAction} className="self-start">
-                        <input type="hidden" name="id" value={product.id} />
-                        <button className="rounded-full border border-red-300 px-5 py-3 text-sm text-red-700">
-                          Excluir produto
-                        </button>
-                      </form>
+                      <div className="self-start">
+                        <div className="flex flex-col gap-3">
+                          <form action={duplicateProductAction}>
+                            <input type="hidden" name="id" value={product.id} />
+                            <button className="rounded-full border border-espresso/15 px-5 py-3 text-sm">
+                              Duplicar produto
+                            </button>
+                          </form>
+
+                          <form action={deleteProductAction}>
+                            <input type="hidden" name="id" value={product.id} />
+                            <button className="rounded-full border border-red-300 px-5 py-3 text-sm text-red-700">
+                              Excluir produto
+                            </button>
+                          </form>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </details>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { AdminCategory, AdminProduct } from "@/lib/admin-api";
 import { currency } from "@/lib/utils";
 
@@ -33,6 +33,26 @@ const fallbackImage =
 
 function formatNumberInput(value?: number) {
   return value === undefined ? "" : String(value);
+}
+
+function slugify(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function skuify(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .trim()
+    .replace(/[^A-Z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 }
 
 function createVariant(): ProductVariantForm {
@@ -95,6 +115,7 @@ export function AdminProductFormFields({
 }: AdminProductFormFieldsProps) {
   const [name, setName] = useState(product?.name ?? "");
   const [slug, setSlug] = useState(product?.slug ?? "");
+  const [slugTouched, setSlugTouched] = useState(Boolean(product?.slug));
   const [description, setDescription] = useState(product?.description ?? "");
   const [price, setPrice] = useState(formatNumberInput(product?.price));
   const [costPrice, setCostPrice] = useState(formatNumberInput(product?.costPrice));
@@ -113,6 +134,14 @@ export function AdminProductFormFields({
   const [variantUploadState, setVariantUploadState] = useState<Record<string, boolean>>({});
   const [variantUploadError, setVariantUploadError] = useState<Record<string, string | null>>({});
   const mainImageInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (slugTouched) {
+      return;
+    }
+
+    setSlug(slugify(name));
+  }, [name, slugTouched]);
 
   const variantsStock = useMemo(
     () =>
@@ -229,6 +258,33 @@ export function AdminProductFormFields({
     ]);
   }
 
+  function addSizeTemplate() {
+    const sizeTemplate = ["P", "M", "G", "GG"];
+    const existingSizes = new Set(
+      variants.map((variant) => variant.size.trim().toUpperCase()).filter(Boolean)
+    );
+    const baseSku = skuify(slug || name || "PRODUTO");
+    const baseColor = variants.find((variant) => variant.color.trim())?.color.trim() ?? "";
+
+    const newVariants = sizeTemplate
+      .filter((size) => !existingSizes.has(size))
+      .map((size, index) => ({
+        ...createVariant(),
+        sku: `${baseSku}-${size}`,
+        color: baseColor,
+        size,
+        optionLabel: baseColor ? `${baseColor} / ${size}` : size,
+        stock: "0",
+        isDefault: variants.length === 0 && index === 0
+      }));
+
+    if (newVariants.length === 0) {
+      return;
+    }
+
+    setVariants((current) => [...current, ...newVariants]);
+  }
+
   function removeVariant(variantId: string) {
     setVariants((current) => {
       const nextVariants = current.filter((variant) => variant.id !== variantId);
@@ -266,7 +322,11 @@ export function AdminProductFormFields({
             <input
               name="slug"
               value={slug}
-              onChange={(event) => setSlug(event.target.value)}
+              onChange={(event) => {
+                const value = event.target.value;
+                setSlug(value);
+                setSlugTouched(value.trim().length > 0);
+              }}
               className="w-full rounded-2xl border border-espresso/15 bg-sand px-4 py-3 outline-none"
               placeholder="camiseta-studio"
             />
@@ -498,6 +558,13 @@ export function AdminProductFormFields({
             className="rounded-full border border-espresso/15 px-4 py-2 text-sm"
           >
             Adicionar variacao
+          </button>
+          <button
+            type="button"
+            onClick={addSizeTemplate}
+            className="rounded-full border border-espresso/15 px-4 py-2 text-sm"
+          >
+            Grade P, M, G e GG
           </button>
         </div>
 

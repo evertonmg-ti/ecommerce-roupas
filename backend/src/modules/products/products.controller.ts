@@ -132,6 +132,13 @@ export class ProductsController {
     return this.productsService.bulkUpdateStatus(payload);
   }
 
+  @Post(":id/duplicate")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  duplicate(@Param("id") id: string) {
+    return this.productsService.duplicate(id);
+  }
+
   @Patch(":id")
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN)

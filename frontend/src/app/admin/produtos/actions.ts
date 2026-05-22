@@ -8,6 +8,7 @@ import {
   AdminRequestError,
   bulkUpdateAdminProductStatus,
   createAdminProduct,
+  duplicateAdminProduct,
   deleteAdminProduct,
   importAdminProductsCatalog,
   importAdminStockCatalog,
@@ -175,6 +176,28 @@ export async function deleteProductAction(formData: FormData) {
   }
 
   redirect("/admin/produtos?success=product_deleted");
+}
+
+export async function duplicateProductAction(formData: FormData) {
+  try {
+    const id = String(formData.get("id") ?? "").trim();
+    await duplicateAdminProduct(id);
+    revalidatePath("/admin/produtos");
+    revalidatePath("/produtos");
+    revalidatePath("/");
+  } catch (error) {
+    if (error instanceof AdminAuthError) {
+      redirect("/login");
+    }
+
+    if (error instanceof AdminRequestError) {
+      redirect(`/admin/produtos?error=${error.code}`);
+    }
+
+    redirect("/admin/produtos?error=generic_error");
+  }
+
+  redirect("/admin/produtos?success=product_duplicated");
 }
 
 export async function adjustProductStockAction(formData: FormData) {

@@ -661,6 +661,80 @@ export class ProductsService {
     };
   }
 
+  async duplicate(id: string) {
+    const existing = await this.ensureExists(id);
+
+    return this.prisma.$transaction(async (tx) => {
+      const duplicateSlug = await this.resolveDuplicateSlug(tx, existing.slug);
+      const duplicatedVariants =
+        existing.variants.length > 0
+          ? await Promise.all(
+              existing.variants.map(async (variant) => ({
+                sku: await this.resolveDuplicateVariantSku(tx, variant.sku),
+                color: variant.color ?? undefined,
+                size: variant.size ?? undefined,
+                optionLabel: variant.optionLabel,
+                priceOverride:
+                  variant.priceOverride === null
+                    ? undefined
+                    : new Prisma.Decimal(variant.priceOverride),
+                compareAtOverride:
+                  variant.compareAtOverride === null
+                    ? undefined
+                    : new Prisma.Decimal(variant.compareAtOverride),
+                stock: variant.stock,
+                imageUrl: variant.imageUrl ?? undefined,
+                isDefault: variant.isDefault
+              }))
+            )
+          : [];
+      const duplicateStock =
+        duplicatedVariants.length > 0
+          ? duplicatedVariants.reduce((sum, variant) => sum + variant.stock, 0)
+          : existing.stock;
+
+      const product = await tx.product.create({
+        data: {
+          name: `${existing.name} Copia`,
+          slug: duplicateSlug,
+          description: existing.description,
+          price: existing.price,
+          costPrice: existing.costPrice,
+          compareAt: existing.compareAt,
+          stock: duplicateStock,
+          status: ProductStatus.DRAFT,
+          imageUrl: existing.imageUrl ?? undefined,
+          categoryId: existing.categoryId,
+          variants:
+            duplicatedVariants.length > 0
+              ? {
+                  create: duplicatedVariants
+                }
+              : undefined
+        },
+        include: {
+          category: true,
+          variants: {
+            orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }]
+          }
+        }
+      });
+
+      if (product.stock > 0) {
+        await this.recordInventoryMovement(tx, {
+          productId: product.id,
+          type: InventoryMovementType.INITIAL,
+          quantityDelta: product.stock,
+          previousStock: 0,
+          nextStock: product.stock,
+          reason: `Produto duplicado a partir de ${existing.slug}.`
+        });
+      }
+
+      return product;
+    });
+  }
+
   async update(id: string, payload: UpdateProductDto, actor?: AdminActor) {
     const existing = await this.ensureExists(id);
 
@@ -1286,6 +1360,38 @@ export class ProductsService {
       .trim()
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-+|-+$/g, "");
+  }
+
+  private async resolveDuplicateSlug(
+    tx: Prisma.TransactionClient,
+    sourceSlug: string
+  ) {
+    const baseSlug = `${sourceSlug}-copia`;
+    let candidate = baseSlug;
+    let index = 2;
+
+    while (await tx.product.findUnique({ where: { slug: candidate } })) {
+      candidate = `${baseSlug}-${index}`;
+      index += 1;
+    }
+
+    return candidate;
+  }
+
+  private async resolveDuplicateVariantSku(
+    tx: Prisma.TransactionClient,
+    sourceSku: string
+  ) {
+    const baseSku = `${sourceSku}-COPY`;
+    let candidate = baseSku;
+    let index = 2;
+
+    while (await tx.productVariant.findUnique({ where: { sku: candidate } })) {
+      candidate = `${baseSku}-${index}`;
+      index += 1;
+    }
+
+    return candidate;
   }
 
   private toCsvLine(values: string[]) {

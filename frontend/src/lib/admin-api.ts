@@ -3054,6 +3054,10 @@ export async function deleteAdminProduct(id: string) {
   return mutateAdmin(`/products/${id}`, "DELETE");
 }
 
+export async function duplicateAdminProduct(id: string) {
+  return mutateAdmin(`/products/${id}/duplicate`, "POST");
+}
+
 export async function adjustAdminProductStock(
   id: string,
   payload: { quantityDelta: number; reason?: string }
