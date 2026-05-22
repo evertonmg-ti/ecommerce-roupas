@@ -4,7 +4,12 @@ import {
   Injectable,
   NotFoundException
 } from "@nestjs/common";
-import { CustomerCreditTransactionType, ProductStatus, Role } from "@prisma/client";
+import {
+  CustomerCreditTransactionType,
+  Prisma,
+  ProductStatus,
+  Role
+} from "@prisma/client";
 import * as bcrypt from "bcryptjs";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreateUserDto } from "./dto/create-user.dto";
