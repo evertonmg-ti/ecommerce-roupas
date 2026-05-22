@@ -72,6 +72,8 @@ enum CustomerCreditTransactionType {
   ORDER_CANCELLATION_REVERSAL
   RETURN_REFUND_RECORDED
   MANUAL_CREDIT
+  PROMOTIONAL_CREDIT
+  PROMOTIONAL_CREDIT_USAGE
 }
 
 enum CouponType {
@@ -155,6 +157,8 @@ model User {
   returnRequests ReturnRequest[]
   addresses    CustomerAddress[]
   creditTransactions CustomerCreditTransaction[]
+  promotionalCreditGrants PromotionalCreditGrant[] @relation("PromotionalCreditOwner")
+  issuedPromotionalCreditGrants PromotionalCreditGrant[] @relation("PromotionalCreditIssuer")
   authoredTimelineEvents OrderTimelineEvent[] @relation("OrderTimelineEventActor")
   savedCart    SavedCart?
   savedWishlist SavedWishlist?
@@ -468,6 +472,23 @@ model CustomerCreditTransaction {
   @@index([orderId])
   @@index([returnRequestId])
   @@index([type, createdAt])
+}
+
+model PromotionalCreditGrant {
+  id              String   @id @default(cuid())
+  userId          String
+  issuedByUserId  String?
+  initialAmount   Decimal  @db.Decimal(10, 2)
+  remainingAmount Decimal  @db.Decimal(10, 2)
+  description     String
+  expiresAt       DateTime
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  user            User     @relation("PromotionalCreditOwner", fields: [userId], references: [id], onDelete: Cascade)
+  issuedByUser    User?    @relation("PromotionalCreditIssuer", fields: [issuedByUserId], references: [id])
+
+  @@index([userId, expiresAt])
+  @@index([expiresAt])
 }
 
 model InventoryMovement {

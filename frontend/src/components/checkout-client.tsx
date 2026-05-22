@@ -63,6 +63,8 @@ type CheckoutClientProps = {
     name: string;
     email: string;
     walletBalance?: number;
+    promotionalCreditBalance?: number;
+    totalCreditBalance?: number;
     preferredPaymentMethod?: string;
     preferredShippingMethod?: string;
     addresses?: Array<{
@@ -158,12 +160,16 @@ export function CheckoutClient({ initialCustomerData }: CheckoutClientProps) {
   const [availabilityIssues, setAvailabilityIssues] = useState<CartAvailabilityIssue[]>([]);
   const shippingCost = shippingQuoteState.shippingCost;
   const walletBalanceAvailable = initialCustomerData?.walletBalance ?? 0;
+  const promotionalCreditBalance = initialCustomerData?.promotionalCreditBalance ?? 0;
+  const totalCreditBalanceAvailable =
+    initialCustomerData?.totalCreditBalance ??
+    walletBalanceAvailable + promotionalCreditBalance;
   const storeCreditRequested = Math.max(
     0,
     Number(profile.useStoreCreditAmount.replace(",", ".") || 0)
   );
   const storeCreditApplied = Math.min(
-    walletBalanceAvailable,
+    totalCreditBalanceAvailable,
     storeCreditRequested,
     Math.max(0, totalPrice - couponState.discountAmount + shippingCost)
   );
@@ -1076,7 +1082,7 @@ export function CheckoutClient({ initialCustomerData }: CheckoutClientProps) {
             </label>
           </div>
 
-          {walletBalanceAvailable > 0 ? (
+          {totalCreditBalanceAvailable > 0 ? (
             <div className="grid gap-5 md:grid-cols-[1fr_auto] md:items-end">
               <label className="space-y-2 text-sm">
                 <span className="text-espresso/70">Usar credito da conta</span>
@@ -1090,13 +1096,20 @@ export function CheckoutClient({ initialCustomerData }: CheckoutClientProps) {
                     )
                   }
                   className="w-full rounded-[1.5rem] border border-espresso/15 bg-transparent px-4 py-3"
-                  placeholder={`Disponivel: ${currency(walletBalanceAvailable)}`}
+                  placeholder={`Disponivel: ${currency(totalCreditBalanceAvailable)}`}
                 />
+                <p className="text-xs text-espresso/60">
+                  Carteira: {currency(walletBalanceAvailable)} | Promocional:{" "}
+                  {currency(promotionalCreditBalance)}
+                </p>
               </label>
               <button
                 type="button"
                 onClick={() =>
-                  updateProfile("useStoreCreditAmount", walletBalanceAvailable.toFixed(2))
+                  updateProfile(
+                    "useStoreCreditAmount",
+                    totalCreditBalanceAvailable.toFixed(2)
+                  )
                 }
                 className="rounded-full border border-espresso/15 px-6 py-3 text-sm"
               >

@@ -33,7 +33,9 @@ const creditTransactionLabels: Record<string, string> = {
   ORDER_STORE_CREDIT_USAGE: "Uso de credito no checkout",
   ORDER_CANCELLATION_REVERSAL: "Credito devolvido por cancelamento",
   RETURN_REFUND_RECORDED: "Reembolso financeiro registrado",
-  MANUAL_CREDIT: "Ajuste manual"
+  MANUAL_CREDIT: "Ajuste manual",
+  PROMOTIONAL_CREDIT: "Credito promocional emitido",
+  PROMOTIONAL_CREDIT_USAGE: "Uso de credito promocional"
 };
 
 const activeReturnRequestStatuses = ["REQUESTED", "APPROVED", "RECEIVED"] as const;
@@ -177,11 +179,45 @@ export default async function CustomerAccountPage({
                 pos-venda.
               </p>
               <div className="mt-5 rounded-[1.5rem] border border-moss/20 bg-moss/10 p-5">
-                <p className="text-sm text-espresso/60">Saldo disponivel</p>
+                <p className="text-sm text-espresso/60">Saldo total disponivel</p>
                 <p className="mt-2 font-display text-4xl text-moss">
-                  {currency(account.walletBalance)}
+                  {currency(account.totalCreditBalance)}
+                </p>
+                <p className="mt-2 text-sm text-espresso/65">
+                  Carteira padrao: {currency(account.walletBalance)} | Promocional:{" "}
+                  {currency(account.promotionalCreditBalance)}
                 </p>
               </div>
+              {account.promotionalCreditGrants.length > 0 ? (
+                <div className="mt-5 space-y-3">
+                  <p className="text-xs uppercase tracking-[0.25em] text-terracotta">
+                    Creditos promocionais com validade
+                  </p>
+                  {account.promotionalCreditGrants.map((grant) => (
+                    <div
+                      key={grant.id}
+                      className="rounded-[1.25rem] border border-espresso/10 bg-sand/35 p-4"
+                    >
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <p className="font-medium">{grant.description}</p>
+                          <p className="mt-1 text-sm text-espresso/60">
+                            Expira em {grant.expiresAt}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-medium text-terracotta">
+                            {currency(grant.remainingAmount)}
+                          </p>
+                          <p className="mt-1 text-xs text-espresso/55">
+                            de {currency(grant.initialAmount)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
               <div className="mt-5 space-y-3">
                 {account.creditTransactions.length === 0 ? (
                   <div className="rounded-[1.25rem] border border-espresso/10 bg-sand/35 p-4 text-sm text-espresso/65">

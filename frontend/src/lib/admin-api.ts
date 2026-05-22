@@ -456,6 +456,14 @@ type CustomerCreditAdminResponse = {
   name: string;
   email: string;
   walletBalance: number | string;
+  promotionalCreditGrants?: Array<{
+    id: string;
+    initialAmount: number | string;
+    remainingAmount: number | string;
+    description: string;
+    expiresAt: string;
+    createdAt: string;
+  }>;
   createdAt: string;
   creditTransactions: Array<{
     id: string;
@@ -1219,7 +1227,17 @@ export type AdminCustomerCreditAccount = {
   name: string;
   email: string;
   walletBalance: number;
+  promotionalCreditBalance: number;
+  totalCreditBalance: number;
   createdAt: string;
+  promotionalCreditGrants: Array<{
+    id: string;
+    initialAmount: number;
+    remainingAmount: number;
+    description: string;
+    expiresAt: string;
+    createdAt: string;
+  }>;
   creditTransactions: Array<{
     id: string;
     type: string;
@@ -2390,7 +2408,26 @@ export async function getAdminCustomerCredits(): Promise<AdminCustomerCreditAcco
     name: user.name,
     email: user.email,
     walletBalance: toNumber(user.walletBalance),
+    promotionalCreditBalance: (user.promotionalCreditGrants ?? []).reduce(
+      (sum, grant) => sum + toNumber(grant.remainingAmount),
+      0
+    ),
+    totalCreditBalance:
+      toNumber(user.walletBalance) +
+      (user.promotionalCreditGrants ?? []).reduce(
+        (sum, grant) => sum + toNumber(grant.remainingAmount),
+        0
+      ),
     createdAt: formatDate(user.createdAt),
+    promotionalCreditGrants:
+      user.promotionalCreditGrants?.map((grant) => ({
+        id: grant.id,
+        initialAmount: toNumber(grant.initialAmount),
+        remainingAmount: toNumber(grant.remainingAmount),
+        description: grant.description,
+        expiresAt: formatDateTime(grant.expiresAt),
+        createdAt: formatDateTime(grant.createdAt)
+      })) ?? [],
     creditTransactions: user.creditTransactions.map((transaction) => ({
       id: transaction.id,
       type: transaction.type,
@@ -3022,6 +3059,13 @@ export async function adjustAdminProductStock(
   payload: { quantityDelta: number; reason?: string }
 ) {
   return mutateAdmin(`/products/${id}/stock-adjustments`, "POST", payload);
+}
+
+export async function issueAdminPromotionalCredit(
+  id: string,
+  payload: { amount: number; expiresAt: string; description?: string }
+) {
+  return mutateAdmin(`/users/${id}/credits/promotional`, "POST", payload);
 }
 
 export async function importAdminProductsCatalog(payload: {

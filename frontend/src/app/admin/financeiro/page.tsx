@@ -1,7 +1,10 @@
 import { AdminFeedback } from "@/components/admin-feedback";
 import { getAdminCustomerCredits, getAdminDashboardMetrics } from "@/lib/admin-api";
 import { currency } from "@/lib/utils";
-import { adjustCustomerCreditAction } from "./actions";
+import {
+  adjustCustomerCreditAction,
+  issuePromotionalCreditAction
+} from "./actions";
 
 type AdminFinancePageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -12,7 +15,9 @@ const creditLabels: Record<string, string> = {
   ORDER_STORE_CREDIT_USAGE: "Uso no checkout",
   ORDER_CANCELLATION_REVERSAL: "Credito devolvido por cancelamento",
   RETURN_REFUND_RECORDED: "Reembolso registrado",
-  MANUAL_CREDIT: "Ajuste manual"
+  MANUAL_CREDIT: "Ajuste manual",
+  PROMOTIONAL_CREDIT: "Credito promocional",
+  PROMOTIONAL_CREDIT_USAGE: "Uso de credito promocional"
 };
 
 export default async function AdminFinancePage({
@@ -287,44 +292,123 @@ export default async function AdminFinancePage({
                     <p className="text-sm text-espresso/60">{account.email}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm text-espresso/55">Saldo atual</p>
+                    <p className="text-sm text-espresso/55">Saldo total</p>
                     <p className="mt-1 font-display text-3xl text-moss">
-                      {currency(account.walletBalance)}
+                      {currency(account.totalCreditBalance)}
+                    </p>
+                    <p className="mt-1 text-xs text-espresso/55">
+                      Carteira {currency(account.walletBalance)} | Promocional{" "}
+                      {currency(account.promotionalCreditBalance)}
                     </p>
                   </div>
                 </div>
 
-                <form
-                  action={adjustCustomerCreditAction}
-                  className="mt-6 grid gap-4 md:grid-cols-[0.6fr_0.8fr_auto]"
-                >
-                  <input type="hidden" name="userId" value={account.id} />
-                  <label className="space-y-2 text-sm">
-                    <span>Valor do ajuste</span>
-                    <input
-                      name="amount"
-                      type="number"
-                      step="0.01"
-                      required
-                      className="w-full rounded-2xl border border-espresso/15 bg-sand px-4 py-3 outline-none"
-                      placeholder="Use negativo para debitar"
-                    />
-                  </label>
-                  <label className="space-y-2 text-sm">
-                    <span>Observacao</span>
-                    <input
-                      name="description"
-                      minLength={3}
-                      className="w-full rounded-2xl border border-espresso/15 bg-sand px-4 py-3 outline-none"
-                      placeholder="Ex.: ajuste operacional de pos-venda"
-                    />
-                  </label>
-                  <div className="flex items-end">
-                    <button className="rounded-full bg-espresso px-5 py-3 text-sand">
-                      Aplicar ajuste
-                    </button>
+                <div className="mt-6 grid gap-4 xl:grid-cols-2">
+                  <form
+                    action={adjustCustomerCreditAction}
+                    className="grid gap-4 rounded-[1.5rem] border border-espresso/10 bg-sand/30 p-4 md:grid-cols-[0.6fr_0.8fr_auto]"
+                  >
+                    <input type="hidden" name="userId" value={account.id} />
+                    <label className="space-y-2 text-sm">
+                      <span>Valor do ajuste</span>
+                      <input
+                        name="amount"
+                        type="number"
+                        step="0.01"
+                        required
+                        className="w-full rounded-2xl border border-espresso/15 bg-white px-4 py-3 outline-none"
+                        placeholder="Use negativo para debitar"
+                      />
+                    </label>
+                    <label className="space-y-2 text-sm">
+                      <span>Observacao</span>
+                      <input
+                        name="description"
+                        minLength={3}
+                        className="w-full rounded-2xl border border-espresso/15 bg-white px-4 py-3 outline-none"
+                        placeholder="Ex.: ajuste operacional de pos-venda"
+                      />
+                    </label>
+                    <div className="flex items-end">
+                      <button className="rounded-full bg-espresso px-5 py-3 text-sand">
+                        Aplicar ajuste
+                      </button>
+                    </div>
+                  </form>
+
+                  <form
+                    action={issuePromotionalCreditAction}
+                    className="grid gap-4 rounded-[1.5rem] border border-terracotta/15 bg-terracotta/5 p-4 md:grid-cols-[0.55fr_0.75fr_0.9fr_auto]"
+                  >
+                    <input type="hidden" name="userId" value={account.id} />
+                    <label className="space-y-2 text-sm">
+                      <span>Credito promocional</span>
+                      <input
+                        name="amount"
+                        type="number"
+                        step="0.01"
+                        min="0.01"
+                        required
+                        className="w-full rounded-2xl border border-espresso/15 bg-white px-4 py-3 outline-none"
+                        placeholder="50.00"
+                      />
+                    </label>
+                    <label className="space-y-2 text-sm">
+                      <span>Validade</span>
+                      <input
+                        name="expiresAt"
+                        type="datetime-local"
+                        required
+                        className="w-full rounded-2xl border border-espresso/15 bg-white px-4 py-3 outline-none"
+                      />
+                    </label>
+                    <label className="space-y-2 text-sm">
+                      <span>Descricao</span>
+                      <input
+                        name="description"
+                        minLength={3}
+                        className="w-full rounded-2xl border border-espresso/15 bg-white px-4 py-3 outline-none"
+                        placeholder="Ex.: bonus de campanha de recompra"
+                      />
+                    </label>
+                    <div className="flex items-end">
+                      <button className="rounded-full border border-terracotta/30 bg-white px-5 py-3 text-terracotta">
+                        Emitir bonus
+                      </button>
+                    </div>
+                  </form>
+                </div>
+
+                {account.promotionalCreditGrants.length > 0 ? (
+                  <div className="mt-6 space-y-3">
+                    <p className="text-xs uppercase tracking-[0.25em] text-terracotta">
+                      Creditos promocionais ativos
+                    </p>
+                    {account.promotionalCreditGrants.map((grant) => (
+                      <div
+                        key={grant.id}
+                        className="rounded-[1.25rem] border border-espresso/10 bg-sand/35 p-4"
+                      >
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <p className="font-medium">{grant.description}</p>
+                            <p className="mt-1 text-sm text-espresso/60">
+                              Expira em {grant.expiresAt}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-medium text-terracotta">
+                              {currency(grant.remainingAmount)}
+                            </p>
+                            <p className="mt-1 text-xs text-espresso/55">
+                              de {currency(grant.initialAmount)}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                </form>
+                ) : null}
 
                 <div className="mt-6 space-y-3">
                   <p className="text-xs uppercase tracking-[0.25em] text-terracotta">

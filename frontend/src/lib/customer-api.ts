@@ -120,6 +120,14 @@ type CurrentUserResponse = {
   preferredPaymentMethod?: string | null;
   preferredShippingMethod?: string | null;
   walletBalance: number | string;
+  promotionalCreditGrants?: Array<{
+    id: string;
+    initialAmount: number | string;
+    remainingAmount: number | string;
+    description: string;
+    expiresAt: string;
+    createdAt: string;
+  }>;
   creditTransactions?: Array<{
     id: string;
     type: string;
@@ -143,6 +151,16 @@ export type CustomerAccount = {
   preferredPaymentMethod?: string;
   preferredShippingMethod?: string;
   walletBalance: number;
+  promotionalCreditBalance: number;
+  totalCreditBalance: number;
+  promotionalCreditGrants: Array<{
+    id: string;
+    initialAmount: number;
+    remainingAmount: number;
+    description: string;
+    expiresAt: string;
+    createdAt: string;
+  }>;
   creditTransactions: Array<{
     id: string;
     type: string;
@@ -331,6 +349,25 @@ export async function getCurrentCustomerAccount(): Promise<CustomerAccount> {
     preferredPaymentMethod: user.preferredPaymentMethod ?? undefined,
     preferredShippingMethod: user.preferredShippingMethod ?? undefined,
     walletBalance: toNumber(user.walletBalance),
+    promotionalCreditBalance: (user.promotionalCreditGrants ?? []).reduce(
+      (sum, grant) => sum + toNumber(grant.remainingAmount),
+      0
+    ),
+    totalCreditBalance:
+      toNumber(user.walletBalance) +
+      (user.promotionalCreditGrants ?? []).reduce(
+        (sum, grant) => sum + toNumber(grant.remainingAmount),
+        0
+      ),
+    promotionalCreditGrants:
+      user.promotionalCreditGrants?.map((grant) => ({
+        id: grant.id,
+        initialAmount: toNumber(grant.initialAmount),
+        remainingAmount: toNumber(grant.remainingAmount),
+        description: grant.description,
+        expiresAt: formatDateTime(grant.expiresAt),
+        createdAt: formatDateTime(grant.createdAt)
+      })) ?? [],
     creditTransactions:
       user.creditTransactions?.map((transaction) => ({
         id: transaction.id,

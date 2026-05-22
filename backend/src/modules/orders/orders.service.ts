@@ -326,9 +326,30 @@ export class OrdersService {
             payload.customerName
           )
         : await this.findOrCreateCustomer(tx, payload.customerEmail, payload.customerName);
+      const promotionalGrants = authenticatedUserId
+        ? await tx.promotionalCreditGrant.findMany({
+            where: {
+              userId: customer.id,
+              remainingAmount: {
+                gt: 0
+              },
+              expiresAt: {
+                gt: new Date()
+              }
+            },
+            orderBy: {
+              expiresAt: "asc"
+            }
+          })
+        : [];
       const storeCreditApplied = this.resolveStoreCreditAmount(
         payload.useStoreCreditAmount,
-        customer.walletBalance,
+        customer.walletBalance.plus(
+          promotionalGrants.reduce(
+            (sum, grant) => sum.plus(grant.remainingAmount),
+            new Prisma.Decimal(0)
+          )
+        ),
         totalBeforeStoreCredit
       );
       const total = Prisma.Decimal.max(
@@ -399,7 +420,8 @@ export class OrdersService {
           userId: customer.id,
           orderId: order.id,
           amount: storeCreditApplied,
-          currentBalance: customer.walletBalance,
+          currentWalletBalance: customer.walletBalance,
+          promotionalGrants,
           description: `Uso de credito na finalizacao do pedido ${order.id}.`
         });
       }
@@ -2173,42 +2195,95 @@ export class OrdersService {
       userId: string;
       orderId: string;
       amount: Prisma.Decimal;
-      currentBalance: Prisma.Decimal;
+      currentWalletBalance: Prisma.Decimal;
+      promotionalGrants: Array<{
+        id: string;
+        remainingAmount: Prisma.Decimal;
+        expiresAt: Date;
+      }>;
       description: string;
     }
   ) {
-    const result = await tx.user.updateMany({
-      where: {
-        id: payload.userId,
-        walletBalance: {
-          gte: payload.amount
-        }
-      },
-      data: {
-        walletBalance: {
-          decrement: payload.amount
-        }
-      }
-    });
+    let remaining = new Prisma.Decimal(payload.amount);
+    const promotionalBalance = payload.promotionalGrants.reduce(
+      (sum, grant) => sum.plus(grant.remainingAmount),
+      new Prisma.Decimal(0)
+    );
+    let availableBefore = payload.currentWalletBalance.plus(promotionalBalance);
 
-    if (result.count === 0) {
-      throw new BadRequestException(
-        "O saldo de credito da conta nao esta mais disponivel para esta compra."
-      );
+    for (const grant of payload.promotionalGrants) {
+      if (remaining.lte(0)) {
+        break;
+      }
+
+      const amountToConsume = Prisma.Decimal.min(remaining, grant.remainingAmount);
+
+      if (amountToConsume.lte(0)) {
+        continue;
+      }
+
+      await tx.promotionalCreditGrant.update({
+        where: { id: grant.id },
+        data: {
+          remainingAmount: {
+            decrement: amountToConsume
+          }
+        }
+      });
+
+      await this.createCustomerCreditTransaction(tx, {
+        userId: payload.userId,
+        orderId: payload.orderId,
+        type: CustomerCreditTransactionType.PROMOTIONAL_CREDIT_USAGE,
+        amount: amountToConsume,
+        balanceBefore: availableBefore,
+        balanceAfter: availableBefore.minus(amountToConsume),
+        description: `${payload.description} (credito promocional)`,
+        metadata: {
+          orderId: payload.orderId,
+          promotionalGrantId: grant.id,
+          expiresAt: grant.expiresAt.toISOString()
+        }
+      });
+
+      availableBefore = availableBefore.minus(amountToConsume);
+      remaining = remaining.minus(amountToConsume);
     }
 
-    await this.createCustomerCreditTransaction(tx, {
-      userId: payload.userId,
-      orderId: payload.orderId,
-      type: CustomerCreditTransactionType.ORDER_STORE_CREDIT_USAGE,
-      amount: payload.amount,
-      balanceBefore: payload.currentBalance,
-      balanceAfter: payload.currentBalance.minus(payload.amount),
-      description: payload.description,
-      metadata: {
-        orderId: payload.orderId
+    if (remaining.gt(0)) {
+      const result = await tx.user.updateMany({
+        where: {
+          id: payload.userId,
+          walletBalance: {
+            gte: remaining
+          }
+        },
+        data: {
+          walletBalance: {
+            decrement: remaining
+          }
+        }
+      });
+
+      if (result.count === 0) {
+        throw new BadRequestException(
+          "O saldo de credito da conta nao esta mais disponivel para esta compra."
+        );
       }
-    });
+
+      await this.createCustomerCreditTransaction(tx, {
+        userId: payload.userId,
+        orderId: payload.orderId,
+        type: CustomerCreditTransactionType.ORDER_STORE_CREDIT_USAGE,
+        amount: remaining,
+        balanceBefore: availableBefore,
+        balanceAfter: availableBefore.minus(remaining),
+        description: payload.description,
+        metadata: {
+          orderId: payload.orderId
+        }
+      });
+    }
   }
 
   private async createCustomerCreditTransaction(

@@ -22,6 +22,8 @@ export default async function CheckoutPage() {
             name: account.name,
             email: account.email,
             walletBalance: account.walletBalance,
+            promotionalCreditBalance: account.promotionalCreditBalance,
+            totalCreditBalance: account.totalCreditBalance,
             preferredPaymentMethod: account.preferredPaymentMethod,
             preferredShippingMethod: account.preferredShippingMethod,
             addresses: account.addresses,

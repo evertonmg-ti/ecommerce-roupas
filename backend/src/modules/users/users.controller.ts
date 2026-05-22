@@ -15,6 +15,7 @@ import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { RolesGuard } from "../../common/guards/roles.guard";
 import { CreateUserDto } from "./dto/create-user.dto";
 import { AdjustCustomerCreditDto } from "./dto/adjust-customer-credit.dto";
+import { IssuePromotionalCreditDto } from "./dto/issue-promotional-credit.dto";
 import { SaveCurrentUserCartDto } from "./dto/save-current-user-cart.dto";
 import { SaveCurrentUserWishlistDto } from "./dto/save-current-user-wishlist.dto";
 import { SaveCustomerAddressDto } from "./dto/save-customer-address.dto";
@@ -161,5 +162,16 @@ export class UsersController {
     @Body() payload: AdjustCustomerCreditDto
   ) {
     return this.usersService.adjustCustomerCredit(id, payload, user.id);
+  }
+
+  @Post(":id/credits/promotional")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  issuePromotionalCredit(
+    @Param("id") id: string,
+    @CurrentUser() user: { id: string },
+    @Body() payload: IssuePromotionalCreditDto
+  ) {
+    return this.usersService.issuePromotionalCredit(id, payload, user.id);
   }
 }

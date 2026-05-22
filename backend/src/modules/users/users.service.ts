@@ -9,6 +9,7 @@ import * as bcrypt from "bcryptjs";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreateUserDto } from "./dto/create-user.dto";
 import { AdjustCustomerCreditDto } from "./dto/adjust-customer-credit.dto";
+import { IssuePromotionalCreditDto } from "./dto/issue-promotional-credit.dto";
 import { SaveCurrentUserCartDto } from "./dto/save-current-user-cart.dto";
 import { SaveCurrentUserWishlistDto } from "./dto/save-current-user-wishlist.dto";
 import { SaveCustomerAddressDto } from "./dto/save-customer-address.dto";
@@ -43,6 +44,22 @@ export class UsersService {
         name: true,
         email: true,
         walletBalance: true,
+        promotionalCreditGrants: {
+          where: {
+            remainingAmount: {
+              gt: 0
+            }
+          },
+          select: {
+            id: true,
+            initialAmount: true,
+            remainingAmount: true,
+            description: true,
+            expiresAt: true,
+            createdAt: true
+          },
+          orderBy: { expiresAt: "asc" }
+        },
         createdAt: true,
         creditTransactions: {
           take: 12,
@@ -75,6 +92,22 @@ export class UsersService {
         preferredPaymentMethod: true,
         preferredShippingMethod: true,
         walletBalance: true,
+        promotionalCreditGrants: {
+          where: {
+            remainingAmount: {
+              gt: 0
+            }
+          },
+          select: {
+            id: true,
+            initialAmount: true,
+            remainingAmount: true,
+            description: true,
+            expiresAt: true,
+            createdAt: true
+          },
+          orderBy: { expiresAt: "asc" }
+        },
         createdAt: true,
         addresses: {
           orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }]
@@ -633,6 +666,99 @@ export class UsersService {
       });
 
       return updatedUser;
+    });
+  }
+
+  async issuePromotionalCredit(
+    id: string,
+    payload: IssuePromotionalCreditDto,
+    actorUserId?: string
+  ) {
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        role: true,
+        walletBalance: true,
+        promotionalCreditGrants: {
+          where: {
+            remainingAmount: {
+              gt: 0
+            }
+          },
+          select: {
+            remainingAmount: true,
+            expiresAt: true
+          }
+        }
+      }
+    });
+
+    if (!user) {
+      throw new NotFoundException("Usuario nao encontrado.");
+    }
+
+    if (user.role !== Role.CUSTOMER) {
+      throw new BadRequestException(
+        "Creditos promocionais estao disponiveis apenas para contas de cliente."
+      );
+    }
+
+    const amount = Number(payload.amount);
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      throw new BadRequestException("Informe um valor valido para o credito promocional.");
+    }
+
+    const expiresAt = new Date(payload.expiresAt);
+
+    if (Number.isNaN(expiresAt.getTime()) || expiresAt.getTime() <= Date.now()) {
+      throw new BadRequestException("Informe uma validade futura para o credito promocional.");
+    }
+
+    const activePromotionalBalance = user.promotionalCreditGrants
+      .filter((grant) => grant.expiresAt.getTime() > Date.now())
+      .reduce((sum, grant) => sum + Number(grant.remainingAmount), 0);
+    const availableBefore = Number(user.walletBalance) + activePromotionalBalance;
+    const description =
+      payload.description?.trim() || "Credito promocional emitido pela operacao.";
+
+    return this.prisma.$transaction(async (tx) => {
+      await tx.promotionalCreditGrant.create({
+        data: {
+          userId: id,
+          issuedByUserId: actorUserId,
+          initialAmount: amount,
+          remainingAmount: amount,
+          description,
+          expiresAt
+        }
+      });
+
+      await tx.customerCreditTransaction.create({
+        data: {
+          userId: id,
+          type: CustomerCreditTransactionType.PROMOTIONAL_CREDIT,
+          amount,
+          balanceBefore: availableBefore,
+          balanceAfter: availableBefore + amount,
+          description,
+          metadata: {
+            issuedByUserId: actorUserId,
+            expiresAt: expiresAt.toISOString()
+          }
+        }
+      });
+
+      return tx.user.findUniqueOrThrow({
+        where: { id },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          walletBalance: true
+        }
+      });
     });
   }
 

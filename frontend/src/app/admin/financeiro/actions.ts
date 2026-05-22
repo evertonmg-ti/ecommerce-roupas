@@ -5,7 +5,8 @@ import { redirect } from "next/navigation";
 import {
   AdminAuthError,
   AdminRequestError,
-  adjustAdminCustomerCredit
+  adjustAdminCustomerCredit,
+  issueAdminPromotionalCredit
 } from "@/lib/admin-api";
 
 export async function adjustCustomerCreditAction(formData: FormData) {
@@ -21,6 +22,37 @@ export async function adjustCustomerCreditAction(formData: FormData) {
     revalidatePath("/admin/financeiro");
     revalidatePath("/admin/usuarios");
     revalidatePath("/conta");
+  } catch (error) {
+    if (error instanceof AdminAuthError) {
+      redirect("/login");
+    }
+
+    if (error instanceof AdminRequestError) {
+      redirect(`/admin/financeiro?error=${error.code}`);
+    }
+
+    redirect("/admin/financeiro?error=generic_error");
+  }
+
+  redirect("/admin/financeiro?success=credit_adjusted");
+}
+
+export async function issuePromotionalCreditAction(formData: FormData) {
+  try {
+    const userId = String(formData.get("userId") ?? "").trim();
+    const amountValue = String(formData.get("amount") ?? "").trim();
+    const description = String(formData.get("description") ?? "").trim();
+    const expiresAt = String(formData.get("expiresAt") ?? "").trim();
+
+    await issueAdminPromotionalCredit(userId, {
+      amount: Number(amountValue),
+      expiresAt,
+      description: description || undefined
+    });
+    revalidatePath("/admin/financeiro");
+    revalidatePath("/admin/usuarios");
+    revalidatePath("/conta");
+    revalidatePath("/checkout");
   } catch (error) {
     if (error instanceof AdminAuthError) {
       redirect("/login");
