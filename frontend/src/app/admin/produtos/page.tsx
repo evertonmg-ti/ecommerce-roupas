@@ -412,29 +412,6 @@ export default async function AdminProductsPage({
                         >
                           {product.status}
                         </span>
-                        <a
-                          href={`/produtos/${product.slug}`}
-                          className="rounded-full border border-espresso/15 px-4 py-2 text-sm"
-                        >
-                          Ver vitrine
-                        </a>
-                        {product.status !== "ACTIVE" ? (
-                          <form action={quickUpdateProductStatusAction}>
-                            <input type="hidden" name="id" value={product.id} />
-                            <input type="hidden" name="status" value="ACTIVE" />
-                            <button className="rounded-full border border-moss/20 px-4 py-2 text-sm text-moss">
-                              Publicar
-                            </button>
-                          </form>
-                        ) : (
-                          <form action={quickUpdateProductStatusAction}>
-                            <input type="hidden" name="id" value={product.id} />
-                            <input type="hidden" name="status" value="ARCHIVED" />
-                            <button className="rounded-full border border-espresso/15 px-4 py-2 text-sm">
-                              Arquivar
-                            </button>
-                          </form>
-                        )}
                         <span className="rounded-full border border-espresso/15 px-4 py-2 text-sm text-espresso/65 group-open:hidden">
                           Abrir detalhes
                         </span>
@@ -510,6 +487,32 @@ export default async function AdminProductsPage({
                           ))}
                         </div>
                       ) : null}
+                    </div>
+
+                    <div className="mt-4 flex flex-wrap gap-3">
+                      <a
+                        href={`/produtos/${product.slug}`}
+                        className="rounded-full border border-espresso/15 px-4 py-2 text-sm"
+                      >
+                        Ver vitrine
+                      </a>
+                      {product.status !== "ACTIVE" ? (
+                        <form action={quickUpdateProductStatusAction}>
+                          <input type="hidden" name="id" value={product.id} />
+                          <input type="hidden" name="status" value="ACTIVE" />
+                          <button className="rounded-full border border-moss/20 px-4 py-2 text-sm text-moss">
+                            Publicar
+                          </button>
+                        </form>
+                      ) : (
+                        <form action={quickUpdateProductStatusAction}>
+                          <input type="hidden" name="id" value={product.id} />
+                          <input type="hidden" name="status" value="ARCHIVED" />
+                          <button className="rounded-full border border-espresso/15 px-4 py-2 text-sm">
+                            Arquivar
+                          </button>
+                        </form>
+                      )}
                     </div>
 
                     <form action={updateProductAction} className="mt-6 space-y-5">
