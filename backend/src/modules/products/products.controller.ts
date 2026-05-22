@@ -16,6 +16,7 @@ import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { RolesGuard } from "../../common/guards/roles.guard";
 import { AdjustStockDto } from "./dto/adjust-stock.dto";
 import { CreateProductDto } from "./dto/create-product.dto";
+import { BulkUpdateProductStatusDto } from "./dto/bulk-update-product-status.dto";
 import { ImportProductsDto } from "./dto/import-products.dto";
 import { ImportStockDto } from "./dto/import-stock.dto";
 import { UpdateProductDto } from "./dto/update-product.dto";
@@ -122,6 +123,13 @@ export class ProductsController {
     @CurrentUser() user?: { id?: string; email?: string; name?: string; role?: string }
   ) {
     return this.productsService.importStockCsv(payload, user);
+  }
+
+  @Post("admin/bulk-status")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  bulkUpdateStatus(@Body() payload: BulkUpdateProductStatusDto) {
+    return this.productsService.bulkUpdateStatus(payload);
   }
 
   @Patch(":id")

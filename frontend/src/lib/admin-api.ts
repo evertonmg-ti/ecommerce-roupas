@@ -3081,6 +3081,13 @@ export async function importAdminStockCatalog(payload: {
   return mutateAdmin("/products/admin/stock-import", "POST", payload);
 }
 
+export async function bulkUpdateAdminProductStatus(payload: {
+  ids: string[];
+  status: string;
+}) {
+  return mutateAdmin("/products/admin/bulk-status", "POST", payload);
+}
+
 export type SaveCategoryInput = {
   name: string;
   slug: string;

@@ -6,6 +6,7 @@ import {
   adjustAdminProductStock,
   AdminAuthError,
   AdminRequestError,
+  bulkUpdateAdminProductStatus,
   createAdminProduct,
   deleteAdminProduct,
   importAdminProductsCatalog,
@@ -257,4 +258,34 @@ export async function importStockCatalogAction(formData: FormData) {
   }
 
   redirect("/admin/produtos?success=stock_imported");
+}
+
+export async function bulkUpdateProductStatusAction(formData: FormData) {
+  try {
+    const ids = formData
+      .getAll("selectedIds")
+      .map((value) => String(value).trim())
+      .filter(Boolean);
+    const status = String(formData.get("status") ?? "").trim();
+
+    await bulkUpdateAdminProductStatus({
+      ids,
+      status
+    });
+    revalidatePath("/admin/produtos");
+    revalidatePath("/produtos");
+    revalidatePath("/");
+  } catch (error) {
+    if (error instanceof AdminAuthError) {
+      redirect("/login");
+    }
+
+    if (error instanceof AdminRequestError) {
+      redirect(`/admin/produtos?error=${error.code}`);
+    }
+
+    redirect("/admin/produtos?error=generic_error");
+  }
+
+  redirect("/admin/produtos?success=product_status_bulk_updated");
 }

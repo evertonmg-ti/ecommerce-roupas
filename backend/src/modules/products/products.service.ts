@@ -4,6 +4,7 @@ import { EngagementService } from "../engagement/engagement.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { AdjustStockDto } from "./dto/adjust-stock.dto";
 import { CreateProductDto } from "./dto/create-product.dto";
+import { BulkUpdateProductStatusDto } from "./dto/bulk-update-product-status.dto";
 import { ImportProductsDto } from "./dto/import-products.dto";
 import { ImportStockDto } from "./dto/import-stock.dto";
 import { UpdateProductDto } from "./dto/update-product.dto";
@@ -633,6 +634,31 @@ export class ProductsService {
     }
 
     return summary;
+  }
+
+  async bulkUpdateStatus(payload: BulkUpdateProductStatusDto) {
+    const ids = Array.from(
+      new Set(payload.ids.map((id) => id.trim()).filter((id) => id.length > 0))
+    );
+
+    if (ids.length === 0) {
+      throw new BadRequestException("Selecione ao menos um produto para a acao em lote.");
+    }
+
+    const result = await this.prisma.product.updateMany({
+      where: {
+        id: {
+          in: ids
+        }
+      },
+      data: {
+        status: payload.status
+      }
+    });
+
+    return {
+      updatedCount: result.count
+    };
   }
 
   async update(id: string, payload: UpdateProductDto, actor?: AdminActor) {
