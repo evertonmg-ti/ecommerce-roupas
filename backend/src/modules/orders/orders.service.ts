@@ -346,7 +346,10 @@ export class OrdersService {
         payload.useStoreCreditAmount,
         customer.walletBalance.plus(
           promotionalGrants.reduce(
-            (sum, grant) => sum.plus(grant.remainingAmount),
+            (
+              sum: Prisma.Decimal,
+              grant: { remainingAmount: Prisma.Decimal }
+            ) => sum.plus(grant.remainingAmount),
             new Prisma.Decimal(0)
           )
         ),
@@ -2206,7 +2209,10 @@ export class OrdersService {
   ) {
     let remaining = new Prisma.Decimal(payload.amount);
     const promotionalBalance = payload.promotionalGrants.reduce(
-      (sum, grant) => sum.plus(grant.remainingAmount),
+      (
+        sum: Prisma.Decimal,
+        grant: { remainingAmount: Prisma.Decimal }
+      ) => sum.plus(grant.remainingAmount),
       new Prisma.Decimal(0)
     );
     let availableBefore = payload.currentWalletBalance.plus(promotionalBalance);

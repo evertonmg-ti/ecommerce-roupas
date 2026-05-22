@@ -717,8 +717,15 @@ export class UsersService {
     }
 
     const activePromotionalBalance = user.promotionalCreditGrants
-      .filter((grant) => grant.expiresAt.getTime() > Date.now())
-      .reduce((sum, grant) => sum + Number(grant.remainingAmount), 0);
+      .filter(
+        (grant: { expiresAt: Date; remainingAmount: Prisma.Decimal }) =>
+          grant.expiresAt.getTime() > Date.now()
+      )
+      .reduce(
+        (sum: number, grant: { remainingAmount: Prisma.Decimal }) =>
+          sum + Number(grant.remainingAmount),
+        0
+      );
     const availableBefore = Number(user.walletBalance) + activePromotionalBalance;
     const description =
       payload.description?.trim() || "Credito promocional emitido pela operacao.";
