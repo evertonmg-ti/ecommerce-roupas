@@ -70,6 +70,15 @@ function createVariant(): ProductVariantForm {
   };
 }
 
+function cloneVariant(variant: ProductVariantForm): ProductVariantForm {
+  return {
+    ...variant,
+    id: crypto.randomUUID(),
+    sku: "",
+    isDefault: false
+  };
+}
+
 function buildInitialVariants(product?: AdminProduct) {
   if (!product || product.variants.length === 0) {
     return [];
@@ -158,6 +167,19 @@ export function AdminProductFormFields({
         .filter(Boolean)
         .filter((value, index, array) => array.indexOf(value) === index),
     [imageUrl, variants]
+  );
+  const variantsPreview = useMemo(
+    () =>
+      variants
+        .filter((variant) => variant.optionLabel.trim() || variant.sku.trim())
+        .map((variant) => ({
+          id: variant.id,
+          label: variant.optionLabel.trim() || "Variacao sem label",
+          sku: variant.sku.trim(),
+          stock: Number(variant.stock) || 0,
+          priceOverride: variant.priceOverride.trim()
+        })),
+    [variants]
   );
   const serializedVariants = useMemo(
     () =>
@@ -349,6 +371,18 @@ export function AdminProductFormFields({
         imageUrl: variant.imageUrl.trim() || imageUrl.trim()
       }))
     );
+  }
+
+  function cloneExistingVariant(variantId: string) {
+    setVariants((current) => {
+      const source = current.find((variant) => variant.id === variantId);
+
+      if (!source) {
+        return current;
+      }
+
+      return [...current, cloneVariant(source)];
+    });
   }
 
   function removeVariant(variantId: string) {
@@ -610,6 +644,50 @@ export function AdminProductFormFields({
         </div>
       </section>
 
+      {variantsPreview.length > 0 ? (
+        <section className="rounded-[1.75rem] border border-espresso/10 bg-sand/35 p-5">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-xs uppercase tracking-[0.2em] text-terracotta">
+                Resumo da grade
+              </p>
+              <h3 className="mt-2 font-display text-2xl">Visao comercial rapida</h3>
+            </div>
+            <span className="text-sm text-espresso/65">
+              Confira rapidamente os SKUs, labels e estoques antes de salvar.
+            </span>
+          </div>
+
+          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {variantsPreview.map((variant) => (
+              <article
+                key={variant.id}
+                className="rounded-[1.25rem] border border-espresso/10 bg-white p-4"
+              >
+                <p className="font-medium text-espresso">{variant.label}</p>
+                <p className="mt-1 text-xs text-espresso/60">
+                  {variant.sku || "SKU ainda nao definido"}
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                  <span className="rounded-full bg-sand px-3 py-1 text-espresso/75">
+                    Estoque {variant.stock}
+                  </span>
+                  {variant.priceOverride ? (
+                    <span className="rounded-full bg-sand px-3 py-1 text-espresso/75">
+                      Preco {currency(Number(variant.priceOverride))}
+                    </span>
+                  ) : (
+                    <span className="rounded-full bg-sand px-3 py-1 text-espresso/60">
+                      Usa preco base
+                    </span>
+                  )}
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
       <section className="rounded-[1.75rem] border border-espresso/10 bg-sand/35 p-5">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
@@ -683,6 +761,13 @@ export function AdminProductFormFields({
                         />
                         {variantUploadState[variant.id] ? "Enviando..." : "Upload"}
                       </label>
+                      <button
+                        type="button"
+                        onClick={() => cloneExistingVariant(variant.id)}
+                        className="rounded-full border border-espresso/15 px-4 py-2 text-sm"
+                      >
+                        Clonar
+                      </button>
                       <button
                         type="button"
                         onClick={() => removeVariant(variant.id)}
