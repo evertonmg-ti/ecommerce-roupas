@@ -54,10 +54,11 @@ export class ProductsController {
   listAll(
     @Query("search") search?: string,
     @Query("status") status?: string,
+    @Query("categoryId") categoryId?: string,
     @Query("page") page?: string,
     @Query("pageSize") pageSize?: string
   ) {
-    return this.productsService.listAll({ search, status, page, pageSize });
+    return this.productsService.listAll({ search, status, categoryId, page, pageSize });
   }
 
   @Get("admin/inventory-movements")

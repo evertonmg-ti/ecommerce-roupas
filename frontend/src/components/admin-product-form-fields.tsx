@@ -285,6 +285,72 @@ export function AdminProductFormFields({
     setVariants((current) => [...current, ...newVariants]);
   }
 
+  function addNumericSizeTemplate() {
+    const sizeTemplate = ["36", "38", "40", "42", "44"];
+    const existingSizes = new Set(
+      variants.map((variant) => variant.size.trim().toUpperCase()).filter(Boolean)
+    );
+    const baseSku = skuify(slug || name || "PRODUTO");
+    const baseColor = variants.find((variant) => variant.color.trim())?.color.trim() ?? "";
+
+    const newVariants = sizeTemplate
+      .filter((size) => !existingSizes.has(size))
+      .map((size, index) => ({
+        ...createVariant(),
+        sku: `${baseSku}-${size}`,
+        color: baseColor,
+        size,
+        optionLabel: baseColor ? `${baseColor} / ${size}` : size,
+        stock: "0",
+        isDefault: variants.length === 0 && index === 0
+      }));
+
+    if (newVariants.length === 0) {
+      return;
+    }
+
+    setVariants((current) => [...current, ...newVariants]);
+  }
+
+  function normalizeVariantData() {
+    const baseSku = skuify(slug || name || "PRODUTO");
+
+    setVariants((current) =>
+      current.map((variant, index) => {
+        const normalizedColor = variant.color.trim();
+        const normalizedSize = variant.size.trim();
+        const generatedLabel =
+          normalizedColor && normalizedSize
+            ? `${normalizedColor} / ${normalizedSize}`
+            : normalizedColor || normalizedSize || variant.optionLabel.trim();
+        const generatedSkuParts = [
+          baseSku,
+          skuify(normalizedColor),
+          skuify(normalizedSize)
+        ].filter(Boolean);
+
+        return {
+          ...variant,
+          sku: variant.sku.trim() || generatedSkuParts.join("-") || `${baseSku}-${index + 1}`,
+          optionLabel: variant.optionLabel.trim() || generatedLabel || `Variacao ${index + 1}`
+        };
+      })
+    );
+  }
+
+  function copyMainImageToVariants() {
+    if (!imageUrl.trim()) {
+      return;
+    }
+
+    setVariants((current) =>
+      current.map((variant) => ({
+        ...variant,
+        imageUrl: variant.imageUrl.trim() || imageUrl.trim()
+      }))
+    );
+  }
+
   function removeVariant(variantId: string) {
     setVariants((current) => {
       const nextVariants = current.filter((variant) => variant.id !== variantId);
@@ -552,20 +618,43 @@ export function AdminProductFormFields({
             </p>
             <h3 className="mt-2 font-display text-2xl">Editor visual da grade</h3>
           </div>
-          <button
-            type="button"
-            onClick={addVariant}
-            className="rounded-full border border-espresso/15 px-4 py-2 text-sm"
-          >
-            Adicionar variacao
-          </button>
-          <button
-            type="button"
-            onClick={addSizeTemplate}
-            className="rounded-full border border-espresso/15 px-4 py-2 text-sm"
-          >
-            Grade P, M, G e GG
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={addVariant}
+              className="rounded-full border border-espresso/15 px-4 py-2 text-sm"
+            >
+              Adicionar variacao
+            </button>
+            <button
+              type="button"
+              onClick={addSizeTemplate}
+              className="rounded-full border border-espresso/15 px-4 py-2 text-sm"
+            >
+              Grade P, M, G e GG
+            </button>
+            <button
+              type="button"
+              onClick={addNumericSizeTemplate}
+              className="rounded-full border border-espresso/15 px-4 py-2 text-sm"
+            >
+              Grade 36 a 44
+            </button>
+            <button
+              type="button"
+              onClick={normalizeVariantData}
+              className="rounded-full border border-espresso/15 px-4 py-2 text-sm"
+            >
+              Padronizar SKUs e labels
+            </button>
+            <button
+              type="button"
+              onClick={copyMainImageToVariants}
+              className="rounded-full border border-espresso/15 px-4 py-2 text-sm"
+            >
+              Copiar imagem principal
+            </button>
+          </div>
         </div>
 
         {variants.length > 0 ? (

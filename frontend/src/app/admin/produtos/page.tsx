@@ -10,6 +10,7 @@ import {
   deleteProductAction,
   importProductsCatalogAction,
   importStockCatalogAction,
+  quickUpdateProductStatusAction,
   updateProductAction
 } from "./actions";
 
@@ -42,6 +43,12 @@ export default async function AdminProductsPage({
     typeof params?.status === "string" && params.status !== "ALL"
       ? params.status
       : undefined;
+  const activeCategoryId =
+    typeof params?.categoryId === "string" &&
+    params.categoryId.trim() &&
+    params.categoryId !== "ALL"
+      ? params.categoryId.trim()
+      : undefined;
   const page =
     typeof params?.page === "string" && Number(params.page) > 0
       ? Number(params.page)
@@ -51,6 +58,7 @@ export default async function AdminProductsPage({
     getAdminProducts({
       search,
       status: activeStatus,
+      categoryId: activeCategoryId,
       page,
       pageSize: 10
     }).catch(() => null),
@@ -66,6 +74,10 @@ export default async function AdminProductsPage({
 
   if (activeStatus) {
     baseParams.set("status", activeStatus);
+  }
+
+  if (activeCategoryId) {
+    baseParams.set("categoryId", activeCategoryId);
   }
 
   const basePath = `/admin/produtos${baseParams.toString() ? `?${baseParams.toString()}` : ""}`;
@@ -222,7 +234,7 @@ export default async function AdminProductsPage({
       </section>
 
       <section className="rounded-[2rem] border border-espresso/10 bg-white/80 p-6 shadow-soft">
-        <form className="flex flex-col gap-4 sm:flex-row sm:items-end">
+        <form className="flex flex-col gap-4 sm:flex-row sm:items-end sm:flex-wrap">
           <label className="space-y-2 text-sm sm:min-w-72">
             <span>Buscar por nome, slug ou categoria</span>
             <input
@@ -243,6 +255,21 @@ export default async function AdminProductsPage({
               {statusOptions.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="space-y-2 text-sm">
+            <span>Categoria</span>
+            <select
+              name="categoryId"
+              defaultValue={activeCategoryId ?? "ALL"}
+              className="w-full rounded-2xl border border-espresso/15 bg-sand px-4 py-3 outline-none sm:min-w-56"
+            >
+              <option value="ALL">Todas</option>
+              {categories.map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.name}
                 </option>
               ))}
             </select>
@@ -391,6 +418,23 @@ export default async function AdminProductsPage({
                         >
                           Ver vitrine
                         </a>
+                        {product.status !== "ACTIVE" ? (
+                          <form action={quickUpdateProductStatusAction}>
+                            <input type="hidden" name="id" value={product.id} />
+                            <input type="hidden" name="status" value="ACTIVE" />
+                            <button className="rounded-full border border-moss/20 px-4 py-2 text-sm text-moss">
+                              Publicar
+                            </button>
+                          </form>
+                        ) : (
+                          <form action={quickUpdateProductStatusAction}>
+                            <input type="hidden" name="id" value={product.id} />
+                            <input type="hidden" name="status" value="ARCHIVED" />
+                            <button className="rounded-full border border-espresso/15 px-4 py-2 text-sm">
+                              Arquivar
+                            </button>
+                          </form>
+                        )}
                         <span className="rounded-full border border-espresso/15 px-4 py-2 text-sm text-espresso/65 group-open:hidden">
                           Abrir detalhes
                         </span>

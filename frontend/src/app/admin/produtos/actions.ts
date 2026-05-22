@@ -312,3 +312,30 @@ export async function bulkUpdateProductStatusAction(formData: FormData) {
 
   redirect("/admin/produtos?success=product_status_bulk_updated");
 }
+
+export async function quickUpdateProductStatusAction(formData: FormData) {
+  try {
+    const id = String(formData.get("id") ?? "").trim();
+    const status = String(formData.get("status") ?? "").trim();
+
+    await bulkUpdateAdminProductStatus({
+      ids: [id],
+      status
+    });
+    revalidatePath("/admin/produtos");
+    revalidatePath("/produtos");
+    revalidatePath("/");
+  } catch (error) {
+    if (error instanceof AdminAuthError) {
+      redirect("/login");
+    }
+
+    if (error instanceof AdminRequestError) {
+      redirect(`/admin/produtos?error=${error.code}`);
+    }
+
+    redirect("/admin/produtos?error=generic_error");
+  }
+
+  redirect("/admin/produtos?success=product_status_bulk_updated");
+}

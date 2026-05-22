@@ -2270,6 +2270,7 @@ function normalizeAdminProduct(product: ProductResponse): AdminProduct {
 export async function getAdminProducts(filters?: {
   search?: string;
   status?: string;
+  categoryId?: string;
   page?: number;
   pageSize?: number;
 }): Promise<AdminProductList> {
@@ -2281,6 +2282,10 @@ export async function getAdminProducts(filters?: {
 
   if (filters?.status) {
     params.set("status", filters.status);
+  }
+
+  if (filters?.categoryId) {
+    params.set("categoryId", filters.categoryId);
   }
 
   if (filters?.page) {

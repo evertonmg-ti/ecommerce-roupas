@@ -93,13 +93,18 @@ export class ProductsService {
   async listAll(filters?: {
     search?: string;
     status?: string;
+    categoryId?: string;
     page?: string;
     pageSize?: string;
   }) {
     const page = this.parsePositiveInteger(filters?.page, 1);
     const pageSize = Math.min(this.parsePositiveInteger(filters?.pageSize, 10), 50);
     const skip = (page - 1) * pageSize;
-    const where = this.buildAdminProductWhere(filters?.search, filters?.status);
+    const where = this.buildAdminProductWhere(
+      filters?.search,
+      filters?.status,
+      filters?.categoryId
+    );
     const [total, items] = await this.prisma.$transaction([
       this.prisma.product.count({ where }),
       this.prisma.product.findMany({
@@ -935,19 +940,25 @@ export class ProductsService {
     return Array.from(grouped.values());
   }
 
-  private buildAdminProductWhere(search?: string, status?: string) {
+  private buildAdminProductWhere(
+    search?: string,
+    status?: string,
+    categoryId?: string
+  ) {
     const normalizedSearch = search?.trim();
     const normalizedStatus =
       status && Object.values(ProductStatus).includes(status as ProductStatus)
         ? (status as ProductStatus)
         : undefined;
+    const normalizedCategoryId = categoryId?.trim();
 
-    if (!normalizedSearch && !normalizedStatus) {
+    if (!normalizedSearch && !normalizedStatus && !normalizedCategoryId) {
       return undefined;
     }
 
     return {
       ...(normalizedStatus ? { status: normalizedStatus } : {}),
+      ...(normalizedCategoryId ? { categoryId: normalizedCategoryId } : {}),
       ...(normalizedSearch
         ? {
             OR: [
