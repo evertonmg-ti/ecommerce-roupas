@@ -143,6 +143,7 @@ export function AdminProductFormFields({
   const [variantUploadState, setVariantUploadState] = useState<Record<string, boolean>>({});
   const [variantUploadError, setVariantUploadError] = useState<Record<string, string | null>>({});
   const mainImageInputRef = useRef<HTMLInputElement | null>(null);
+  const selectedCategory = categories.find((category) => category.id === categoryId);
 
   useEffect(() => {
     if (slugTouched) {
@@ -334,6 +335,21 @@ export function AdminProductFormFields({
     setVariants((current) => [...current, ...newVariants]);
   }
 
+  function applyCategoryTemplate() {
+    const categoryName = (selectedCategory?.name ?? "").toLowerCase();
+
+    if (
+      categoryName.includes("calc") ||
+      categoryName.includes("sapato") ||
+      categoryName.includes("tenis")
+    ) {
+      addNumericSizeTemplate();
+      return;
+    }
+
+    addSizeTemplate();
+  }
+
   function normalizeVariantData() {
     const baseSku = skuify(slug || name || "PRODUTO");
 
@@ -382,6 +398,27 @@ export function AdminProductFormFields({
       }
 
       return [...current, cloneVariant(source)];
+    });
+  }
+
+  function moveVariant(variantId: string, direction: "up" | "down") {
+    setVariants((current) => {
+      const index = current.findIndex((variant) => variant.id === variantId);
+
+      if (index === -1) {
+        return current;
+      }
+
+      const targetIndex = direction === "up" ? index - 1 : index + 1;
+
+      if (targetIndex < 0 || targetIndex >= current.length) {
+        return current;
+      }
+
+      const next = [...current];
+      const [item] = next.splice(index, 1);
+      next.splice(targetIndex, 0, item);
+      return next;
     });
   }
 
@@ -644,6 +681,68 @@ export function AdminProductFormFields({
         </div>
       </section>
 
+      <section className="rounded-[1.75rem] border border-espresso/10 bg-white p-5 shadow-soft">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <p className="text-xs uppercase tracking-[0.2em] text-terracotta">
+              Preview de vitrine
+            </p>
+            <h3 className="mt-2 font-display text-2xl">Como o produto tende a aparecer</h3>
+          </div>
+          <span className="rounded-full bg-sand px-3 py-1 text-xs text-espresso/65">
+            {selectedCategory?.name ?? "Sem categoria"}
+          </span>
+        </div>
+
+        <div className="mt-5 grid gap-4 md:grid-cols-[220px_minmax(0,1fr)]">
+          <img
+            src={`${(imageUrl || galleryImages[0] || fallbackImage).trim()}${imageUrl || galleryImages[0] ? "" : "?auto=format&fit=crop&w=600&q=80"}`}
+            alt={name || "Preview"}
+            className="h-72 w-full rounded-[1.5rem] border border-espresso/10 object-cover"
+          />
+          <div className="space-y-4">
+            <div>
+              <p className="text-sm uppercase tracking-[0.2em] text-terracotta">
+                {selectedCategory?.name ?? "Colecao"}
+              </p>
+              <h4 className="mt-2 font-display text-3xl">
+                {name || "Nome do produto"}
+              </h4>
+              <p className="mt-3 max-w-2xl text-sm leading-7 text-espresso/70">
+                {description || "A descricao do produto aparecerá aqui no preview administrativo."}
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="font-display text-3xl">
+                {currency(Number(price || 0))}
+              </span>
+              {compareAt ? (
+                <span className="text-sm text-espresso/45 line-through">
+                  {currency(Number(compareAt))}
+                </span>
+              ) : null}
+              <span className="rounded-full bg-sand px-3 py-1 text-xs text-espresso/70">
+                Estoque {effectiveStock}
+              </span>
+            </div>
+
+            {variantsPreview.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {variantsPreview.slice(0, 6).map((variant) => (
+                  <span
+                    key={variant.id}
+                    className="rounded-full border border-espresso/10 bg-white px-3 py-1 text-xs text-espresso/70"
+                  >
+                    {variant.label}
+                  </span>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        </div>
+      </section>
+
       {variantsPreview.length > 0 ? (
         <section className="rounded-[1.75rem] border border-espresso/10 bg-sand/35 p-5">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -720,6 +819,13 @@ export function AdminProductFormFields({
             </button>
             <button
               type="button"
+              onClick={applyCategoryTemplate}
+              className="rounded-full border border-espresso/15 px-4 py-2 text-sm"
+            >
+              Template da categoria
+            </button>
+            <button
+              type="button"
               onClick={normalizeVariantData}
               className="rounded-full border border-espresso/15 px-4 py-2 text-sm"
             >
@@ -740,16 +846,46 @@ export function AdminProductFormFields({
             {variants.map((variant, index) => (
               <article
                 key={variant.id}
-                className="rounded-[1.5rem] border border-espresso/10 bg-white p-4"
+                className={`rounded-[1.5rem] border bg-white p-4 ${
+                  variant.isDefault
+                    ? "border-moss/35 shadow-[0_10px_30px_rgba(97,125,100,0.12)]"
+                    : "border-espresso/10"
+                }`}
               >
                 <div className="flex flex-col gap-4 xl:grid xl:grid-cols-[120px_minmax(0,1fr)]">
                   <div className="space-y-3">
+                    <div className="flex flex-wrap gap-2">
+                      <span className="rounded-full bg-sand px-3 py-1 text-xs text-espresso/65">
+                        Variacao {index + 1}
+                      </span>
+                      {variant.isDefault ? (
+                        <span className="rounded-full bg-moss/10 px-3 py-1 text-xs text-moss">
+                          Padrao
+                        </span>
+                      ) : null}
+                    </div>
                     <img
                       src={variant.imageUrl || imageUrl || fallbackImage}
                       alt={variant.optionLabel || `Variacao ${index + 1}`}
                       className="h-28 w-24 rounded-[1rem] border border-espresso/10 object-cover"
                     />
                     <div className="flex flex-col gap-2">
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => moveVariant(variant.id, "up")}
+                          className="rounded-full border border-espresso/15 px-3 py-2 text-xs"
+                        >
+                          Subir
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => moveVariant(variant.id, "down")}
+                          className="rounded-full border border-espresso/15 px-3 py-2 text-xs"
+                        >
+                          Descer
+                        </button>
+                      </div>
                       <label className="rounded-full border border-espresso/15 px-4 py-2 text-center text-sm">
                         <input
                           type="file"
